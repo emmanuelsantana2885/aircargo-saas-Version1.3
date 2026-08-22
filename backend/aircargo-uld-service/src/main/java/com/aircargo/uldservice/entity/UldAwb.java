@@ -2,6 +2,7 @@ package com.aircargo.uldservice.entity;
 
 import com.aircargo.common.entity.CommodityType;
 import jakarta.persistence.*;
+import org.hibernate.annotations.CreationTimestamp;
 import java.math.BigDecimal;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
@@ -74,6 +75,7 @@ public class UldAwb {
     @Column(name = "earned_hours", insertable = false, updatable = false)
     private BigDecimal earnedHours;
 
+    @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;
 

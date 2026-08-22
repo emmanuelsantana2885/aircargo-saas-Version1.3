@@ -5,6 +5,7 @@ import com.aircargo.common.auth.JwtUtil;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -28,12 +29,15 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+                .requestMatchers(HttpMethod.POST, "/api/auth/block/**").hasAnyAuthority("ADMIN", "SUPER_USER")
+                .requestMatchers(HttpMethod.POST, "/api/auth/unblock/**").hasAnyAuthority("ADMIN", "SUPER_USER")
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                 .requestMatchers("/api/users/**").hasAnyAuthority("ADMIN", "SUPER_USER")
                 .requestMatchers("/api/role-permissions/**").hasAnyAuthority("ADMIN", "SUPER_USER")
                 .requestMatchers("/api/audit-logs/**").hasAnyAuthority("ADMIN", "SUPER_USER")
                 .requestMatchers("/api/sites/**").hasAuthority("SUPER_USER")
+                .requestMatchers("/api/commodity-types/**").hasAnyAuthority("ADMIN", "SUPER_USER")
                 .anyRequest().authenticated()
             )
             .addFilterBefore(new JwtAuthFilter(jwtUtil), UsernamePasswordAuthenticationFilter.class);

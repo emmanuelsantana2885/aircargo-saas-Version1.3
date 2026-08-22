@@ -30,7 +30,7 @@
 
     <!-- Nav -->
     <nav class="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto overflow-x-hidden" style="background: #ffffff;">
-      <div v-if="!showCollapsed" class="text-xs font-bold mb-2 px-2" style="color: #64748b; letter-spacing: .1em; text-transform: uppercase">Principal</div>
+      <div v-if="!showCollapsed" class="text-xs font-bold mb-2 px-2" style="color: #64748b; letter-spacing: .1em; text-transform: uppercase">{{ t('sidebar.siteLabel') }}</div>
 
       <RouterLink v-for="item in mainMenu" :key="item.path" :to="item.path"
         class="nav-link group flex items-center whitespace-nowrap rounded-lg transition-all duration-200 ease-out"
@@ -46,7 +46,7 @@
         </template>
       </RouterLink>
 
-      <div v-if="!showCollapsed" class="text-xs font-bold mt-4 mb-2 px-2" style="color: #64748b; letter-spacing: .1em; text-transform: uppercase">System Settings</div>
+      <div v-if="!showCollapsed" class="text-xs font-bold mt-4 mb-2 px-2" style="color: #64748b; letter-spacing: .1em; text-transform: uppercase">{{ t('settings.title') }}</div>
 
       <RouterLink v-for="item in settingsMenu" :key="item.path" :to="item.path"
         class="nav-link group flex items-center whitespace-nowrap rounded-lg transition-all duration-200 ease-out"
@@ -65,41 +65,67 @@
     <div class="px-2 py-3 border-t" style="border-color: #e2e8f0; background: #f8fafc;">
       <div class="flex items-center px-2 py-2" style="background: #f1f5f9; border-radius: 8px;"
         :class="showCollapsed ? 'justify-center' : 'gap-2.5'">
-        <div class="w-8 h-8 flex items-center justify-center text-xs font-bold shrink-0"
-          style="background: rgba(37,99,235,.12); color: #2563eb">{{ auth.initials }}</div>
+        <div class="w-8 h-8 flex items-center justify-center shrink-0 rounded-full"
+          :style="{ background: roleIcon.bg, color: roleIcon.fg }">
+          <component :is="roleIcon.icon" :size="16" :stroke-width="1.8" />
+        </div>
         <template v-if="!showCollapsed">
           <div class="flex-1 min-w-0">
             <div class="text-xs font-bold truncate" style="color: #1e293b">{{ auth.fullName || auth.email }}</div>
-            <div class="text-xs truncate" style="color: #64748b">{{ auth.role?.replace('_', ' ') || '' }}</div>
+            <div class="text-[11px] truncate" :style="{ color: roleIcon.fg }">{{ roleLabel }}</div>
           </div>
-          <button @click="handleLogout" title="Cerrar sesion" class="hover:opacity-70 transition-opacity">
-            <IconLogout :size="16" style="color: #64748b" :stroke-width="1.5" />
-          </button>
+          <div class="flex items-center gap-1.5">
+            <button @click="showPasswordChange = true" :title="t('sidebar.changePassword')" class="hover:opacity-70 transition-opacity">
+              <IconKey :size="16" style="color: #64748b" :stroke-width="1.5" />
+            </button>
+            <button @click="handleLogout" :title="t('sidebar.logout')" class="hover:opacity-70 transition-opacity">
+              <IconLogout :size="16" style="color: #64748b" :stroke-width="1.5" />
+            </button>
+          </div>
         </template>
       </div>
     </div>
   </aside>
+
+  <PasswordChangeModal :show="showPasswordChange" @close="showPasswordChange = false" />
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../../stores/auth'
+import PasswordChangeModal from '../PasswordChangeModal.vue'
 import {
   IconGauge, IconCalendarEvent, IconFileInvoice, IconPlaneDeparture,
   IconClipboardList, IconRoute, IconPackage, IconLayoutGrid,
   IconUsers, IconSettings, IconApi,
   IconPlaneDeparture as IconLogo,
   IconLayoutSidebarFilled, IconLogout,
+  IconShield, IconCrown, IconTool, IconTruck, IconClipboard, IconUser, IconEye, IconKey,
 } from '@tabler/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const { t } = useI18n()
 const collapsed = ref(false)
 const mobileOpen = ref(false)
 const isMobile = ref(false)
 const isTablet = ref(false)
+const showPasswordChange = ref(false)
+
+const roleConfig = {
+  SUPER_USER:        { icon: IconCrown,    bg: 'rgba(234,179,8,.15)',  fg: '#b45309' },
+  ADMIN:             { icon: IconShield,    bg: 'rgba(37,99,235,.12)',  fg: '#2563eb' },
+  OPERATIONS:        { icon: IconTruck,     bg: 'rgba(22,163,74,.12)',  fg: '#16a34a' },
+  TRAFFIC:           { icon: IconClipboard, bg: 'rgba(124,58,237,.12)', fg: '#7c3aed' },
+  LOAD_PLANNER:      { icon: IconRoute,     bg: 'rgba(7,148,148,.12)',  fg: '#0891b2' },
+  WAREHOUSE_ASSISTANT:{ icon: IconTool,     bg: 'rgba(217,119,6,.12)',  fg: '#d97706' },
+  READ_ONLY:         { icon: IconEye,       bg: 'rgba(100,116,139,.12)',fg: '#64748b' },
+}
+const roleIcon = computed(() => roleConfig[auth.role] || { icon: IconUser, bg: 'rgba(100,116,139,.12)', fg: '#64748b' })
+const roleLabel = computed(() => t(`users.roles.${auth.role}`) || auth.role?.replace('_', ' ') || '')
 
 const showCollapsed = computed(() => {
   if (isMobile.value) return false
@@ -125,21 +151,22 @@ defineExpose({ mobileOpen, isMobile })
 onMounted(() => { checkViewport(); window.addEventListener('resize', checkViewport) })
 onUnmounted(() => { window.removeEventListener('resize', checkViewport) })
 
-const allMenuItems = [
-  { path: '/',              label: 'Dashboard',        icon: IconGauge,          view: 'DASHBOARD',     color: '#e11d48' },
-  { path: '/bookings',      label: 'Bookings',         icon: IconCalendarEvent,  view: 'BOOKINGS',      color: '#2563eb' },
-  { path: '/receipts',      label: 'Receipts',         icon: IconFileInvoice,    view: 'RECEIPTS',      color: '#d97706' },
-  { path: '/flights',       label: 'Flights',          icon: IconPlaneDeparture, view: 'FLIGHTS',       color: '#7c3aed' },
-  { path: '/mawbs',         label: 'MAWBs',            icon: IconClipboardList,  view: 'MAWBS',         color: '#16a34a' },
-  { path: '/load-planning', label: 'Load Planning',    icon: IconRoute,          view: 'LOAD_PLANNING', color: '#475569' },
-  { path: '/ulds',          label: 'ULDs',             icon: IconPackage,        view: 'ULDS',          color: '#0891b2' },
-  { path: '/exports',       label: 'Reviews / Audit',  icon: IconLayoutGrid,     view: 'EXPORTS',       color: '#ea580c' },
-]
-const mainMenu = computed(() => allMenuItems.filter(item => auth.canView(item.view)))
+const allMenuItems = computed(() => [
+  { path: '/',              label: t('sidebar.dashboard'),   icon: IconGauge,          view: 'DASHBOARD',     color: '#e11d48' },
+  { path: '/bookings',      label: t('sidebar.bookings'),    icon: IconCalendarEvent,  view: 'BOOKINGS',      color: '#2563eb' },
+  { path: '/receipts',      label: t('sidebar.receipts'),    icon: IconFileInvoice,    view: 'RECEIPTS',      color: '#d97706' },
+  { path: '/flights',       label: t('sidebar.flights'),     icon: IconPlaneDeparture, view: 'FLIGHTS',       color: '#7c3aed' },
+  { path: '/mawbs',         label: t('sidebar.mawbs'),       icon: IconClipboardList,  view: 'MAWBS',         color: '#16a34a' },
+  { path: '/load-planning', label: t('sidebar.loadPlanning'),icon: IconRoute,          view: 'LOAD_PLANNING', color: '#475569' },
+  { path: '/ulds',          label: t('sidebar.ulds'),        icon: IconPackage,        view: 'ULDS',          color: '#0891b2' },
+  { path: '/exports',       label: 'Reviews / Audit',        icon: IconLayoutGrid,     view: 'EXPORTS',       color: '#ea580c' },
+])
+const mainMenu = computed(() => allMenuItems.value.filter(item => auth.canView(item.view)))
 const settingsMenu = computed(() => {
   const items = []
-  if (auth.canView('USERS')) items.push({ path: '/users', label: 'Users', icon: IconUsers, color: '#334155' })
-  if (auth.canView('SETTINGS')) items.push({ path: '/settings', label: 'System Settings', icon: IconSettings, color: '#6d28d9' })
+  if (auth.canView('USERS')) items.push({ path: '/users', label: t('sidebar.users'), icon: IconUsers, color: '#334155' })
+  if (auth.canView('SETTINGS')) items.push({ path: '/settings', label: t('sidebar.settings'), icon: IconSettings, color: '#6d28d9' })
+  if (auth.canView('SECURITY')) items.push({ path: '/security', label: t('sidebar.security'), icon: IconKey, color: '#dc2626' })
   if (auth.canView('API_CATALOG')) items.push({ path: '/api-catalog', label: 'API Catalog', icon: IconApi, color: '#0e7490' })
   return items
 })

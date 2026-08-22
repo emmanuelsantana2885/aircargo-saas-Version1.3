@@ -15,8 +15,9 @@
     </div>
 
     <div class="flex items-center gap-2 md:gap-4 relative z-10">
+      <LanguageSwitcher />
       <span class="text-[12px] md:text-xs text-slate-300">{{ date }}</span>
-      <button @click="toggleTheme" :title="theme === 'tokyo' ? 'Cambiar a tema claro' : 'Cambiar a tema Tokyo Night'"
+      <button @click="toggleTheme" :title="theme === 'tokyo' ? t('header.themeLight') : t('header.themeDark')"
         class="flex items-center justify-center w-8 h-8 rounded hover:bg-white/10 transition">
         <IconMoon v-if="theme === 'light'" :size="17" style="color: white" :stroke-width="1.8" />
         <IconSun v-else :size="17" style="color: #ff9e64" :stroke-width="1.8" />
@@ -28,11 +29,14 @@
 <script setup>
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { IconChevronRight, IconMenu, IconMoon, IconSun } from '@tabler/icons-vue'
 import { getTheme, setTheme } from '../../utils/theme'
+import LanguageSwitcher from '../LanguageSwitcher.vue'
 
 defineEmits(['toggleSidebar'])
 
+const { t } = useI18n()
 const route = useRoute()
 const isMobile = ref(false)
 const theme = ref(getTheme())
@@ -54,20 +58,22 @@ onUnmounted(() => {
   window.removeEventListener('resize', checkViewport)
 })
 
-const titles = {
-  '/': 'Dashboard',
-  '/bookings': 'Bookings',
-  '/receipts': 'Receipts',
-  '/flights': 'Flights',
-  '/mawbs': 'MAWBs',
-  '/load-planning': 'Load Planning',
-  '/ulds': 'ULDs',
-  '/exports': 'Reviews -- Audit',
-  '/users': 'Users',
-  '/settings': 'System Settings',
-}
-const title = computed(() => titles[route.path] || 'AirCargo')
-const date = new Intl.DateTimeFormat('es-DO', {
-  weekday: 'short', day: 'numeric', month: 'short'
-}).format(new Date())
+const titles = computed(() => ({
+  '/': t('header.titles.dashboard'),
+  '/bookings': t('header.titles.bookings'),
+  '/receipts': t('header.titles.receipts'),
+  '/flights': t('header.titles.flights'),
+  '/mawbs': t('header.titles.mawbs'),
+  '/load-planning': t('header.titles.loadPlanning'),
+  '/ulds': t('header.titles.ulds'),
+  '/exports': 'Reviews / Audit',
+  '/users': t('header.titles.users'),
+  '/settings': t('header.titles.settings'),
+  '/security': t('header.titles.security'),
+}))
+const title = computed(() => titles.value[route.path] || 'AirCargo')
+const date = computed(() => {
+  const localeCode = t('common.monthsShort[0]') === 'Jan' ? 'en-US' : 'es-DO'
+  return new Intl.DateTimeFormat(localeCode, { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date())
+})
 </script>

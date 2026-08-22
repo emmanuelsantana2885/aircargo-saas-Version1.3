@@ -26,6 +26,7 @@ public class AppUserDTO {
     private String fullName;
     private UserRole role;
     private Boolean isActive;
+    private Boolean blocked;
     private OffsetDateTime lastLogin;
     private OffsetDateTime createdAt;
     private List<UUID> siteIds;
@@ -45,6 +46,7 @@ public class AppUserDTO {
                 .fullName(entity.getFullName())
                 .role(entity.getRole())
                 .isActive(entity.getIsActive())
+                .blocked(Boolean.TRUE.equals(entity.getBlocked()))
                 .siteIds(entity.getSites().stream().map(Site::getId).toList())
                 .lastLogin(entity.getLastLogin())
                 .createdAt(entity.getCreatedAt())

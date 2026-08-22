@@ -10,6 +10,7 @@ const viewPermissions = {
   '/receipts':    'RECEIPTS',
   '/users':       'USERS',
   '/settings':    'SETTINGS',
+  '/security':    'SECURITY',
   '/exports':     'EXPORTS',
   '/api-catalog': 'API_CATALOG',
 }
@@ -19,13 +20,13 @@ function hasPermission(role, path) {
   if (!view) return true
   switch (role) {
     case 'SUPER_USER': return true
-    case 'ADMIN': return ['DASHBOARD', 'FLIGHTS', 'MAWBS', 'LOAD_PLANNING', 'ULDS', 'BOOKINGS', 'RECEIPTS', 'USERS', 'SETTINGS', 'EXPORTS'].includes(view)
+    case 'ADMIN': return ['DASHBOARD', 'FLIGHTS', 'MAWBS', 'LOAD_PLANNING', 'ULDS', 'BOOKINGS', 'RECEIPTS', 'USERS', 'SETTINGS', 'SECURITY', 'EXPORTS'].includes(view)
     case 'READ_ONLY': return true
     case 'WAREHOUSE_ASSISTANT': return view === 'RECEIPTS' || view === 'DASHBOARD'
     case 'OPERATIONS': return ['DASHBOARD', 'FLIGHTS', 'MAWBS', 'LOAD_PLANNING', 'ULDS'].includes(view)
     case 'TRAFFIC': return ['DASHBOARD', 'BOOKINGS', 'MAWBS', 'LOAD_PLANNING', 'ULDS'].includes(view)
     case 'LOAD_PLANNER': return ['DASHBOARD', 'FLIGHTS', 'LOAD_PLANNING', 'ULDS'].includes(view)
-    case 'BI_USER': return ['DASHBOARD', 'BI', 'API_CATALOG'].includes(view)
+    case 'BI_USER': return ['DASHBOARD', 'BI', 'API_CATALOG', 'SETTINGS'].includes(view)
     default: return false
   }
 }
@@ -106,6 +107,12 @@ const router = createRouter({
       name: 'settings',
       component: () => import('../views/SettingsView.vue'),
       meta: { view: 'SETTINGS' },
+    },
+    {
+      path: '/security',
+      name: 'security',
+      component: () => import('../views/SecurityView.vue'),
+      meta: { view: 'SECURITY' },
     },
     {
       path: '/exports',

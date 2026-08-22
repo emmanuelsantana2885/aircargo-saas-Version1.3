@@ -1,6 +1,7 @@
 package com.aircargo.uldservice.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.CreationTimestamp;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -38,6 +39,7 @@ public class UldPiece {
     @Column(name = "scanned_at")
     private OffsetDateTime scannedAt;
 
+    @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;
 

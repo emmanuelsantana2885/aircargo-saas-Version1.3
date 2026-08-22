@@ -6,8 +6,8 @@ import com.aircargo.bookingservice.repository.BookingRepository;
 import com.aircargo.common.dto.PageResponse;
 import com.aircargo.feign.client.FlightClient;
 import com.aircargo.feign.client.MawbClient;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.beans.factory.annotation.Value;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
@@ -25,20 +25,17 @@ import java.util.stream.Collectors;
 @Service
 public class BookingServiceImpl implements BookingService {
 
+    private static final Logger log = LoggerFactory.getLogger(BookingServiceImpl.class);
+
     private final BookingRepository bookingRepository;
     private final FlightClient flightClient;
     private final MawbClient mawbClient;
-    private final RabbitTemplate rabbitTemplate;
-
-    @Value("${rabbitmq.exchange:aircargo.events}")
-    private String exchange;
 
     public BookingServiceImpl(BookingRepository bookingRepository, FlightClient flightClient,
-                              MawbClient mawbClient, RabbitTemplate rabbitTemplate) {
+                              MawbClient mawbClient) {
         this.bookingRepository = bookingRepository;
         this.flightClient = flightClient;
         this.mawbClient = mawbClient;
-        this.rabbitTemplate = rabbitTemplate;
     }
 
     @Override
@@ -171,14 +168,7 @@ public class BookingServiceImpl implements BookingService {
                     booking.setAwbNumber(awbNumber);
                     Booking saved = bookingRepository.save(booking);
 
-                    try {
-                        var event = new com.aircargo.common.event.BookingAwbUpdatedEvent(
-                                id, awbNumber, booking.getFlight() != null ? booking.getFlight().getId() : null
-                        );
-                        rabbitTemplate.convertAndSend(exchange, "booking.awb.updated", event);
-                    } catch (Exception e) {
-                        // Log but don't fail
-                    }
+                    log.warn("RabbitMQ not available - event not published: booking.awb.updated");
                     return BookingDTO.fromEntity(saved);
                 });
     }

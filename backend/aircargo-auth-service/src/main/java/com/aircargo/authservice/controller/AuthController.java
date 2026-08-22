@@ -19,6 +19,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -28,6 +30,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @RestController
@@ -45,10 +48,12 @@ public class AuthController {
     private final ActiveSessionTracker sessionTracker;
     private final SiteRepository siteRepository;
     private final MfaService mfaService;
+    private final CacheManager cacheManager;
 
     public AuthController(AppUserRepository userRepository, JwtUtil jwtUtil,
                           AuditService auditService, ActiveSessionTracker sessionTracker,
-                          SiteRepository siteRepository, MfaService mfaService) {
+                          SiteRepository siteRepository, MfaService mfaService,
+                          CacheManager cacheManager) {
         this.userRepository = userRepository;
         this.jwtUtil = jwtUtil;
         this.auditService = auditService;
@@ -56,6 +61,7 @@ public class AuthController {
         this.siteRepository = siteRepository;
         this.passwordEncoder = new BCryptPasswordEncoder();
         this.mfaService = mfaService;
+        this.cacheManager = cacheManager;
     }
 
     @PostMapping("/login")
@@ -77,6 +83,12 @@ public class AuthController {
             long minutesRemaining = java.time.Duration.between(OffsetDateTime.now(), user.getLockedUntil()).toMinutes();
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("error", "Cuenta bloqueada. Intente de nuevo en " + minutesRemaining + " minutos."));
+        }
+
+        // Blocked check
+        if (Boolean.TRUE.equals(user.getBlocked())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Account blocked. Contact your administrator."));
         }
 
         String passwordHash = user.getPasswordHash();
@@ -447,5 +459,110 @@ public class AuthController {
                     principal.role(), OffsetDateTime.now());
         }
         return ResponseEntity.ok(Map.of("status", "ok"));
+    }
+
+    @PostMapping("/service-token")
+    public ResponseEntity<?> generateServiceToken(@RequestBody Map<String, String> body,
+                                                  @AuthenticationPrincipal UserPrincipal principal,
+                                                  HttpServletRequest servletRequest) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (!"SUPER_USER".equals(principal.role()) && !"ADMIN".equals(principal.role())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Solo ADMIN o SUPER_USER pueden generar tokens de servicio"));
+        }
+
+        String targetEmail = body.get("email");
+        if (targetEmail == null || targetEmail.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "email es requerido"));
+        }
+
+        AppUser targetUser = userRepository.findByEmail(targetEmail).orElse(null);
+        if (targetUser == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Usuario no encontrado: " + targetEmail));
+        }
+        if (!Boolean.TRUE.equals(targetUser.getIsActive())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Usuario inactivo"));
+        }
+
+        String airlineIdStr = targetUser.getAirline() != null && targetUser.getAirline().getId() != null
+                ? targetUser.getAirline().getId().toString() : "";
+
+        String serviceToken = jwtUtil.generateServiceToken(
+                targetUser.getId().toString(),
+                targetUser.getRole().name(),
+                airlineIdStr,
+                targetUser.getEmail(),
+                targetUser.getFullName()
+        );
+
+        auditService.log(principal.getUserIdAsUuid(), principal.email(), principal.fullName(),
+                "SERVICE_TOKEN_GENERATED", "USER", targetUser.getId().toString(),
+                "Token de servicio generado para " + targetEmail, servletRequest.getRemoteAddr());
+
+        return ResponseEntity.ok(Map.of(
+                "token", serviceToken,
+                "email", targetUser.getEmail(),
+                "role", targetUser.getRole().name(),
+                "expiresIn", "365 days",
+                "usage", "Authorization: Bearer <token>"
+        ));
+    }
+
+    @PostMapping("/block/{userId}")
+    public ResponseEntity<?> blockUser(@PathVariable UUID userId,
+                                        @AuthenticationPrincipal UserPrincipal principal,
+                                        HttpServletRequest servletRequest) {
+        if (principal == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        AppUser caller = userRepository.findById(principal.getUserIdAsUuid()).orElse(null);
+        if (caller == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        if (caller.getRole() != UserRole.SUPER_USER && caller.getRole() != UserRole.ADMIN) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Insufficient permissions"));
+        }
+        if (userId.equals(principal.getUserIdAsUuid())) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Cannot block yourself"));
+        }
+        AppUser user = userRepository.findById(userId).orElse(null);
+        if (user == null) return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        user.setBlocked(true);
+        userRepository.save(user);
+        evictUsersCache();
+        auditService.log(principal.getUserIdAsUuid(), principal.email(), principal.fullName(),
+                "USER_BLOCKED", "USER", userId.toString(),
+                "Blocked user " + user.getEmail(), servletRequest.getRemoteAddr());
+        return ResponseEntity.ok(Map.of("message", "User blocked", "blocked", true));
+    }
+
+    @PostMapping("/unblock/{userId}")
+    public ResponseEntity<?> unblockUser(@PathVariable UUID userId,
+                                          @AuthenticationPrincipal UserPrincipal principal,
+                                          HttpServletRequest servletRequest) {
+        if (principal == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        AppUser caller = userRepository.findById(principal.getUserIdAsUuid()).orElse(null);
+        if (caller == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        if (caller.getRole() != UserRole.SUPER_USER && caller.getRole() != UserRole.ADMIN) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Insufficient permissions"));
+        }
+        AppUser user = userRepository.findById(userId).orElse(null);
+        if (user == null) return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        user.setBlocked(false);
+        user.setFailedLoginAttempts(0);
+        user.setLockedUntil(null);
+        userRepository.save(user);
+        evictUsersCache();
+        auditService.log(principal.getUserIdAsUuid(), principal.email(), principal.fullName(),
+                "USER_UNBLOCKED", "USER", userId.toString(),
+                "Unblocked user " + user.getEmail(), servletRequest.getRemoteAddr());
+        return ResponseEntity.ok(Map.of("message", "User unblocked", "blocked", false));
+    }
+
+    private void evictUsersCache() {
+        Cache cache = cacheManager.getCache("users");
+        if (cache != null) {
+            cache.clear();
+        }
     }
 }

@@ -25,7 +25,8 @@ public class RouteConfig {
 
                 .route("auth-service", r -> r
                         .path("/api/auth/**", "/api/users/**", "/api/audit-logs/**",
-                             "/api/sites/**", "/api/role-permissions/**")
+                             "/api/sites/**", "/api/role-permissions/**",
+                             "/api/commodity-types/**")
                         .filters(f -> f
                                 .circuitBreaker(config -> config
                                         .setName("auth-service")

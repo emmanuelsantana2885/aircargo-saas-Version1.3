@@ -2,7 +2,7 @@
   <div class="p-3 md:p-5 bg-white text-slate-900 font-sans antialiased select-none min-h-screen">
     <div class="max-w-7xl mx-auto">
     <div class="ds-section-header mb-4">
-      <h1 class="ds-title">Users</h1>
+      <h1 class="ds-title">{{ t('users.title') }}</h1>
       <div class="flex gap-1">
         <button v-for="tab in tabs" :key="tab.key" @click="activeTab = tab.key"
           :class="activeTab === tab.key ? 'ds-btn-primary' : 'ds-btn-secondary'">
@@ -19,11 +19,11 @@
           <thead>
             <tr class="bg-slate-800 text-white text-[13px] font-bold uppercase tracking-wider [&>th]:px-4 [&>th]:py-2.5 [&>th]:text-left [&>th]:font-semibold">
               <th style="width: 16px"></th>
-              <th>Nombre</th>
-              <th>Email</th>
-              <th>Rol</th>
-              <th>Último latido</th>
-              <th>Último login</th>
+              <th>{{ t('users.table.name') }}</th>
+              <th>{{ t('users.table.email') }}</th>
+              <th>{{ t('users.table.role') }}</th>
+              <th>{{ t('users.table.lastHeartbeat') }}</th>
+              <th>{{ t('users.table.lastLogin') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -37,7 +37,7 @@
               <td class="text-[12px] text-slate-500">{{ formatDate(u.lastLogin) }}</td>
             </tr>
             <tr v-if="connected.length === 0">
-              <td colspan="6" class="px-4 py-8 text-center text-sm italic text-slate-400">No hay usuarios conectados</td>
+              <td colspan="6" class="px-4 py-8 text-center text-sm italic text-slate-400">{{ t('users.noConnected') }}</td>
             </tr>
           </tbody>
         </table>
@@ -48,10 +48,10 @@
       <div class="flex items-center justify-between mb-3">
         <div class="flex gap-2">
           <select v-model="filterUser" class="ds-input !w-auto !py-1">
-            <option value="">Todos los usuarios</option>
+            <option value="">{{ t('users.audit.allUsers') }}</option>
             <option v-for="u in userOptions" :key="u.id" :value="u.id">{{ u.email }}</option>
           </select>
-          <button @click="loadLogs" class="ds-btn-primary !px-3 !py-1 !text-[12px]">Actualizar</button>
+          <button @click="loadLogs" class="ds-btn-primary !px-3 !py-1 !text-[12px]">{{ t('common.update') }}</button>
         </div>
       </div>
       <div class="ds-table-section">
@@ -59,11 +59,11 @@
         <table class="w-full text-sm" style="min-width: 600px">
           <thead>
             <tr class="bg-slate-800 text-white text-[13px] font-bold uppercase tracking-wider [&>th]:px-4 [&>th]:py-2.5 [&>th]:text-left [&>th]:font-semibold">
-              <th>Fecha/Hora</th>
-              <th>Usuario</th>
-              <th>Acción</th>
-              <th>Entidad</th>
-              <th>Detalle</th>
+              <th>{{ t('users.audit.date') }}</th>
+              <th>{{ t('users.audit.user') }}</th>
+              <th>{{ t('users.audit.action') }}</th>
+              <th>{{ t('users.audit.entity') }}</th>
+              <th>{{ t('users.audit.details') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -77,7 +77,7 @@
               <td class="max-w-xs truncate text-[12px] text-slate-500">{{ log.details || '—' }}</td>
             </tr>
             <tr v-if="logs.length === 0">
-              <td colspan="5" class="px-4 py-8 text-center text-sm italic text-slate-400">No hay transacciones registradas</td>
+              <td colspan="5" class="px-4 py-8 text-center text-sm italic text-slate-400">{{ t('users.audit.empty') }}</td>
             </tr>
           </tbody>
         </table>
@@ -89,11 +89,11 @@
     <template v-if="activeTab === 'roles'">
       <!-- Role selector -->
       <div class="flex items-center gap-4 mb-4">
-        <label class="ds-label shrink-0">Roles del sistema</label>
+        <label class="ds-label shrink-0">{{ t('users.rolesTitle') }}</label>
         <select v-model="selectedRole" @change="onRoleChange"
           class="ds-input !w-auto min-w-[200px]"
           :class="selectedRole ? '!bg-green-50 !text-green-800 !border-2 !border-green-500 !font-semibold' : ''">
-          <option value="">— Seleccionar rol —</option>
+          <option value="">{{ t('users.selectRole') }}</option>
           <option v-for="r in allRoles" :key="r.role" :value="r.role">
             {{ roleLabel(r.role) }} ({{ countAccess(r.views) }}/{{ r.views.length }})
           </option>
@@ -103,7 +103,7 @@
           class="ds-btn-secondary !px-3 !py-1.5 !text-[12px]"
           :class="showConnectedOnly ? '!bg-green-500 !text-white !border-green-500' : ''">
           <span class="w-1.5 h-1.5 rounded-full" :class="showConnectedOnly ? 'bg-white' : 'bg-slate-400'"></span>
-          {{ showConnectedOnly ? 'Conectados' : 'Todos' }}
+          {{ showConnectedOnly ? t('users.tabs.connected') : t('common.all') }}
         </button>
         <span v-if="roleUsers.length" class="ds-stat">{{ roleUsers.length }} usuario(s)</span>
       </div>
@@ -163,11 +163,11 @@
               <thead>
                 <tr class="bg-slate-800 text-white text-[13px] font-bold uppercase tracking-wider [&>th]:px-3 [&>th]:py-2 [&>th]:text-left [&>th]:font-semibold">
                   <th style="width: 90px"># Transacción</th>
-                  <th style="width: 130px">Fecha/Hora</th>
-                  <th>Acción</th>
-                  <th>Entidad</th>
-                  <th style="width: 100px">ID Entidad</th>
-                  <th>Detalle</th>
+                  <th style="width: 130px">{{ t('users.audit.date') }}</th>
+                  <th>{{ t('users.audit.action') }}</th>
+                  <th>{{ t('users.audit.entity') }}</th>
+                  <th style="width: 100px">{{ t('users.audit.entityId') }}</th>
+                  <th>{{ t('users.audit.details') }}</th>
                 </tr>
               </thead>
               <tbody>
@@ -182,7 +182,7 @@
                   <td class="max-w-[200px] truncate text-[12px] text-slate-500">{{ log.details || '—' }}</td>
                 </tr>
                 <tr v-if="!userAuditLogs.length">
-                  <td colspan="6" class="px-4 py-8 text-center text-sm italic text-slate-400">No hay transacciones registradas para este usuario</td>
+                  <td colspan="6" class="px-4 py-8 text-center text-sm italic text-slate-400">{{ t('users.audit.empty') }} para este usuario</td>
                 </tr>
               </tbody>
             </table>
@@ -202,14 +202,14 @@
                   ? 'bg-green-600 text-white hover:bg-green-700'
                   : 'bg-slate-200 text-slate-400 cursor-not-allowed'"
                 :disabled="!hasChanges">
-                {{ saving ? 'Guardando...' : 'Guardar Cambios' }}
+                {{ saving ? t('common.saving') : t('common.save') }}
               </button>
             </div>
           </div>
           <div v-for="cat in categories" :key="cat" class="border-b border-slate-100">
             <div class="px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider bg-slate-50 text-slate-500">
               {{ categoryLabel(cat) }}
-              <span class="ml-2 font-normal normal-case">{{ catViews(cat).length }} transacciones</span>
+              <span class="ml-2 font-normal normal-case">{{ catViews(cat).length }} {{ t('users.tabItems') }}</span>
             </div>
             <div class="divide-y divide-slate-100">
               <div v-for="v in catViews(cat)" :key="v.viewCode"
@@ -322,7 +322,10 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { usersApi } from '../api/users'
+
+const { t } = useI18n()
 import { rolesApi } from '../api/roles'
 import { useAuthStore } from '../stores/auth'
 import { useToastStore } from '../stores/toast'
@@ -333,14 +336,14 @@ const auth = useAuthStore()
 
 const activeTab = ref('connected')
 const tabs = computed(() => {
-  const t = [
-    { key: 'connected', label: 'Conectados' },
-    { key: 'audit', label: 'Auditoría' },
+  const items = [
+    { key: 'connected', label: t('users.tabs.connected') },
+    { key: 'audit', label: t('users.tabs.audit') },
   ]
   if (auth.role === 'SUPER_USER' || auth.role === 'ADMIN') {
-    t.push({ key: 'roles', label: 'Roles y Permisos' })
+    items.push({ key: 'roles', label: t('users.tabs.roles') })
   }
-  return t
+  return items
 })
 
 const connected = ref([])
@@ -395,10 +398,10 @@ function countAccess(views) {
 
 function categoryLabel(cat) {
   const labels = {
-    PRINCIPAL: 'Principal',
-    OPERACIONES: 'Operaciones',
-    CONFIGURACION: 'Configuración',
-    ADMINISTRACION: 'Administración',
+    PRINCIPAL: t('users.categories.principal'),
+    OPERACIONES: t('users.categories.operations'),
+    CONFIGURACION: t('users.categories.config'),
+    ADMINISTRACION: t('users.categories.admin'),
   }
   return labels[cat] || cat
 }
@@ -563,16 +566,16 @@ function openViewEditor(view) {
 
 async function saveView() {
   if (!viewForm.value.code || !viewForm.value.name) {
-    toast.error('Código y nombre son requeridos')
+    toast.error(t('users.toast.requiredFields'))
     return
   }
   try {
     if (editingView.value) {
       await rolesApi.updateView(editingView.value.id, viewForm.value)
-      toast.success('Transacción actualizada')
+      toast.success(t('users.toast.viewUpdated'))
     } else {
       await rolesApi.createView(viewForm.value)
-      toast.success('Transacción creada')
+      toast.success(t('users.toast.viewCreated'))
     }
     showViewEditor.value = false
     await Promise.all([loadViews(), loadRoles()])
@@ -581,10 +584,10 @@ async function saveView() {
 }
 
 async function deleteView(view) {
-  if (!confirm(`¿Eliminar la transacción "${view.name}" (${view.code})?`)) return
+  if (!confirm(t('users.toast.confirmDeleteView', { name: view.name, code: view.code }))) return
   try {
     await rolesApi.deleteView(view.id)
-    toast.success('Transacción eliminada')
+    toast.success(t('users.toast.viewDeleted'))
     await Promise.all([loadViews(), loadRoles()])
     if (selectedRole.value) onRoleChange()
   } catch (e) { toast.error(extractError(e)) }

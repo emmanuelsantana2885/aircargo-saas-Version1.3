@@ -5,52 +5,65 @@
     <div class="flex items-center gap-1 border-b border-slate-200 pb-0 shrink-0">
       <button @click="activeTab = 'matriz'"
         class="px-4 py-2 text-[13px] font-mono font-black uppercase tracking-widest transition-all relative"
-        :class="activeTab === 'matriz' ? 'text-slate-950' : 'text-slate-400 hover:text-slate-600'">
-        Matriz
+          :class="activeTab === 'matriz' ? 'text-slate-950' : 'text-slate-400 hover:text-slate-600'">
+        {{ t('mawbs.tabs.matrix') }}
         <div v-if="activeTab === 'matriz'" class="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-950"></div>
       </button>
       <button @click="activeTab = 'estados'"
         class="px-4 py-2 text-[13px] font-mono font-black uppercase tracking-widest transition-all relative"
-        :class="activeTab === 'estados' ? 'text-slate-950' : 'text-slate-400 hover:text-slate-600'">
-        Estados
+          :class="activeTab === 'estados' ? 'text-slate-950' : 'text-slate-400 hover:text-slate-600'">
+        {{ t('mawbs.tabs.states') }}
         <div v-if="activeTab === 'estados'" class="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-950"></div>
+      </button>
+      <button @click="activeTab = 'lbs-vuelo'"
+        class="px-4 py-2 text-[13px] font-mono font-black uppercase tracking-widest transition-all relative"
+          :class="activeTab === 'lbs-vuelo' ? 'text-slate-950' : 'text-slate-400 hover:text-slate-600'">
+        {{ t('mawbs.tabs.lbsPerFlight') }}
+        <div v-if="activeTab === 'lbs-vuelo'" class="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-950"></div>
       </button>
     </div>
 
     <header v-if="activeTab === 'matriz'" class="flex flex-wrap justify-between items-end gap-2 border-b border-slate-200 pb-3 shrink-0">
       <div class="flex items-end gap-3">
         <div>
-          <h1 class="ds-title">CrossReport — MAWBs</h1>
-          <p class="ds-subtitle">Matriz MAWB x Vuelo / Distribucion de Piezas</p>
+          <h1 class="ds-title">{{ t('mawbs.title') }}</h1>
+          <p class="ds-subtitle">{{ t('mawbs.subtitle') }}</p>
         </div>
         <div class="flex items-end gap-2">
           <button @click="showFilter = !showFilter"
             class="px-2 py-1 rounded border transition-all"
             :class="showFilter || filterText ? 'bg-slate-950 text-white border-slate-950' : 'bg-white text-slate-400 border-slate-200 hover:border-slate-400'"
-            title="Filtro dinamico">
+            :title="t('mawbs.dynamicFilter')">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
             </svg>
           </button>
+          <div class="flex items-center gap-1">
+            <select v-model="commodityFilter"
+              class="bg-white border border-slate-300 rounded px-2 py-1.5 text-[12px] font-mono text-slate-950 outline-none focus:border-slate-500">
+              <option value="">{{ t('mawbs.commodityAll') }}</option>
+              <option v-for="c in dbCommodities" :key="c.code" :value="c.code">{{ c.label }}</option>
+            </select>
+          </div>
           <div v-if="showFilter" class="flex items-center gap-1">
-      <input v-model="filterText" placeholder="* = contenga, = exacto, > < numerico"
+      <input v-model="filterText" :placeholder="t('mawbs.filterPlaceholder')"
         class="w-full bg-white border border-slate-300 rounded px-3 py-1.5 text-[13px] font-mono text-slate-950 outline-none focus:border-slate-500 transition-colors" />
             <span class="text-[14px] font-mono text-slate-950 min-w-[30px]">{{ filterTypeLabel }}</span>
           </div>
         </div>
       </div>
       <div class="flex items-center gap-2">
-        <span class="text-[12px] font-mono text-slate-950 whitespace-nowrap">Filas: {{ filteredRows.length }} / {{ matrixRows.length }} | Cols: {{ flightColumns.length }}</span>
-        <button @click="showLabels = true" class="ds-btn-secondary" title="Imprimir etiquetas de carga para los MAWBs visibles">
-          <span class="text-[14px] font-semibold leading-none">&#9642;</span> Etiquetas
+        <span class="text-[12px] font-mono text-slate-950 whitespace-nowrap">{{ t('mawbs.rowsInfo', { rows: filteredRows.length, total: matrixRows.length, cols: flightColumns.length }) }}</span>
+        <button @click="showLabels = true" class="ds-btn-secondary" :title="t('mawbs.labelsTooltip')">
+          <span class="text-[14px] font-semibold leading-none">&#9642;</span> {{ t('mawbs.labelsButton') }}
         </button>
         <button @click="exportCSV" class="ds-btn-secondary">
-          <span class="text-[14px] font-semibold leading-none">↓</span> Export CSV
+          <span class="text-[14px] font-semibold leading-none">↓</span> {{ t('mawbs.exportCsv') }}
         </button>
         <div class="flex items-center gap-2 border-l border-slate-200 pl-2">
           <div class="relative">
             <button @click="showPeriodMenu = !showPeriodMenu"
-              class="p-1.5 rounded hover:bg-slate-100 transition-colors text-[14px] font-mono flex items-center gap-1" title="Periodo de timeline">
+              class="p-1.5 rounded hover:bg-slate-100 transition-colors text-[14px] font-mono flex items-center gap-1" :title="t('mawbs.timelinePeriod')">
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
               <span class="font-bold">{{ periodLabel }}</span>
             </button>
@@ -58,7 +71,7 @@
               <button v-for="p in periodOptions" :key="p.value" @click="setTimelinePeriod(p.value)"
                 class="w-full text-left px-3 py-2 text-[14px] font-mono hover:bg-slate-100 transition-colors"
                 :class="timelinePeriod === p.value ? 'bg-slate-200 font-bold text-slate-950' : 'text-slate-950'">
-                {{ p.label }}
+                {{ t('mawbs.periods.' + p.value) }}
               </button>
             </div>
           </div>
@@ -75,7 +88,7 @@
                 <div v-for="seg in timelineSegments" :key="seg.value"
                   class="flex-1 flex flex-col items-center relative z-10 cursor-pointer group"
                   @click="toggleRangeSegment(seg.value)"
-                  :title="seg.label + ' (' + seg.count + ' cols)'">
+                  :title="t('mawbs.tooltip.segmentCols', { label: seg.label, count: seg.count })">
                   <span class="text-[13px] font-mono mb-0.5 leading-none transition-colors font-bold"
                     :class="isInRange(seg.value) ? 'text-slate-950' : 'text-slate-400 group-hover:text-slate-600'">
                     {{ seg.short }}
@@ -109,14 +122,14 @@
                 </div>
               </div>
             </div>
-            <span v-else class="text-[13px] text-slate-300 font-mono px-2 whitespace-nowrap">Sin fechas</span>
+            <span v-else class="text-[13px] text-slate-300 font-mono px-2 whitespace-nowrap">{{ t('mawbs.noDates') }}</span>
           </div>
           <button v-if="rangeStartSeg" @click="clearTimeline"
             class="text-slate-400 hover:text-slate-950 text-[12px] px-1 font-bold">✕</button>
         </div>
         <select v-model="localFlightId" @change="onFlightChange"
           class="bg-slate-100 border border-slate-300 rounded px-2 py-1 font-black text-slate-950 focus:outline-none uppercase tracking-widest text-[12px] cursor-pointer min-w-[140px]">
-          <option value="">Todos los vuelos</option>
+          <option value="">{{ t('mawbs.allFlights') }}</option>
           <option v-for="flight in store.flights" :key="flight.id" :value="flight.id">
             {{ airlineCodeById(flight.airlineId) }}-{{ flight.flightNumber }} ({{ flight.origin }}→{{ flight.destination }})
           </option>
@@ -124,9 +137,9 @@
         <button @click="toggleHidePast"
           class="flex items-center gap-1 px-2 py-1 rounded text-[12px] font-mono font-bold transition border"
           :class="hidePastDates ? 'bg-slate-100 border-slate-400 text-slate-800' : 'bg-white border-slate-300 text-slate-500 hover:bg-slate-100'"
-          title="Ocultar vuelos pasados">
+          :title="t('mawbs.hidePast')">
           <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
-          {{ hidePastDates ? 'Futuro' : 'Pasado' }}
+          {{ hidePastDates ? t('mawbs.future') : t('mawbs.past') }}
         </button>
       </div>
     </header>
@@ -135,8 +148,8 @@
     <header v-if="activeTab === 'estados'" class="flex flex-wrap justify-between items-end gap-2 border-b border-slate-200 pb-3 shrink-0">
       <div class="flex items-end gap-3">
         <div>
-          <h1 class="text-[15px] font-black tracking-tight text-slate-950 uppercase font-mono">Estados — MAWBs</h1>
-          <p class="text-[13px] font-mono text-slate-400 mt-0.5 uppercase tracking-widest font-bold">Pipeline de estados / Filtro por estado</p>
+          <h1 class="text-[15px] font-black tracking-tight text-slate-950 uppercase font-mono">{{ t('mawbs.states.title') }}</h1>
+          <p class="text-[13px] font-mono text-slate-400 mt-0.5 uppercase tracking-widest font-bold">{{ t('mawbs.states.subtitle') }}</p>
         </div>
       </div>
       <div class="flex items-center gap-2">
@@ -150,7 +163,7 @@
             {{ s.label }} ({{ s.count }})
           </button>
         </div>
-        <span class="text-[12px] font-mono text-slate-400">MAWBs: {{ estadosFilteredRows.length }}</span>
+        <span class="text-[12px] font-mono text-slate-400">{{ t('mawbs.states.counter', { n: estadosFilteredRows.length }) }}</span>
       </div>
     </header>
 
@@ -167,10 +180,10 @@
     <div v-if="activeTab === 'matriz'" class="flex-1 min-h-0 flex gap-2 mb-1.5">
     <section ref="tableSectionRef" class="ds-table-section">
       <div v-if="loadingMatrix" class="flex-1 flex items-center justify-center">
-        <span class="text-[14px] font-mono text-slate-950">Construyendo matriz...</span>
+        <span class="text-[14px] font-mono text-slate-950">{{ t('mawbs.buildingMatrix') }}</span>
       </div>
       <div v-else-if="!filteredRows.length" class="flex-1 flex items-center justify-center">
-        <p class="text-[14px] font-mono text-slate-950 uppercase tracking-widest">Sin resultados</p>
+        <p class="text-[14px] font-mono text-slate-950 uppercase tracking-widest">{{ t('mawbs.noResults') }}</p>
       </div>
       <template v-else>
         <div ref="scrollContainer" class="overflow-auto scrollbar-none flex-1" @scroll="onScroll">
@@ -178,51 +191,57 @@
             <thead class="sticky top-0 z-20">
               <tr class="bg-slate-700 text-white text-[13px] font-bold uppercase tracking-wider shadow-sm">
                 <th :style="[{ left: stickyOffsets[0] + 'px', zIndex: 30 }, colStyle(0)]"
-                  class="sticky bg-slate-700 text-left px-2 py-2.5 font-black uppercase tracking-wider border-r border-slate-500 whitespace-nowrap relative">MAWB
+                  class="sticky bg-slate-700 text-left px-2 py-2.5 font-black uppercase tracking-wider border-r border-slate-500 whitespace-nowrap relative">{{ t('mawbs.columns.mawb') }}
                   <div class="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize group z-40" @pointerdown="startColResize(0, $event)">
                     <div class="w-0.5 h-full mx-auto bg-transparent group-hover:bg-white/40 transition-colors"></div>
                   </div>
                 </th>
                 <th :style="[{ left: stickyOffsets[1] + 'px', zIndex: 30 }, colStyle(1)]"
-                  class="sticky bg-slate-700 text-left px-2 py-2.5 font-black uppercase tracking-wider border-r border-slate-500 whitespace-nowrap relative">Shipper / Consignee
+                  class="sticky bg-slate-700 text-left px-2 py-2.5 font-black uppercase tracking-wider border-r border-slate-500 whitespace-nowrap relative">{{ t('mawbs.columns.shipperConsignee') }}
                   <div class="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize group z-40" @pointerdown="startColResize(1, $event)">
                     <div class="w-0.5 h-full mx-auto bg-transparent group-hover:bg-white/40 transition-colors"></div>
                   </div>
                 </th>
                 <th :style="[{ left: stickyOffsets[2] + 'px', zIndex: 30 }, colStyle(2)]"
-                  class="sticky bg-slate-700 text-right px-2 py-2.5 font-black uppercase tracking-wider border-r border-slate-500 whitespace-nowrap relative">Pcs Reserved
+                  class="sticky bg-slate-700 text-right px-2 py-2.5 font-black uppercase tracking-wider border-r border-slate-500 whitespace-nowrap relative">{{ t('mawbs.columns.pcsReserved') }}
                   <div class="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize group z-40" @pointerdown="startColResize(2, $event)">
                     <div class="w-0.5 h-full mx-auto bg-transparent group-hover:bg-white/40 transition-colors"></div>
                   </div>
                 </th>
                 <th :style="[{ left: stickyOffsets[3] + 'px', zIndex: 30 }, colStyle(3)]"
-                  class="sticky bg-slate-700 text-right px-2 py-2.5 font-black uppercase tracking-wider border-r border-slate-500 whitespace-nowrap relative">Pcs Received
+                  class="sticky bg-slate-700 text-right px-2 py-2.5 font-black uppercase tracking-wider border-r border-slate-500 whitespace-nowrap relative">{{ t('mawbs.columns.pcsReceived') }}
                   <div class="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize group z-40" @pointerdown="startColResize(3, $event)">
                     <div class="w-0.5 h-full mx-auto bg-transparent group-hover:bg-white/40 transition-colors"></div>
                   </div>
                 </th>
                 <th :style="[{ left: stickyOffsets[4] + 'px', zIndex: 30 }, colStyle(4)]"
-                  class="sticky bg-slate-700 text-right px-2 py-2.5 font-black uppercase tracking-wider border-r border-slate-500 relative">Kg
+                  class="sticky bg-slate-700 text-right px-2 py-2.5 font-black uppercase tracking-wider border-r border-slate-500 relative">{{ t('mawbs.columns.kg') }}
                   <div class="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize group z-40" @pointerdown="startColResize(4, $event)">
                     <div class="w-0.5 h-full mx-auto bg-transparent group-hover:bg-white/40 transition-colors"></div>
                   </div>
                 </th>
                 <th :style="[{ left: stickyOffsets[5] + 'px', zIndex: 30 }, colStyle(5)]"
-                  class="sticky bg-slate-700 text-right px-2 py-2.5 font-black uppercase tracking-wider border-r border-slate-500 relative">Pcs&#8599;
-                  <div class="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize group z-40" @pointerdown="startColResize(6, $event)">
+                  class="sticky bg-slate-700 text-right px-2 py-2.5 font-black uppercase tracking-wider border-r border-slate-500 relative">{{ t('mawbs.columns.lbs') }}
+                  <div class="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize group z-40" @pointerdown="startColResize(5, $event)">
+                    <div class="w-0.5 h-full mx-auto bg-transparent group-hover:bg-white/40 transition-colors"></div>
+                  </div>
+                </th>
+                <th :style="[{ left: stickyOffsets[6] + 'px', zIndex: 30 }, colStyle(6)]"
+                  class="sticky bg-slate-700 text-right px-2 py-2.5 font-black uppercase tracking-wider border-r border-slate-500 whitespace-nowrap relative">{{ t('mawbs.columns.pcsDispatched') }}
+                  <div class="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize group z-40" @pointerdown="startColResize(7, $event)">
                     <div class="w-0.5 h-full mx-auto bg-transparent group-hover:bg-white/40 transition-colors"></div>
                   </div>
                 </th>
                 <th v-for="(f, fi) in flightColumns" :key="f.id"
-                  :style="colStyle(6 + fi)"
+                  :style="colStyle(7 + fi)"
                   class="px-2 py-2.5 text-center font-black border-x border-slate-500/40 cursor-pointer transition-colors relative"
                   :class="[highlightFlightId === f.id ? 'bg-slate-500 text-slate-950' : 'hover:bg-slate-800/70']"
                   @mouseenter="hoverFlightCol = f.id" @mouseleave="hoverFlightCol = null"
                   @click="scrollToFlight(f.id)">
                   <div class="text-[13px] leading-tight">{{ airlineCodeById(f.airlineId) }}-{{ f.flightNumber }}</div>
                   <div class="text-[13px] font-bold opacity-90 tracking-wide">{{ formatDate(f.flightDate) }}</div>
-                  <div v-if="flightTotals[f.id]" class="text-[13px] font-normal opacity-60 mt-0.5">{{ flightTotals[f.id] }} pcs</div>
-                  <div class="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize group z-40" @pointerdown.stop="startColResize(7 + fi, $event)">
+                  <div v-if="flightTotals[f.id]" class="text-[13px] font-normal opacity-60 mt-0.5">{{ flightTotals[f.id] }} {{ t('common.pcs') }}</div>
+                  <div class="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize group z-40" @pointerdown.stop="startColResize(8 + fi, $event)">
                     <div class="w-0.5 h-full mx-auto bg-transparent group-hover:bg-white/40 transition-colors"></div>
                   </div>
                 </th>
@@ -240,10 +259,10 @@
                   <div class="flex flex-col leading-tight">
 <span class="underline decoration-dotted underline-offset-2 truncate text-[13px]">{{ row.awbNumber || '—' }}</span>
                      <span class="text-[13px] font-normal opacity-70 mt-0.5">
-                      <template v-if="row.status === 'BOOKED'">Reservado</template>
-                      <template v-else-if="row.status === 'RECEIVED'">Recibido</template>
-                      <template v-else-if="row.status === 'MANIFESTED'">Montado</template>
-                      <template v-else-if="row.status === 'DEPARTED'">Despachado</template>
+                      <template v-if="row.status === 'BOOKED'">{{ t('mawbs.rowStatus.BOOKED') }}</template>
+                      <template v-else-if="row.status === 'RECEIVED'">{{ t('mawbs.rowStatus.RECEIVED') }}</template>
+                      <template v-else-if="row.status === 'MANIFESTED'">{{ t('mawbs.rowStatus.MANIFESTED') }}</template>
+                      <template v-else-if="row.status === 'DEPARTED'">{{ t('mawbs.rowStatus.DEPARTED') }}</template>
                       <template v-else>{{ row.status || '' }}</template>
                     </span>
                   </div>
@@ -260,8 +279,8 @@
                   class="sticky bg-white px-2 py-2.5 text-right border-r border-slate-300 whitespace-nowrap"
                    :class="row.pieceDiff !== 0 ? 'text-slate-600 bg-slate-50' : 'text-slate-950'">
                   {{ row.reservedPieces || '—' }}
-<span v-if="row.pieceDiff > 0" class="text-[13px] text-slate-500 ml-0.5" title="Recibido excede reservado">&#9650;</span>
-                    <span v-else-if="row.pieceDiff < 0" class="text-[13px] text-slate-500 ml-0.5" title="Recibido menor que reservado">&#9660;</span>
+<span v-if="row.pieceDiff > 0" class="text-[13px] text-slate-500 ml-0.5" :title="t('mawbs.tooltip.exceedsReserved')">&#9650;</span>
+                    <span v-else-if="row.pieceDiff < 0" class="text-[13px] text-slate-500 ml-0.5" :title="t('mawbs.tooltip.belowReserved')">&#9660;</span>
                 </td>
                 <td :style="[{ left: stickyOffsets[3] + 'px', zIndex: 10 }, colStyle(3)]"
                   class="sticky bg-white px-2 py-2.5 text-right border-r border-slate-300 whitespace-nowrap"
@@ -272,13 +291,15 @@
                 <td :style="[{ left: stickyOffsets[4] + 'px', zIndex: 10 }, colStyle(4)]"
                   class="sticky bg-white px-2 py-2.5 text-right text-slate-950 border-r border-slate-300">{{ row.totalWeightKg ? Number(row.totalWeightKg).toLocaleString() : '—' }}</td>
                 <td :style="[{ left: stickyOffsets[5] + 'px', zIndex: 10 }, colStyle(5)]"
+                  class="sticky bg-white px-2 py-2.5 text-right text-amber-700 border-r border-slate-300 font-semibold">{{ row.physicalWeightLbs != null ? Number(row.physicalWeightLbs).toLocaleString('en-US', { maximumFractionDigits: 1 }) : '—' }}</td>
+                <td :style="[{ left: stickyOffsets[6] + 'px', zIndex: 10 }, colStyle(6)]"
                   class="sticky bg-white px-2 py-2.5 text-right border-r border-slate-300"
                    :class="row.hasDispatchedExcess ? 'text-slate-600' : 'text-slate-950'">
                   {{ row.pcsDispatched || '—' }}
-                   <span v-if="row.hasDispatchedExcess" class="text-[13px] text-slate-500 ml-0.5" title="Despachado excede recibido">&#9888;</span>
+                   <span v-if="row.hasDispatchedExcess" class="text-[13px] text-slate-500 ml-0.5" :title="t('mawbs.tooltip.exceedsReceived')">&#9888;</span>
                 </td>
                 <td v-for="(f, fi) in flightColumns" :key="f.id"
-                  :style="colStyle(6 + fi)"
+                  :style="colStyle(7 + fi)"
                   class="px-2 py-2.5 text-center border-x border-slate-200 transition-all duration-200"
                   :class="cellClasses(row, f)"
                   :title="uldTooltip(row, f)">
@@ -302,10 +323,10 @@
           </table>
         </div>
         <div class="bg-slate-100 border-t border-slate-300 px-4 py-1.5 text-[14px] text-slate-950 font-mono flex justify-between items-center shrink-0">
-          <span>Piezas: {{ totalReserved }} res. / {{ totalReceived }} rec. / {{ totalDispatched }} desp. / {{ totalTracked }} track</span>
+          <span>{{ t('mawbs.footer.summary', { reserved: totalReserved, received: totalReceived, dispatched: totalDispatched, tracked: totalTracked }) }}</span>
           <span class="flex items-center gap-3">
-            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-sm bg-slate-950"></span> con piezas</span>
-            <span>Celdas ocupadas: {{ activeCells }} | Vuelos: {{ flightColumns.length }} | MAWBs: {{ filteredRows.length }}</span>
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-sm bg-slate-950"></span> {{ t('mawbs.footer.withPieces') }}</span>
+            <span>{{ t('mawbs.footer.cells', { cells: activeCells, flights: flightColumns.length, mawbs: filteredRows.length }) }}</span>
           </span>
         </div>
         <div class="h-4 cursor-row-resize flex items-center justify-center hover:bg-slate-200 transition-colors shrink-0 group border-t border-slate-300"
@@ -319,81 +340,83 @@
     <transition name="slide">
       <aside v-if="infoPanel.show" class="hidden md:flex w-72 shrink-0 border border-slate-300 rounded bg-white flex-col overflow-hidden">
         <div class="flex items-center justify-between px-3 py-2 border-b border-slate-400 bg-slate-100 shrink-0">
-          <span class="text-[12px] font-mono font-black uppercase tracking-widest text-slate-950">Info MAWB</span>
+          <span class="text-[12px] font-mono font-black uppercase tracking-widest text-slate-950">{{ t('mawbs.infoPanel.title') }}</span>
           <button @click="closeInfoPanel" class="text-slate-500 hover:text-slate-950 transition text-sm">✕</button>
         </div>
         <div class="overflow-y-auto flex-1 p-3 space-y-2.5 text-[12px] font-mono text-slate-950">
           <template v-if="infoPanel.row">
             <div class="grid grid-cols-2 gap-x-3 gap-y-1.5">
-              <span class="text-slate-500 uppercase tracking-wider">MAWB</span>
+              <span class="text-slate-500 uppercase tracking-wider">{{ t('mawbs.columns.mawb') }}</span>
               <span class="font-bold text-right text-slate-800">{{ infoPanel.row.awbNumber }}</span>
-              <span class="text-slate-500 uppercase tracking-wider">Status</span>
+              <span class="text-slate-500 uppercase tracking-wider">{{ t('mawbs.infoPanel.status') }}</span>
               <span class="text-right"><span class="inline-block w-2 h-2 rounded-full mr-1" :class="mawbStatusClassRaw(infoPanel.row.mawbStatus)"></span>{{ infoPanel.row.mawbStatus || 'BOOKED' }}</span>
-              <span class="text-slate-500 uppercase tracking-wider">Shipper</span>
+              <span class="text-slate-500 uppercase tracking-wider">{{ t('mawbs.infoPanel.shipper') }}</span>
               <span class="font-bold text-right truncate" :title="infoPanel.row.shipperName">{{ infoPanel.row.shipperName || '—' }}</span>
-              <span class="text-slate-500 uppercase tracking-wider">Consignee</span>
+              <span class="text-slate-500 uppercase tracking-wider">{{ t('mawbs.infoPanel.consignee') }}</span>
               <span class="font-bold text-right truncate" :title="infoPanel.row.consigneeName">{{ infoPanel.row.consigneeName || '—' }}</span>
-              <span class="text-slate-500 uppercase tracking-wider">Destino</span>
+              <span class="text-slate-500 uppercase tracking-wider">{{ t('mawbs.infoPanel.destination') }}</span>
               <span class="font-bold text-right">{{ infoPanel.row.destination || '—' }}</span>
             </div>
 
             <div class="border-t border-slate-200 pt-2">
-              <div class="text-slate-500 uppercase tracking-wider mb-1">Distribución de Piezas</div>
+              <div class="text-slate-500 uppercase tracking-wider mb-1">{{ t('mawbs.infoPanel.distribution') }}</div>
               <div v-for="(cell, fid) in infoPanel.row.cells" :key="fid" class="flex justify-between items-center py-0.5 border-b border-slate-100 last:border-0">
                 <span class="text-slate-600 truncate">{{ infoPanel.flightLabel(fid) }}</span>
-                <span class="font-bold tabular-nums">{{ cell }} pcs</span>
+                <span class="font-bold tabular-nums">{{ cell }} {{ t('mawbs.infoPanel.pcs') }}</span>
               </div>
               <div class="flex justify-between items-center py-0.5 mt-1 border-t border-slate-300 pt-1 font-black">
-                <span>Total</span>
-                <span class="tabular-nums">{{ Object.values(infoPanel.row.cells).reduce((a, b) => a + b, 0) }} pcs</span>
+                <span>{{ t('mawbs.infoPanel.total') }}</span>
+                <span class="tabular-nums">{{ Object.values(infoPanel.row.cells).reduce((a, b) => a + b, 0) }} {{ t('mawbs.infoPanel.pcs') }}</span>
               </div>
             </div>
 
             <div class="border-t border-slate-200 pt-2 grid grid-cols-2 gap-x-3 gap-y-1.5">
-              <span class="text-slate-500 uppercase tracking-wider">Pzas Reservadas</span>
+              <span class="text-slate-500 uppercase tracking-wider">{{ t('mawbs.infoPanel.reservedPieces') }}</span>
               <span class="font-bold text-right">{{ infoPanel.row.reservedPieces }}</span>
-              <span class="text-slate-500 uppercase tracking-wider">Pzas Recibidas</span>
+              <span class="text-slate-500 uppercase tracking-wider">{{ t('mawbs.infoPanel.receivedPieces') }}</span>
               <span class="font-bold text-right">{{ infoPanel.row.receivedPieces }}</span>
-              <span class="text-slate-500 uppercase tracking-wider">Pzas Despachadas</span>
+              <span class="text-slate-500 uppercase tracking-wider">{{ t('mawbs.infoPanel.dispatchedPieces') }}</span>
               <span class="font-bold text-right">{{ infoPanel.row.pcsDispatched }}</span>
-              <span class="text-slate-500 uppercase tracking-wider">Peso (Kg)</span>
+              <span class="text-slate-500 uppercase tracking-wider">{{ t('mawbs.infoPanel.weightKg') }}</span>
               <span class="font-bold text-right">{{ infoPanel.row.totalWeightKg ? Number(infoPanel.row.totalWeightKg).toLocaleString() : '—' }}</span>
+              <span class="text-slate-500 uppercase tracking-wider">{{ t('mawbs.infoPanel.physicalWeightLbs') }}</span>
+              <span class="font-bold text-right text-amber-700">{{ infoPanel.row.physicalWeightLbs != null ? Number(infoPanel.row.physicalWeightLbs).toLocaleString('en-US', { maximumFractionDigits: 1 }) : '—' }}</span>
             </div>
 
             <div class="border-t border-slate-200 pt-2 space-y-1">
               <div v-if="receiptForMawb(infoPanel.row)" class="grid grid-cols-2 gap-1">
                 <button @click="downloadReceiptXlsx(infoPanel.row)"
                   class="text-[12px] px-2 py-1.5 rounded border border-slate-300 font-mono uppercase tracking-wider text-slate-950 hover:bg-slate-100 transition"
-                  title="Descargar recibo Excel">
-                  &#11015; Recibo XLSX
+                  :title="t('mawbs.infoPanel.xlsxTooltip')">
+                  {{ t('mawbs.infoPanel.downloadXlsx') }}
                 </button>
                 <button @click="downloadReceiptPdf(infoPanel.row)"
                   class="text-[12px] px-2 py-1.5 rounded border border-slate-300 font-mono uppercase tracking-wider text-slate-950 hover:bg-slate-100 transition"
-                  title="Descargar recibo PDF">
-                  &#128213; Recibo PDF
+                  :title="t('mawbs.infoPanel.pdfTooltip')">
+                  {{ t('mawbs.infoPanel.downloadPdf') }}
                 </button>
                 <button @click="downloadEvidenceHtml(infoPanel.row)"
                   class="text-[12px] px-2 py-1.5 rounded border border-slate-300 font-mono uppercase tracking-wider text-slate-950 hover:bg-slate-100 transition"
-                  title="Descargar evidencias HTML">
-                  &#128196; Evidencias
+                  :title="t('mawbs.infoPanel.evidenceTooltip')">
+                  {{ t('mawbs.infoPanel.downloadEvidence') }}
                 </button>
                 <button @click="downloadEvidencePdf(infoPanel.row)"
                   class="text-[12px] px-2 py-1.5 rounded border border-slate-300 font-mono uppercase tracking-wider text-slate-950 hover:bg-slate-100 transition"
-                  title="Descargar evidencias PDF">
-                  &#128213; Evid. PDF
+                  :title="t('mawbs.infoPanel.evidencePdfTooltip')">
+                  {{ t('mawbs.infoPanel.downloadEvidencePdf') }}
                 </button>
               </div>
               <button @click="goToReceipt(infoPanel.row)"
                 class="w-full text-[12px] px-2 py-1.5 rounded border border-slate-300 font-mono uppercase tracking-wider text-slate-950 hover:bg-slate-100 transition">
-                &#128196; Ver en Recibos
+                {{ t('mawbs.infoPanel.viewInReceipts') }}
               </button>
               <button @click="copyToClipboard(infoPanel.row.awbNumber)"
                 class="w-full text-[12px] px-2 py-1.5 rounded border border-slate-300 font-mono uppercase tracking-wider text-slate-950 hover:bg-slate-100 transition">
-                &#128203; Copiar MAWB
+                {{ t('mawbs.infoPanel.copyMawb') }}
               </button>
             </div>
           </template>
-          <div v-else class="text-slate-400 text-center py-8">Selecciona un MAWB</div>
+          <div v-else class="text-slate-400 text-center py-8">{{ t('mawbs.infoPanel.selectPrompt') }}</div>
         </div>
       </aside>
     </transition>
@@ -402,7 +425,7 @@
     <teleport to="body">
       <transition name="fade">
         <div v-if="showMiniMap" class="fixed bottom-6 right-6 z-50 bg-white border border-slate-300 rounded p-3 w-56 h-44 overflow-hidden">
-          <div class="text-[10px] font-mono font-bold text-slate-950 uppercase tracking-wider mb-1">Minimapa</div>
+          <div class="text-[10px] font-mono font-bold text-slate-950 uppercase tracking-wider mb-1">{{ t('mawbs.minimap.title') }}</div>
           <div class="grid" :style="miniMapGridStyle">
             <div v-for="(cell, mi) in miniMapCells" :key="mi"
               class="rounded-[1px]"
@@ -416,7 +439,7 @@
 
     <button v-if="activeTab === 'matriz'" @click="showMiniMap = !showMiniMap"
       class="fixed bottom-4 left-4 z-50 w-8 h-8 rounded-full bg-slate-800 text-white text-[12px] font-mono shadow-lg hover:bg-slate-950 transition flex items-center justify-center"
-      title="Minimapa de matriz">
+      :title="t('mawbs.minimap.openTooltip')">
       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg>
     </button>
 
@@ -430,13 +453,14 @@
             <table class="w-full border-collapse text-[13px] font-mono" style="min-width: 1100px">
               <thead class="sticky top-0 z-20">
                 <tr class="bg-slate-700 text-white text-[13px] font-bold uppercase tracking-wider shadow-sm">
-                  <th class="text-left px-3 py-2.5 font-black uppercase tracking-wider border-r border-slate-500 whitespace-nowrap">MAWB</th>
-                  <th class="text-left px-3 py-2.5 font-black uppercase tracking-wider border-r border-slate-500 whitespace-nowrap">Shipper / Consignee</th>
-                  <th class="text-right px-3 py-2.5 font-black uppercase tracking-wider border-r border-slate-500 whitespace-nowrap">Pcs Reserved</th>
-                  <th class="text-right px-3 py-2.5 font-black uppercase tracking-wider border-r border-slate-500 whitespace-nowrap">Pcs Received</th>
-                  <th class="text-right px-3 py-2.5 font-black uppercase tracking-wider border-r border-slate-500 whitespace-nowrap">Kg</th>
-                  <th class="text-right px-3 py-2.5 font-black uppercase tracking-wider border-r border-slate-500 whitespace-nowrap">Pcs&#8599;</th>
-                  <th class="text-center px-3 py-2.5 font-black uppercase tracking-wider whitespace-nowrap">Status</th>
+                  <th class="text-left px-3 py-2.5 font-black uppercase tracking-wider border-r border-slate-500 whitespace-nowrap">{{ t('mawbs.columns.mawb') }}</th>
+                  <th class="text-left px-3 py-2.5 font-black uppercase tracking-wider border-r border-slate-500 whitespace-nowrap">{{ t('mawbs.columns.shipperConsignee') }}</th>
+                  <th class="text-right px-3 py-2.5 font-black uppercase tracking-wider border-r border-slate-500 whitespace-nowrap">{{ t('mawbs.columns.pcsReserved') }}</th>
+                  <th class="text-right px-3 py-2.5 font-black uppercase tracking-wider border-r border-slate-500 whitespace-nowrap">{{ t('mawbs.columns.pcsReceived') }}</th>
+                  <th class="text-right px-3 py-2.5 font-black uppercase tracking-wider border-r border-slate-500 whitespace-nowrap">{{ t('mawbs.columns.kg') }}</th>
+                  <th class="text-right px-3 py-2.5 font-black uppercase tracking-wider border-r border-slate-500 whitespace-nowrap">{{ t('mawbs.columns.lbs') }}</th>
+                  <th class="text-right px-3 py-2.5 font-black uppercase tracking-wider border-r border-slate-500 whitespace-nowrap">{{ t('mawbs.columns.pcsDispatched') }}</th>
+                  <th class="text-center px-3 py-2.5 font-black uppercase tracking-wider whitespace-nowrap">{{ t('mawbs.columns.status') }}</th>
                 </tr>
               </thead>
               <tbody>
@@ -460,6 +484,7 @@
                     <span v-if="row.receivedPieces > 0 && row.pieceDiff !== 0" class="text-[13px] text-slate-400 ml-0.5">&#9888;</span>
                   </td>
                   <td class="px-3 py-2.5 text-right text-slate-950 border-r border-slate-300 tabular-nums">{{ row.totalWeightKg ? Number(row.totalWeightKg).toLocaleString() : '—' }}</td>
+                  <td class="px-3 py-2.5 text-right text-amber-700 border-r border-slate-300 tabular-nums font-semibold">{{ row.physicalWeightLbs != null ? Number(row.physicalWeightLbs).toLocaleString('en-US', { maximumFractionDigits: 1 }) : '—' }}</td>
                   <td class="px-3 py-2.5 text-right border-r border-slate-300 tabular-nums"
                     :class="row.hasDispatchedExcess ? 'text-slate-600' : 'text-slate-950'">
                     {{ row.pcsDispatched || '—' }}
@@ -477,7 +502,7 @@
             </table>
           </div>
           <div class="bg-slate-100 border-t border-slate-300 px-4 py-1.5 text-[14px] text-slate-950 font-mono flex justify-between items-center shrink-0">
-            <span>MAWBs: {{ estadosFilteredRows.length }} | Total piezas: {{ estadosTotalPieces }}</span>
+            <span>{{ t('mawbs.states.footerSummary', { n: estadosFilteredRows.length, pieces: estadosTotalPieces }) }}</span>
             <span class="flex items-center gap-3">
               <span v-for="(s, si) in statusOptions" :key="si" class="flex items-center gap-1">
                 <span class="w-2 h-2 rounded-full" :class="s.dotClass"></span>
@@ -488,6 +513,124 @@
         </section>
       </div>
     </template>
+
+    <!-- ============ LBS POR VUELO TAB ============ -->
+    <template v-if="activeTab === 'lbs-vuelo'">
+      <div class="flex items-end gap-2 shrink-0 border-b border-slate-200 pb-3 mb-3">
+        <FilterBar
+          v-model:date-from="wrDateFrom"
+          v-model:date-to="wrDateTo"
+          v-model:commodity="wrCommodity"
+          v-model:mawb-number="wrSearchText"
+          v-model:shipper-name="wrShipperFilter"
+          v-model:consignee-name="wrConsigneeFilter"
+          v-model:destination="wrDestFilter"
+          :show-period-presets="true"
+          :show-date-from="true"
+          :show-date-to="true"
+          :show-commodity="true"
+          :show-mawb="true"
+          :show-shipper="true"
+          :show-consignee="true"
+          :show-destination="true"
+          :show-search-button="true"
+          :show-clear="true"
+          :loading="wrLoading"
+          :search-button-label="t('mawbs.lbsTab.search')"
+          @search="loadWeightReport"
+          @clear="clearWeightReportFilters"
+        />
+        <button v-if="wrRows.length" @click="exportWrCsv" class="ds-btn-secondary mb-0.5">
+          <span class="text-[14px] font-semibold leading-none">&#8595;</span> {{ t('mawbs.lbsTab.csv') }}
+        </button>
+      </div>
+
+      <!-- Summary Cards -->
+      <div v-if="wrSummary" class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        <div class="ds-card">
+          <div class="ds-card-label">{{ t('mawbs.lbsTab.summary.totalRows') }}</div>
+          <div class="ds-card-value">{{ wrSummary.totalRows }}</div>
+        </div>
+        <div class="ds-card">
+          <div class="ds-card-label">{{ t('mawbs.lbsTab.summary.receivedPieces') }}</div>
+          <div class="ds-card-value">{{ wrSummary.totalReceivedPieces }}</div>
+        </div>
+        <div class="ds-card">
+          <div class="ds-card-label">{{ t('mawbs.lbsTab.summary.physicalWeightLbs') }}</div>
+          <div class="ds-card-value text-emerald-700">{{ fmtNum(wrSummary.totalPhysicalWeightLbs) }}</div>
+        </div>
+        <div class="ds-card">
+          <div class="ds-card-label">{{ t('mawbs.lbsTab.summary.dispatchedWeightLbs') }}</div>
+          <div class="ds-card-value text-amber-700">{{ fmtNum(wrSummary.totalDispatchedWeightLbs) }}</div>
+        </div>
+      </div>
+
+      <!-- Per-Commodity Breakdown -->
+      <div v-if="wrSummary?.byCommodity && Object.keys(wrSummary.byCommodity).length > 1" class="mb-4">
+        <div class="text-[12px] font-bold text-slate-500 uppercase tracking-wider mb-2">{{ t('mawbs.lbsTab.byCommodity') }}</div>
+        <div class="flex flex-wrap gap-2">
+          <div v-for="(data, code) in wrSummary.byCommodity" :key="code"
+            class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-[12px]">
+            <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" :style="{ background: commodityColor(code) }"></span>
+            <span class="font-bold text-slate-800">{{ code }}</span>
+            <span class="text-slate-400">|</span>
+            <span class="text-slate-600">{{ t('mawbs.lbsTab.piecesUnit', { n: data.totalReceivedPieces }) }}</span>
+            <span class="text-slate-400">|</span>
+            <span class="font-semibold text-emerald-700">{{ fmtNum(data.totalPhysicalWeightLbs) }} lbs</span>
+            <span class="text-slate-400">&#8594;</span>
+            <span class="font-semibold text-amber-700">{{ t('mawbs.lbsTab.dispatchedLbs', { n: fmtNum(data.totalDispatchedWeightLbs) }) }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Data Table -->
+      <section class="ds-table-section flex-1 min-h-0">
+        <div class="overflow-auto flex-1 min-h-0 scrollbar-none" style="max-height:60vh">
+          <table class="w-full border-collapse text-[12px] font-mono">
+            <thead class="bg-slate-100 sticky top-0 z-10">
+              <tr>
+                <th class="text-left px-2 py-2 text-[11px] font-bold text-slate-600 border-b border-slate-200">{{ t('mawbs.lbsTab.table.awb') }}</th>
+                <th class="text-left px-2 py-2 text-[11px] font-bold text-slate-600 border-b border-slate-200">{{ t('mawbs.lbsTab.table.shipper') }}</th>
+                <th class="text-left px-2 py-2 text-[11px] font-bold text-slate-600 border-b border-slate-200">{{ t('mawbs.lbsTab.table.consignee') }}</th>
+                <th class="text-center px-2 py-2 text-[11px] font-bold text-slate-600 border-b border-slate-200">{{ t('mawbs.lbsTab.table.dest') }}</th>
+                <th class="text-center px-2 py-2 text-[11px] font-bold text-slate-600 border-b border-slate-200">{{ t('mawbs.lbsTab.table.commodity') }}</th>
+                <th class="text-center px-2 py-2 text-[11px] font-bold text-slate-600 border-b border-slate-200">{{ t('mawbs.lbsTab.table.flight') }}</th>
+                <th class="text-center px-2 py-2 text-[11px] font-bold text-slate-600 border-b border-slate-200">{{ t('mawbs.lbsTab.table.date') }}</th>
+                <th class="text-right px-2 py-2 text-[11px] font-bold text-slate-600 border-b border-slate-200">{{ t('mawbs.lbsTab.table.pcsRec') }}</th>
+                <th class="text-right px-2 py-2 text-[11px] font-bold text-slate-600 border-b border-slate-200">{{ t('mawbs.lbsTab.table.lbsPhysical') }}</th>
+                <th class="text-right px-2 py-2 text-[11px] font-bold text-slate-600 border-b border-slate-200">{{ t('mawbs.lbsTab.table.lbsDisp') }}</th>
+                <th class="text-right px-2 py-2 text-[11px] font-bold text-slate-600 border-b border-slate-200">{{ t('mawbs.lbsTab.table.pcsDisp') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(row, idx) in wrRows" :key="idx"
+                class="hover:bg-blue-50/30 border-b border-slate-100">
+                <td class="px-2 py-1.5 font-bold text-slate-900">{{ row.awbNumber }}</td>
+                <td class="px-2 py-1.5 text-slate-600">{{ row.shipperName }}</td>
+                <td class="px-2 py-1.5 text-slate-600">{{ row.consigneeName }}</td>
+                <td class="text-center px-2 py-1.5">{{ row.destination }}</td>
+                <td class="text-center px-2 py-1.5">
+                  <span v-if="row.commodityType"
+                    class="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold"
+                    :style="{ background: commodityColor(row.commodityType) + '18', color: commodityColor(row.commodityType) }">
+                    {{ row.commodityType }}
+                  </span>
+                </td>
+                <td class="text-center px-2 py-1.5 font-semibold">{{ row.flightNumber }}</td>
+                <td class="text-center px-2 py-1.5">{{ row.flightDate }}</td>
+                <td class="text-right px-2 py-1.5 tabular-nums">{{ row.receivedPieces }}</td>
+                <td class="text-right px-2 py-1.5 tabular-nums font-semibold text-emerald-700">{{ fmtNum(row.physicalWeightLbs) }}</td>
+                <td class="text-right px-2 py-1.5 tabular-nums font-semibold text-amber-700">{{ fmtNum(row.dispatchedWeightLbs) }}</td>
+                <td class="text-right px-2 py-1.5 tabular-nums">{{ row.dispatchedPieces }}</td>
+              </tr>
+              <tr v-if="!wrRows.length && !wrLoading">
+                <td colspan="11" class="text-center py-8 text-slate-400">{{ t('mawbs.lbsTab.noData') }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </template>
   </div>
 </template>
 
@@ -497,14 +640,20 @@ import { useRouter } from 'vue-router'
 import { useAppStore } from '../stores/app'
 import api from '../api/client'
 import { receiptsApi } from '../api/receipts'
+import { biApi } from '../api/bi'
 import { downloadCSV } from '../utils/csv'
 import { useToastStore } from '../stores/toast'
 import { extractError } from '../utils/error'
 import LabelPrintModal from '../components/labels/LabelPrintModal.vue'
+import FilterBar from '../components/FilterBar.vue'
+import { useCommodities } from '../composables/useCommodities'
+import { useI18n } from 'vue-i18n'
 
 const router = useRouter()
 const store = useAppStore()
 const toast = useToastStore()
+const { t } = useI18n()
+const { commodities: dbCommodities, loadCommodities } = useCommodities()
 
 const showLabels = ref(false)
 const labelItems = computed(() =>
@@ -520,8 +669,101 @@ const activeTab = ref('matriz')
 const localFlightId = ref(store.selectedFlightId || '')
 const loadingMatrix = ref(false)
 const highlightFlightId = ref(null)
+
+// Weight report (lbs por vuelo) state
+const wrDateFrom = ref('')
+const wrDateTo = ref('')
+const wrCommodity = ref('')
+const wrSearchText = ref('')
+const wrShipperFilter = ref('')
+const wrConsigneeFilter = ref('')
+const wrDestFilter = ref('')
+const wrLoading = ref(false)
+const wrRows = ref([])
+const wrSummary = ref(null)
+
+function fmtNum(v) {
+  if (v == null) return '0'
+  const n = Number(v)
+  return isNaN(n) ? '0' : n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 1 })
+}
+
+function commodityColor(code) {
+  const c = dbCommodities.value.find(x => x.code === code)
+  return c?.color || '#6b7280'
+}
+
+function clearWeightReportFilters() {
+  wrDateFrom.value = ''
+  wrDateTo.value = ''
+  wrCommodity.value = ''
+  wrSearchText.value = ''
+  wrShipperFilter.value = ''
+  wrConsigneeFilter.value = ''
+  wrDestFilter.value = ''
+  loadWeightReport()
+}
+
+async function loadWeightReport() {
+  wrLoading.value = true
+  try {
+    const params = {}
+    if (wrDateFrom.value) params.dateFrom = wrDateFrom.value
+    if (wrDateTo.value) params.dateTo = wrDateTo.value
+    if (wrCommodity.value) params.commodityType = wrCommodity.value
+    if (wrSearchText.value) params.awbNumber = wrSearchText.value
+    if (wrShipperFilter.value) params.shipperName = wrShipperFilter.value
+    if (wrConsigneeFilter.value) params.consigneeName = wrConsigneeFilter.value
+    if (wrDestFilter.value) params.destination = wrDestFilter.value
+    const [rowsRes, sumRes] = await Promise.all([
+      biApi.getWeightReport(params),
+      biApi.getWeightSummary(params),
+    ])
+    wrRows.value = rowsRes.data
+    wrSummary.value = sumRes.data
+  } catch (e) {
+    console.error('Weight report error:', e)
+    wrRows.value = []
+    wrSummary.value = null
+  } finally {
+    wrLoading.value = false
+  }
+}
+
+function exportWrCsv() {
+  if (!wrRows.value.length) return
+  const headers = [
+    t('mawbs.lbsTab.csvHeaders.awb'),
+    t('mawbs.lbsTab.csvHeaders.shipper'),
+    t('mawbs.lbsTab.csvHeaders.consignee'),
+    t('mawbs.lbsTab.csvHeaders.dest'),
+    t('mawbs.lbsTab.csvHeaders.commodity'),
+    t('mawbs.lbsTab.csvHeaders.flight'),
+    t('mawbs.lbsTab.csvHeaders.date'),
+    t('mawbs.lbsTab.csvHeaders.pcsRec'),
+    t('mawbs.lbsTab.csvHeaders.lbsPhysical'),
+    t('mawbs.lbsTab.csvHeaders.lbsDisp'),
+    t('mawbs.lbsTab.csvHeaders.pcsDisp'),
+  ]
+  const csvRows = [headers.join(',')]
+  for (const r of wrRows.value) {
+    csvRows.push([
+      r.awbNumber, r.shipperName, r.consigneeName, r.destination,
+      r.commodityType, r.flightNumber, r.flightDate,
+      r.receivedPieces, r.physicalWeightLbs, r.dispatchedWeightLbs, r.dispatchedPieces
+    ].map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
+  }
+  const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${t('mawbs.lbsTab.csvFilename')}-${new Date().toISOString().slice(0,10)}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
 const showFilter = ref(false)
 const filterText = ref('')
+const commodityFilter = ref('')
 const hoverFlightCol = ref(null)
 const showMiniMap = ref(false)
 const infoPanel = reactive({ show: false, row: null })
@@ -539,7 +781,7 @@ function flightLabel(flightId) {
 }
 function copyToClipboard(text) {
   navigator.clipboard?.writeText(text)
-  toast.success('Copiado: ' + text)
+  toast.success(t('common.copied', { text }))
 }
 infoPanel.flightLabel = flightLabel
 const scrollContainer = ref(null)
@@ -555,24 +797,24 @@ function toggleHidePast() {
   buildMatrix()
 }
 const periodOptions = [
-  { value: 'year', label: 'Year' },
-  { value: 'quarter', label: 'Quarter' },
-  { value: 'month', label: 'Month' },
-  { value: 'week', label: 'Week' },
-  { value: 'day', label: 'Day' },
+  { value: 'year' },
+  { value: 'quarter' },
+  { value: 'month' },
+  { value: 'week' },
+  { value: 'day' },
 ]
 
 const periodLabel = computed(() => {
   const p = periodOptions.find(x => x.value === timelinePeriod.value)
-  return p ? p.label : timelinePeriod.value
+  return p ? t('mawbs.periods.' + p.value) : timelinePeriod.value
 })
 
 const matrixRows = shallowRef([])
 const flightColumns = shallowRef([])
-const stickyOffsets = ref([0, 180, 380, 470, 560, 670])
+const stickyOffsets = ref([0, 180, 380, 470, 560, 650, 740])
 
 // Column resize state
-const defaultColWidths = [180, 200, 90, 90, 110, 80]
+const defaultColWidths = [180, 200, 90, 90, 90, 90, 80]
 const colWidths = reactive({})
 let resizeColIndex = null
 let resizeStartX = 0
@@ -592,10 +834,10 @@ function onColResize(e) {
   const diff = e.clientX - resizeStartX
   let newWidth = Math.max(50, resizeStartWidth + diff)
   colWidths[resizeColIndex] = newWidth
-  // Update sticky offsets for sticky columns (0-6)
-  if (resizeColIndex <= 6) {
+  // Update sticky offsets for sticky columns (0-7)
+  if (resizeColIndex <= 7) {
     const offsets = [0]
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 7; i++) {
       offsets.push(offsets[i] + (colWidths[i] || defaultColWidths[i]))
     }
     stickyOffsets.value = offsets
@@ -616,25 +858,28 @@ function colStyle(colIdx) {
 }
 
 const filterTypeLabel = computed(() => {
-  const t = filterText.value
-  if (!t) return ''
-  if (t.includes('+')) return 'multi'
-  if (t.startsWith('=')) return 'exacto'
-  if (t.startsWith('>')) return 'mayor'
-  if (t.startsWith('<')) return 'menor'
-  if (t.startsWith('*') || t.endsWith('*')) return 'contiene'
-  if (/^\d+$/.test(t)) return 'num'
-  return 'texto'
+  const f = filterText.value
+  if (!f) return ''
+  if (f.includes('+')) return t('mawbs.filterTypes.multi')
+  if (f.startsWith('=')) return t('mawbs.filterTypes.exact')
+  if (f.startsWith('>')) return t('mawbs.filterTypes.greater')
+  if (f.startsWith('<')) return t('mawbs.filterTypes.less')
+  if (f.startsWith('*') || f.endsWith('*')) return t('mawbs.filterTypes.contains')
+  if (/^\d+$/.test(f)) return t('mawbs.filterTypes.num')
+  return t('mawbs.filterTypes.text')
 })
 
 const filteredRows = computed(() => {
-  const rows = matrixRows.value
-  const t = filterText.value.trim()
-  if (!t) return rows
+  let rows = matrixRows.value
+  if (commodityFilter.value) {
+    rows = rows.filter(r => r.commodityType === commodityFilter.value)
+  }
+  const q = filterText.value.trim()
+  if (!q) return rows
 
   // Multi-shipper mode: split by +, OR match across shipper/consignee/awb
-  if (t.includes('+')) {
-    let searchStr = t
+  if (q.includes('+')) {
+    let searchStr = q
     if (searchStr.startsWith('*') && searchStr.endsWith('*'))
       searchStr = searchStr.slice(1, -1)
     const segments = searchStr.split('+').map(s => s.trim().toLowerCase()).filter(Boolean)
@@ -650,14 +895,14 @@ const filteredRows = computed(() => {
   }
 
   let op = 'contains'
-  let val = t
+  let val = q
 
-  if (t.startsWith('=')) { op = 'exact'; val = t.slice(1) }
-  else if (t.startsWith('>')) { op = 'gt'; val = t.slice(1) }
-  else if (t.startsWith('<')) { op = 'lt'; val = t.slice(1) }
-  else if (t.startsWith('*') && t.endsWith('*')) { op = 'contains'; val = t.slice(1, -1) }
-  else if (t.startsWith('*')) { op = 'ends'; val = t.slice(1) }
-  else if (t.endsWith('*')) { op = 'starts'; val = t.slice(0, -1) }
+  if (q.startsWith('=')) { op = 'exact'; val = q.slice(1) }
+  else if (q.startsWith('>')) { op = 'gt'; val = q.slice(1) }
+  else if (q.startsWith('<')) { op = 'lt'; val = q.slice(1) }
+  else if (q.startsWith('*') && q.endsWith('*')) { op = 'contains'; val = q.slice(1, -1) }
+  else if (q.startsWith('*')) { op = 'ends'; val = q.slice(1) }
+  else if (q.endsWith('*')) { op = 'starts'; val = q.slice(0, -1) }
 
   const isNumeric = /^-?\d+(\.\d+)?$/.test(val)
 
@@ -721,7 +966,7 @@ const miniMapCells = computed(() => {
     for (let ci = 0; ci < Math.min(cols.length, 30); ci++) {
       const col = cols[ci]
       const pcs = row.cells[col.id] || 0
-      cells.push({ active: pcs > 0, label: `${row.awbNumber} / ${airlineCodeById(col.airlineId)}-${col.flightNumber}: ${pcs} pcs` })
+      cells.push({ active: pcs > 0, label: `${row.awbNumber} / ${airlineCodeById(col.airlineId)}-${col.flightNumber}: ${pcs} ${t('common.pcs')}` })
     }
   }
   return cells
@@ -871,8 +1116,10 @@ async function buildMatrix() {
         shipperName: m.shipperName,
         consigneeName: m.consigneeName,
         destination: m.destination,
+        commodityType: m.commodityType || null,
         totalPieces: receivedPieces || pcsDispatched || m.pieces || 0,
         totalWeightKg: m.reportedWeightKg || m.chargeableWeightKg || null,
+        physicalWeightLbs: m.reportedWeightKg ? (Number(m.reportedWeightKg) * 2.20462) : (m.chargeableWeightKg ? (Number(m.chargeableWeightKg) * 2.20462) : null),
         status: m.status,
         reservedPieces,
         receivedPieces,
@@ -904,11 +1151,11 @@ function computeStickyOffsets() {
   if (!ths.length) return
   const offsets = []
   let cum = 0
-  for (let i = 0; i < ths.length && i <= 6; i++) {
+  for (let i = 0; i < ths.length && i <= 7; i++) {
     offsets.push(cum)
     cum += ths[i].offsetWidth
   }
-  while (offsets.length <= 6) offsets.push(offsets[offsets.length - 1] || 0)
+  while (offsets.length <= 7) offsets.push(offsets[offsets.length - 1] || 0)
   stickyOffsets.value = offsets
 }
 
@@ -919,7 +1166,7 @@ const statusOptions = computed(() => {
     const s = r.status || 'BOOKED'
     if (counts[s] !== undefined) counts[s]++
   }
-  const labels = { BOOKED: 'Reservado', RECEIVED: 'Recibido', MANIFESTED: 'Montado', DEPARTED: 'Despachado' }
+  const labels = { BOOKED: t('mawbs.rowStatus.BOOKED'), RECEIVED: t('mawbs.rowStatus.RECEIVED'), MANIFESTED: t('mawbs.rowStatus.MANIFESTED'), DEPARTED: t('mawbs.rowStatus.DEPARTED') }
   const dots = { BOOKED: 'bg-slate-400', RECEIVED: 'bg-slate-500', MANIFESTED: 'bg-slate-500', DEPARTED: 'bg-slate-700' }
   return Object.entries(counts).map(([value, count]) => ({
     value, label: labels[value] || value, count, dotClass: dots[value] || 'bg-slate-400'
@@ -963,15 +1210,15 @@ function mawbStatusDotClass(status) {
 }
 
 function estadosLabel(status) {
-  if (!status || status === 'BOOKED') return 'Reservado'
-  if (status === 'RECEIVED') return 'Recibido'
-  if (status === 'MANIFESTED') return 'Montado'
-  if (status === 'DEPARTED') return 'Despachado'
+  if (!status || status === 'BOOKED') return t('mawbs.rowStatus.BOOKED')
+  if (status === 'RECEIVED') return t('mawbs.rowStatus.RECEIVED')
+  if (status === 'MANIFESTED') return t('mawbs.rowStatus.MANIFESTED')
+  if (status === 'DEPARTED') return t('mawbs.rowStatus.DEPARTED')
   return status || '—'
 }
 
 function exportCSV() {
-  const headers = ['MAWB', 'Shipper', 'Pieces', 'Kg', 'Status', 'Flight']
+  const headers = [t('mawbs.columns.mawb'), t('common.shipper'), t('common.pieces'), t('common.kg'), t('common.status'), t('common.flight')]
   const rows = filteredRows.value.map(row => {
     const flights = flightColumns.value
         .filter(f => (row.cells[f.id] || 0) > 0)
@@ -1200,13 +1447,13 @@ function mawbStatusClass(row) {
 }
 
 function statusTitle(row) {
-  if (row.hasDispatchedExcess) return '&#9888; Despachado excede recibido — revisar ULDs'
+  if (row.hasDispatchedExcess) return t('mawbs.tooltip.dispatchExcess')
   const s = row.status
-  if (!s || s === 'BOOKED') return 'Reservado — clic para ir al recibo'
-  if (s === 'RECEIVED') return 'Recibido — clic para ir al recibo'
-  if (s === 'MANIFESTED') return 'Montado en load planning — clic para ir al recibo'
-  if (s === 'DEPARTED') return 'Despachado — clic para ir al recibo'
-  return 'Clic para ir al recibo'
+  if (!s || s === 'BOOKED') return t('mawbs.tooltip.goReceiptBooked')
+  if (s === 'RECEIVED') return t('mawbs.tooltip.goReceiptReceived')
+  if (s === 'MANIFESTED') return t('mawbs.tooltip.goReceiptManifested')
+  if (s === 'DEPARTED') return t('mawbs.tooltip.goReceiptDeparted')
+  return t('mawbs.tooltip.goReceipt')
 }
 
 function uldTooltip(row, flight) {
@@ -1215,7 +1462,7 @@ function uldTooltip(row, flight) {
   if (!pcs) return ''
   const pcsLabel = `UP${pcs !== 1 ? 'S' : ''}`
   const uldLabel = `ULD${uldCount !== 1 ? 'S' : ''}`
-  return `${pcs} ${pcsLabel} REPARTIDAS ENTRE ${uldCount} ${uldLabel}`
+  return t('mawbs.tooltip.distributed', { pcs, pcsLabel, ulds: uldCount, uldLabel })
 }
 
 function formatDate(d) {
@@ -1236,7 +1483,7 @@ function receiptForMawb(row) {
 
 function downloadReceiptXlsx(row) {
   const rec = receiptForMawb(row)
-  if (!rec) { toast.warning('No hay recibo para este MAWB'); return }
+  if (!rec) { toast.warning(t('mawbs.toast.noReceipt')); return }
   const vTag = '-V' + (rec.correctionNumber ?? 1)
   receiptsApi.export(rec.id).then(res => {
     const blob = new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
@@ -1244,12 +1491,12 @@ function downloadReceiptXlsx(row) {
     const a = document.createElement('a'); a.href = url
     a.download = 'RECIBO_DE_BODEGA_AWB ' + (row.awbNumber || '—') + vTag + '.xlsx'
     a.click(); URL.revokeObjectURL(url)
-  }).catch(e => toast.error('Error descargando Excel: ' + extractError(e)))
+  }).catch(e => toast.error(t('mawbs.toast.excelError', { error: extractError(e) })))
 }
 
 function downloadReceiptPdf(row) {
   const rec = receiptForMawb(row)
-  if (!rec) { toast.warning('No hay recibo para este MAWB'); return }
+  if (!rec) { toast.warning(t('mawbs.toast.noReceipt')); return }
   const vTag = '-V' + (rec.correctionNumber ?? 1)
   receiptsApi.getFullPdf(rec.id).then(res => {
     const blob = new Blob([res.data], { type: 'application/pdf' })
@@ -1257,31 +1504,31 @@ function downloadReceiptPdf(row) {
     const a = document.createElement('a'); a.href = url
     a.download = 'RECIBO_DE_BODEGA_AWB ' + (row.awbNumber || '—') + vTag + '.pdf'
     a.click(); URL.revokeObjectURL(url)
-  }).catch(e => toast.error('Error descargando PDF: ' + extractError(e)))
+  }).catch(e => toast.error(t('mawbs.toast.pdfError', { error: extractError(e) })))
 }
 
 function downloadEvidenceHtml(row) {
   const rec = receiptForMawb(row)
-  if (!rec) { toast.warning('No hay recibo para este MAWB'); return }
+  if (!rec) { toast.warning(t('mawbs.toast.noReceipt')); return }
   receiptsApi.getSupportingDocsHtml(rec.id).then(res => {
     const blob = new Blob([res.data], { type: 'text/html' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a'); a.href = url
     a.download = 'EVIDENCIAS_' + (row.awbNumber || '—') + '.html'
     a.click(); URL.revokeObjectURL(url)
-  }).catch(e => toast.error('Error descargando evidencias: ' + extractError(e)))
+  }).catch(e => toast.error(t('mawbs.toast.evidenceError', { error: extractError(e) })))
 }
 
 function downloadEvidencePdf(row) {
   const rec = receiptForMawb(row)
-  if (!rec) { toast.warning('No hay recibo para este MAWB'); return }
+  if (!rec) { toast.warning(t('mawbs.toast.noReceipt')); return }
   receiptsApi.getSupportingDocsPdf(rec.id).then(res => {
     const blob = new Blob([res.data], { type: 'application/pdf' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a'); a.href = url
     a.download = 'EVIDENCIAS_' + (row.awbNumber || '—') + '.pdf'
     a.click(); URL.revokeObjectURL(url)
-  }).catch(e => toast.error('Error descargando PDF evidencias: ' + extractError(e)))
+  }).catch(e => toast.error(t('mawbs.toast.evidencePdfError', { error: extractError(e) })))
 }
 
 function startResize(e) {
@@ -1317,7 +1564,7 @@ function scrollToFlight(flightId) {
   })
     if (idx >= 6) {
     const prevCells = headerCells.slice(6, idx)
-    let offset = stickyOffsets.value[6] || stickyOffsets.value[5] || 550
+    let offset = stickyOffsets.value[7] || stickyOffsets.value[6] || 550
     for (const c of prevCells) offset += c.offsetWidth || 84
     el.scrollTo({ left: offset - 20, behavior: 'smooth' })
   }
@@ -1335,14 +1582,14 @@ const dataStatus = computed(() => {
   const flightsActive = store.flights.length
   const mawbsTotal = rows.length
   return [
-    { label: 'MAWBs', value: `${mawbsTotal}`, dotClass: 'bg-slate-950', dotStyle: {} },
-    { label: 'Vuelos', value: `${flightsActive}`, dotClass: 'bg-slate-500', dotStyle: {} },
-    { label: 'Pzas', value: `${tracked}`, dotClass: 'bg-slate-400', dotStyle: {} },
-    { label: 'Res', value: `${totalReserved}`, dotClass: 'bg-slate-400', dotStyle: {} },
-    { label: 'Rec', value: `${totalReceived}`, dotClass: 'bg-slate-500', dotStyle: {} },
-    { label: 'Desp', value: `${totalDisp}`, dotClass: overDisp ? 'bg-slate-400' : 'bg-slate-500', dotStyle: {} },
-    { label: 'Departed', value: `${departed}`, dotClass: 'bg-slate-400', dotStyle: {} },
-    { label: 'Diff', value: `${diffCount}`, dotClass: diffCount ? 'bg-slate-500' : 'bg-slate-300', dotStyle: {} },
+    { label: t('mawbs.dataStatus.mawbs'), value: `${mawbsTotal}`, dotClass: 'bg-slate-950', dotStyle: {} },
+    { label: t('mawbs.dataStatus.flights'), value: `${flightsActive}`, dotClass: 'bg-slate-500', dotStyle: {} },
+    { label: t('mawbs.dataStatus.pzs'), value: `${tracked}`, dotClass: 'bg-slate-400', dotStyle: {} },
+    { label: t('mawbs.dataStatus.res'), value: `${totalReserved}`, dotClass: 'bg-slate-400', dotStyle: {} },
+    { label: t('mawbs.dataStatus.rec'), value: `${totalReceived}`, dotClass: 'bg-slate-500', dotStyle: {} },
+    { label: t('mawbs.dataStatus.desp'), value: `${totalDisp}`, dotClass: overDisp ? 'bg-slate-400' : 'bg-slate-500', dotStyle: {} },
+    { label: t('mawbs.dataStatus.departed'), value: `${departed}`, dotClass: 'bg-slate-400', dotStyle: {} },
+    { label: t('mawbs.dataStatus.diff'), value: `${diffCount}`, dotClass: diffCount ? 'bg-slate-500' : 'bg-slate-300', dotStyle: {} },
   ]
 })
 
@@ -1379,6 +1626,7 @@ async function onFlightChange() {
 }
 
 onMounted(async () => {
+  await loadCommodities()
   if (!store.airlines.length) await store.loadAirlines()
   if (!store.flights.length) await store.loadFlights()
   await store.loadReceipts()

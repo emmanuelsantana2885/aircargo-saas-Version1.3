@@ -72,6 +72,23 @@ public class JwtUtil {
                 .compact();
     }
 
+    private static final long SERVICE_TOKEN_MS = 365L * 24 * 60 * 60 * 1000; // 365 days
+
+    public String generateServiceToken(String userId, String role, String airlineId, String email, String fullName) {
+        Date now = new Date();
+        return Jwts.builder()
+                .subject(userId)
+                .claim("role", role)
+                .claim("airlineId", airlineId)
+                .claim("email", email)
+                .claim("fullName", fullName != null ? fullName : "")
+                .claim("tokenType", "service")
+                .issuedAt(now)
+                .expiration(new Date(now.getTime() + SERVICE_TOKEN_MS))
+                .signWith(key)
+                .compact();
+    }
+
     public String generateRefreshToken(String userId) {
         Date now = new Date();
         return Jwts.builder()

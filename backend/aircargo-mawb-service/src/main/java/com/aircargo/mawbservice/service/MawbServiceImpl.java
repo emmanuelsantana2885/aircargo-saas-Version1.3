@@ -1,15 +1,14 @@
 package com.aircargo.mawbservice.service;
 
 import com.aircargo.common.dto.PageResponse;
-import com.aircargo.common.event.MawbStatusChangedEvent;
 import com.aircargo.mawbservice.dto.MawbDTO;
 import com.aircargo.mawbservice.entity.Mawb;
 import com.aircargo.mawbservice.entity.MawbStatus;
 import com.aircargo.mawbservice.repository.MawbRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.beans.factory.annotation.Value;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
@@ -28,18 +27,14 @@ import java.util.stream.Collectors;
 @Service
 public class MawbServiceImpl implements MawbService {
 
+    private static final Logger log = LoggerFactory.getLogger(MawbServiceImpl.class);
+
     private final MawbRepository mawbRepository;
     private final ObjectMapper objectMapper;
-    private final RabbitTemplate rabbitTemplate;
 
-    @Value("${rabbitmq.exchange:aircargo.events}")
-    private String exchange;
-
-    public MawbServiceImpl(MawbRepository mawbRepository, ObjectMapper objectMapper,
-                           RabbitTemplate rabbitTemplate) {
+    public MawbServiceImpl(MawbRepository mawbRepository, ObjectMapper objectMapper) {
         this.mawbRepository = mawbRepository;
         this.objectMapper = objectMapper;
-        this.rabbitTemplate = rabbitTemplate;
     }
 
     @Override
@@ -166,13 +161,7 @@ public class MawbServiceImpl implements MawbService {
     }
 
     private void publishStatusChanged(Mawb mawb, MawbStatus oldStatus, MawbStatus newStatus) {
-        try {
-            rabbitTemplate.convertAndSend(exchange, "mawb.status.changed",
-                    new MawbStatusChangedEvent(mawb.getId(), mawb.getAwbNumber(),
-                            oldStatus != null ? oldStatus.name() : null, newStatus.name()));
-        } catch (Exception e) {
-            // Log but don't fail the status update
-        }
+        log.warn("RabbitMQ not available - event not published: mawb.status.changed");
     }
 
     @Override

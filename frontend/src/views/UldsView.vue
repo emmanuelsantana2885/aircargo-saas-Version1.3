@@ -3,29 +3,40 @@
     <header class="ds-section-header">
       <div class="flex items-center gap-4">
         <div>
-          <h1 class="ds-title">ULD Management Hub</h1>
-          <p class="ds-subtitle">SDQ Operations // Ground Handling & Pallet Sheets</p>
+          <h1 class="ds-title">{{ t('ulds.title') }}</h1>
+          <p class="ds-subtitle">{{ t('ulds.subtitle') }}</p>
         </div>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 flex-wrap">
         <span v-if="pendingReceiptCount > 0"
           class="text-[14px] font-mono font-bold text-slate-600 bg-slate-50 border border-slate-200 px-2 py-1 rounded">
-          &#9888; {{ pendingReceiptCount }} MAWB(s) sin recibo
+          &#9888; {{ t('ulds.pendingReceipts', { n: pendingReceiptCount }) }}
         </span>
+        <FilterBar
+          v-model:status="statusFilter"
+          v-model:search-text="searchText"
+          v-model:destination="destFilter"
+          :show-status="true"
+          :show-search="true"
+          :show-destination="true"
+          :status-options="uldStatusOptions"
+          :search-placeholder="t('ulds.searchPlaceholder')"
+          container-class="!gap-1"
+        />
         <button @click="createNewBlankUld"
           class="ds-btn-primary">
-          <span class="text-[12px] font-sans">&#65291;</span> Crear ULD
+          <span class="text-[12px] font-sans">&#65291;</span> {{ t('ulds.createUld') }}
         </button>
       </div>
     </header>
 
     <section class="ds-table-section mb-1.5">
       <div v-if="appStore.loading && !localUlds.length" class="flex-1 flex items-center justify-center">
-        <span class="text-[14px] font-mono text-slate-400 animate-pulse">Cargando ULDs...</span>
+        <span class="text-[14px] font-mono text-slate-400 animate-pulse">{{ t('ulds.loading') }}</span>
       </div>
 
       <div v-else-if="filteredUlDs.length === 0" class="flex-1 flex items-center justify-center">
-        <p class="text-[14px] font-mono text-slate-400 uppercase tracking-widest">No hay ULDs disponibles — crea uno nuevo</p>
+        <p class="text-[14px] font-mono text-slate-400 uppercase tracking-widest">{{ t('ulds.emptyCreate') }}</p>
       </div>
 
       <template v-else>
@@ -41,7 +52,7 @@
             :style="uldStatusBorderStyle(uld.status)">
 
             <span class="text-[13px] font-black text-slate-950 font-mono truncate min-w-[100px] leading-tight flex items-center gap-1.5">
-              {{ uld.uldNumber || 'NUEVO-ULD' }}
+              {{ uld.uldNumber || t('ulds.newUld') }}
               <span v-if="uldAgeInDays(uld.createdAt) !== null"
                 class="text-[10px] font-bold px-1 py-px rounded leading-none"
                 :class="uldAgeBadgeClass(uldAgeInDays(uld.createdAt))">
@@ -49,7 +60,7 @@
               </span>
             </span>
             <span class="text-[10px] font-black px-1 py-px rounded uppercase whitespace-nowrap leading-none shrink-0"
-              :class="statusBadgeClass(uld.status)">{{ uld.status }}</span>
+              :class="statusBadgeClass(uld.status)">{{ t('ulds.status.' + uld.status) }}</span>
 
             <span class="text-[13px] font-mono text-slate-400 font-semibold truncate leading-tight shrink-0 min-w-[80px]">
               {{ flightLabel(uld) }}
@@ -64,7 +75,7 @@
             </span>
 
             <span class="text-[13px] font-mono text-slate-500 leading-tight shrink-0 min-w-[60px]">
-              {{ (uld.mawbs || []).length }} MAWB{{ (uld.mawbs || []).length !== 1 ? 's' : '' }}
+              {{ t('ulds.mawbCount', (uld.mawbs || []).length) }}
             </span>
 
             <div class="flex items-center gap-1 ml-auto min-w-[80px]">
@@ -85,7 +96,7 @@
               <div class="bg-white border border-slate-300 rounded shadow-sm max-w-5xl mx-auto p-3 md:p-6 font-mono text-sm relative">
                   <div class="flex justify-between items-center border-b border-slate-300 pb-3 mb-5">
                     <div class="flex items-center gap-2">
-                      <span class="text-[13px] font-black text-slate-950 uppercase tracking-wider">ULD PALLET SHEET & MANIFEST</span>
+                      <span class="text-[13px] font-black text-slate-950 uppercase tracking-wider">{{ t('ulds.palletSheetHeader') }}</span>
                   </div>
                   <div class="flex items-center gap-2">
                     <span class="text-[13px] font-bold text-slate-400 uppercase">Volumen:</span>
@@ -97,25 +108,25 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
                   <div>
                     <label class="ds-label block mb-1 flex items-center gap-1.5">
-                      Código ULD *
-                      <span v-if="creationStep === 2" class="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-px rounded font-black">Escanee o escriba</span>
+                      {{ t('ulds.form.uldCode') }} *
+                      <span v-if="creationStep === 2" class="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-px rounded font-black">{{ t('ulds.scanOrType') }}</span>
                     </label>
                     <input v-model="uld.uldNumber" type="text" placeholder="PMC-XXXXX"
                       class="ds-input uppercase transition-all duration-300"
                       :class="creationStep === 2 ? 'ring-2 ring-emerald-400 bg-emerald-50 border-emerald-400' : ''" />
                   </div>
                   <div>
-                    <label class="ds-label block mb-1">Config / Tipo</label>
+                    <label class="ds-label block mb-1">{{ t('ulds.form.configType') }}</label>
                     <select v-model="uld.uldType" class="ds-input">
-                      <option v-for="t in uldTypes" :key="t" :value="t">{{ t }}</option>
+                      <option v-for="ut in uldTypes" :key="ut" :value="ut">{{ ut }}</option>
                     </select>
                   </div>
                   <div>
-                    <label class="ds-label block mb-1">Posición</label>
+                    <label class="ds-label block mb-1">{{ t('ulds.form.position') }}</label>
                     <input v-model="uld.position" type="text" placeholder="1L" class="ds-input uppercase" />
                   </div>
                   <div>
-                    <label class="ds-label block mb-1">Sello Seguridad</label>
+                    <label class="ds-label block mb-1">{{ t('ulds.form.sealNumber') }}</label>
                     <input v-model="uld.sealNumber" type="text" placeholder="SC-XXXXXXXX" class="ds-input font-bold" />
                   </div>
                 </div>
@@ -124,7 +135,7 @@
                 <ScanPanel
                   :active="scanMode"
                   :uld-id="uld.backendId || ''"
-                  :uld-number="uld.uldNumber || 'NUEVO'"
+                  :uld-number="uld.uldNumber || t('ulds.newShort')"
                   @piece-added="onScanPieceAdded"
                   @piece-removed="onScanPieceRemoved"
                   @exit-scan="scanMode = false"
@@ -135,21 +146,22 @@
                 <div class="border border-slate-200 rounded overflow-hidden mb-6">
                   <div class="overflow-x-auto">
                   <div class="table-scroll-wrapper">
-                  <div class="ds-table-header grid grid-cols-12 py-3 px-5 items-center gap-2" style="min-width: 700px">
+                  <div class="ds-table-header grid grid-cols-13 py-3 px-5 items-center gap-2" style="min-width: 750px">
                     <div class="col-span-3">MAWB</div>
-                    <div class="col-span-2">DESCRIPCIÓN</div>
-                    <div class="col-span-1 text-right">PCS ASIG</div>
-                    <div class="col-span-1 text-right">PCS REC</div>
+                    <div class="col-span-1">{{ t('ulds.table.status') }}</div>
+                    <div class="col-span-2">{{ t('ulds.table.description') }}</div>
+                    <div class="col-span-1 text-right">{{ t('ulds.table.pcsAssigned') }}</div>
+                    <div class="col-span-1 text-right">{{ t('ulds.table.pcsReceived') }}</div>
                     <div class="col-span-1 text-center">%</div>
-                    <div class="col-span-1 text-right">DEST</div>
-                    <div class="col-span-2 text-center">RECIBO</div>
+                    <div class="col-span-1 text-right">{{ t('ulds.table.dest') }}</div>
+                    <div class="col-span-2 text-center">{{ t('ulds.table.receipt') }}</div>
                     <div class="col-span-1"></div>
                   </div>
                   <div class="divide-y divide-slate-100 max-h-[240px] overflow-y-auto scrollbar-none">
-                    <div v-for="(mawb, mIdx) in uld.mawbs" :key="mawb._rowId" class="ds-table-row grid grid-cols-12 gap-2 text-sm">
+                    <div v-for="(mawb, mIdx) in uld.mawbs" :key="mawb._rowId" class="ds-table-row grid grid-cols-13 gap-2 text-sm">
                       <div class="col-span-3 relative">
                         <input v-model="mawb.awbNumber" @input="onMawbInput(uld, mIdx)" @focus="onMawbInput(uld, mIdx)" @blur="onMawbBlur(uld, mIdx)"
-                          placeholder="Escribe MAWB..."
+                          :placeholder="t('ulds.writeMawb')"
                           class="w-full border-b border-slate-200 focus:outline-none focus:border-slate-950 py-1 bg-transparent font-bold tracking-tight text-slate-950 text-[13px]" />
                         <div v-if="mawb._showSuggestions && mawb._suggestions.length"
                           class="absolute top-full left-0 right-0 z-50 bg-white border border-slate-300 rounded shadow-lg max-h-[160px] overflow-y-auto">
@@ -157,16 +169,28 @@
                             @mousedown.prevent="selectMawbSuggestion(uld, mIdx, s)"
                             class="px-2 py-1.5 text-[13px] font-mono cursor-pointer hover:bg-slate-50 border-b border-slate-100 last:border-0"
                             :class="s.availablePieces > 0 ? 'text-slate-950' : 'text-slate-300'">
+                            <span class="w-2 h-2 rounded-full inline-block mr-1" :class="mawbStatusDotClass(s.awbNumber)"></span>
                             <span class="font-bold">{{ s.awbNumber }}</span>
                             <span class="text-slate-400 ml-1">— {{ s.shipperName || s.consigneeName || '' }}</span>
                             <span class="text-slate-400 text-sm ml-1">[{{ s.commodityType }}]</span>
-                            <span v-if="s.availablePieces > 0" class="text-slate-600 ml-1">disp: {{ s.availablePieces }} pz</span>
-                            <span v-else class="text-slate-400 ml-1">sin piezas</span>
+                            <span v-if="s.availablePieces > 0" class="text-slate-600 ml-1">{{ t('ulds.availablePiecesShort', { n: s.availablePieces }) }}</span>
+                            <span v-else class="text-slate-400 ml-1">{{ t('ulds.noPieces') }}</span>
                           </div>
                         </div>
+                        <div v-if="mawb.awbNumber && !mawb._isSpecial && !mawbInBookings(mawb.awbNumber)"
+                          class="mt-0.5 text-[10px] text-amber-600 font-mono flex items-center gap-0.5">
+                          &#9888; {{ t('ulds.notInBookings') }}
+                        </div>
+                      </div>
+                      <div class="col-span-1 flex items-center">
+                        <div v-if="mawb.awbNumber && !mawb._isSpecial" class="flex items-center gap-1">
+                          <span class="w-2 h-2 rounded-full shrink-0" :class="mawbStatusDotClass(mawb.awbNumber)"></span>
+                          <span class="text-[10px] font-mono font-bold uppercase leading-none" :class="mawbStatusTextClass(mawb.awbNumber)">{{ mawbStatusLabel(mawb.awbNumber) }}</span>
+                        </div>
+                        <span v-else class="text-[10px] text-slate-300">—</span>
                       </div>
                       <div class="col-span-2">
-                        <input v-model="mawb.commodityType" type="text" :placeholder="mawb.commodityHint || 'Dry Cargo'"
+                        <input v-model="mawb.commodityType" type="text" :placeholder="mawb.commodityHint || t('ulds.dryCargoHint')"
                           class="w-full border-b border-slate-200 focus:outline-none focus:border-slate-950 py-1 bg-transparent font-medium text-slate-950 text-[13px]" />
                       </div>
                       <div class="col-span-1 flex items-center gap-1">
@@ -190,12 +214,12 @@
                       <div class="col-span-2 flex justify-center items-center gap-1 text-[13px] font-mono">
                         <span v-if="mawb.hasReceipt"
                           class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-bold text-slate-600 bg-slate-100 border border-slate-200">
-                          ✓ Recibido
+                          {{ t('ulds.receivedBadge') }}
                         </span>
                         <span v-else
                           class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-bold text-slate-500 bg-slate-100 border border-slate-200 cursor-help"
-                          title="Esta MAWB no tiene recibo de bodega. Se recomienda emitir el recibo antes del despacho.">
-                          &#9888; Pend.
+                          :title="t('ulds.noReceiptTooltip')">
+                          &#9888; {{ t('ulds.pendingShort') }}
                         </span>
                       </div>
                       <div class="col-span-1 text-center">
@@ -211,56 +235,56 @@
                       + MAWB
                     </button>
                     <div class="flex items-center gap-2">
-                      <span class="font-mono">PCS: {{ totalUldPieces(uld) }} / {{ totalUldReceivedPieces(uld) }} rec</span>
+                      <span class="font-mono">{{ t('ulds.pcsProgress', { assigned: totalUldPieces(uld), received: totalUldReceivedPieces(uld) }) }}</span>
                     </div>
                   </div>
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
                   <div>
-                    <label class="ds-label block mb-1">Tara <span class="text-slate-950">(lbs)</span></label>
+                    <label class="ds-label block mb-1">{{ t('ulds.tare.label') }} <span class="text-slate-950">(lbs)</span></label>
                     <div class="relative">
                       <input v-model.number="uld.tareLbs" type="number" step="0.1"
                         class="ds-input" />
                     </div>
                     <div v-if="suggestedTareLbs" class="mt-1 text-[11px] text-slate-400 font-mono">
-                      Sugerida: {{ suggestedTareLbs }} lb
+                      {{ t('ulds.tare.suggested', { tare: suggestedTareLbs }) }}
                       <button @click="uld.tareLbs = suggestedTareLbs"
-                        class="text-slate-500 hover:text-slate-700 underline ml-1">usar</button>
+                        class="text-slate-500 hover:text-slate-700 underline ml-1">{{ t('ulds.tare.use') }}</button>
                     </div>
                   </div>
                   <div>
-                    <label class="ds-label block mb-1">Peso Bruto (lbs)</label>
+                    <label class="ds-label block mb-1">{{ t('ulds.form.grossLbs') }}</label>
                     <input v-model.number="uld.grossWeightLbs" type="number" class="ds-input" />
                   </div>
                   <div>
-                    <label class="ds-label block mb-1">Estado</label>
+                    <label class="ds-label block mb-1">{{ t('ulds.form.status') }}</label>
                       <select v-model="uld.status" class="ds-input font-bold">
-                        <option value="OPEN">OPEN (Abierto)</option>
-                        <option value="BUILT">BUILT (Armado)</option>
-                        <option value="SEALED">SEALED (Precintado)</option>
-                        <option value="LOADED">LOADED (Cargado)</option>
-                        <option value="LEFT_BEHIND">LEFT BEHIND (Dejado)</option>
+                        <option value="OPEN">OPEN ({{ t('ulds.status.OPEN') }})</option>
+                        <option value="BUILT">BUILT ({{ t('ulds.status.BUILT') }})</option>
+                        <option value="SEALED">SEALED ({{ t('ulds.status.SEALED') }})</option>
+                        <option value="LOADED">LOADED ({{ t('ulds.status.LOADED') }})</option>
+                        <option value="LEFT_BEHIND">LEFT BEHIND ({{ t('ulds.status.LEFT_BEHIND') }})</option>
                       </select>
                   </div>
                   <div class="bg-slate-50 flex flex-col justify-center rounded px-3 py-2 border border-slate-200">
-                    <span class="text-sm font-black text-slate-600 uppercase tracking-wider">Peso Neto</span>
+                    <span class="text-sm font-black text-slate-600 uppercase tracking-wider">{{ t('ulds.netWeight') }}</span>
                     <span class="text-sm font-black text-slate-800">{{ ((uld.grossWeightLbs || 0) - (uld.tareLbs || 0)).toLocaleString() }} lbs</span>
                   </div>
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-slate-200 pt-5">
                   <div>
-                    <label class="ds-label block mb-1">Ubicación / Puerta</label>
-                    <input v-model="uld.door" type="text" placeholder="Puerta 4 / Patio" class="ds-input uppercase" />
+                    <label class="ds-label block mb-1">{{ t('ulds.form.location') }}</label>
+                    <input v-model="uld.door" type="text" :placeholder="t('ulds.form.doorPlaceholder')" class="ds-input uppercase" />
                   </div>
                   <div>
-                    <label class="ds-label block mb-1">Manifestado Por</label>
-                    <input v-model="uld.filledBy" type="text" placeholder="Operadores de rampa" class="ds-input font-bold" />
+                    <label class="ds-label block mb-1">{{ t('ulds.form.manifestedBy') }}</label>
+                    <input v-model="uld.filledBy" type="text" :placeholder="t('ulds.form.rampOpsPlaceholder')" class="ds-input font-bold" />
                   </div>
                   <div>
-                    <label class="ds-label block mb-1">Notas</label>
-                    <input v-model="uld.notes" type="text" placeholder="Notas adicionales" class="ds-input" />
+                    <label class="ds-label block mb-1">{{ t('ulds.form.notes') }}</label>
+                    <input v-model="uld.notes" type="text" :placeholder="t('ulds.form.notesPlaceholder')" class="ds-input" />
                   </div>
                 </div>
 
@@ -272,7 +296,7 @@
                     :class="creationStep >= 1 ? 'text-amber-700' : 'text-slate-300'">
                     <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black"
                       :class="creationStep > 1 ? 'bg-emerald-500 text-white' : creationStep === 1 ? 'bg-amber-400 text-white' : 'bg-slate-200'">1</span>
-                    Vuelo
+                    {{ t('ulds.form.flight') }}
                     <span v-if="creationStep > 1" class="text-emerald-600 ml-1">✓</span>
                   </div>
                   <span class="text-slate-300 text-[10px]">▸</span>
@@ -280,7 +304,7 @@
                     :class="creationStep >= 2 ? 'text-emerald-700' : 'text-slate-300'">
                     <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black"
                       :class="creationStep > 2 ? 'bg-emerald-500 text-white' : creationStep === 2 ? 'bg-emerald-400 text-white' : 'bg-slate-200'">2</span>
-                    Escanear ULD
+                    {{ t('ulds.steps.scanUld') }}
                     <span v-if="creationStep > 2" class="text-emerald-600 ml-1">✓</span>
                   </div>
                   <span class="text-slate-300 text-[10px]">▸</span>
@@ -288,7 +312,7 @@
                     :class="creationStep >= 3 ? 'text-slate-900' : 'text-slate-300'">
                     <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black"
                       :class="creationStep >= 3 ? 'bg-slate-900 text-white' : 'bg-slate-200'">3</span>
-                    Registrar Piezas
+                    {{ t('ulds.steps.registerPieces') }}
                   </div>
                 </div>
 
@@ -297,20 +321,20 @@
                     <div class="flex flex-col">
                       <span class="text-[12px] font-black uppercase tracking-widest flex items-center gap-1.5"
                         :class="creationStep === 1 ? 'text-amber-700' : 'text-slate-400'">
-                        Vuelo
-                        <span v-if="creationStep === 1" class="text-[10px] bg-amber-200 text-amber-800 px-1.5 py-px rounded">Paso 1</span>
+                        {{ t('ulds.form.flight') }}
+                        <span v-if="creationStep === 1" class="text-[10px] bg-amber-200 text-amber-800 px-1.5 py-px rounded">{{ t('ulds.step', { n: 1 }) }}</span>
                       </span>
                       <select v-model="uld.saveFlightId"
                         class="ds-input uppercase text-[12px] min-w-[160px] transition-all duration-300"
                         :class="creationStep === 1 ? 'ring-2 ring-amber-400 bg-amber-50 border-amber-400' : ''">
-                        <option value="" disabled>Seleccionar vuelo</option>
+                        <option value="" disabled>{{ t('common.selectFlight') }}</option>
                         <option v-for="f in appStore.flights" :key="f.id" :value="f.id">
                           {{ airlineCodeById(f.airlineId) }}-{{ f.flightNumber }} ({{ f.origin }}&#8594;{{ f.destination }}) {{ f.flightDate }}
                         </option>
                       </select>
                     </div>
                     <div class="flex flex-col">
-                      <span class="text-[12px] font-black text-slate-400 uppercase tracking-widest">Creado</span>
+                      <span class="text-[12px] font-black text-slate-400 uppercase tracking-widest">{{ t('ulds.created') }}</span>
                       <span class="text-[14px] font-bold text-slate-950">{{ uld.createdAt ? formatDate(uld.createdAt) : '—' }}</span>
                     </div>
                   </div>
@@ -318,26 +342,26 @@
                     <button @click="toggleScanMode(uld)"
                       class="font-mono font-black uppercase text-[12px] tracking-widest px-4 py-2.5 rounded shadow-md transition-all flex items-center gap-2"
                       :class="creationStep === 2 ? 'bg-emerald-600 hover:bg-emerald-700 text-white ring-2 ring-emerald-300 animate-pulse' : scanMode ? 'bg-emerald-600 hover:bg-emerald-700 text-white ring-2 ring-emerald-300' : 'bg-blue-600 hover:bg-blue-700 text-white'">
-                      <template v-if="creationStep === 2">📷 Escanear ULD ahora</template>
-                      <template v-else-if="scanMode">🔍 Scanando...</template>
-                      <template v-else>📷 Modo Scan</template>
+                      <template v-if="creationStep === 2">{{ t('ulds.scanNow') }}</template>
+                      <template v-else-if="scanMode">{{ t('ulds.scanning') }}</template>
+                      <template v-else>📷 {{ t('ulds.scanMode') }}</template>
                     </button>
                     <button @click="deleteUld(uld)"
                       class="ds-btn-secondary text-slate-400 hover:text-slate-700"
-                      :title="uld.backendId ? 'Eliminar ULD' : 'Descartar ULD'">
+                      :title="uld.backendId ? t('ulds.actions.delete') : t('ulds.actions.discard')">
                       &#10005;
                     </button>
                     <button v-if="uld.backendId" @click="dismountUld(uld)"
                       class="ds-btn-secondary">
-                      Desmontar ULD
+                      {{ t('ulds.actions.demount') }}
                     </button>
                     <button v-if="uld.backendId" @click="printPalletLabel(uld)"
-                      class="ds-btn-secondary" title="Imprimir pallet label de este ULD">
-                      &#9642; Pallet Label
+                      class="ds-btn-secondary" :title="t('ulds.printPalletTooltip')">
+                      &#9642; {{ t('ulds.actions.palletLabel') }}
                     </button>
                     <button @click="saveUld(uld)"
                       class="ds-btn-primary">
-                      {{ uld.backendId ? 'Actualizar ULD' : '&#128640; Enviar a Load Planning' }}
+                      {{ uld.backendId ? t('ulds.actions.update') : t('ulds.sendToLoadPlanning') }}
                     </button>
                   </div>
                 </div>
@@ -346,7 +370,7 @@
           </div>
 
           <div v-if="!expandedUldId" class="flex items-center justify-center h-full">
-            <p class="text-[13px] font-mono text-slate-300 uppercase tracking-widest">Selecciona un ULD para editar</p>
+            <p class="text-[13px] font-mono text-slate-300 uppercase tracking-widest">{{ t('ulds.selectToEdit') }}</p>
           </div>
         </div>
       </template>
@@ -365,17 +389,22 @@ import { uldAwbsApi } from '../api/uldAwbs'
 import { uldTypeConfigApi } from '../api/uldTypeConfig'
 import { useToastStore } from '../stores/toast'
 import { extractError } from '../utils/error'
+import { useI18n } from 'vue-i18n'
 import ScanPanel from '../components/ScanPanel.vue'
 import LabelPrintModal from '../components/labels/LabelPrintModal.vue'
+import { useCommodities } from '../composables/useCommodities'
+import FilterBar from '../components/FilterBar.vue'
 
 const uldsStore = useUldsStore()
 const appStore = useAppStore()
 const toast = useToastStore()
+const { t, te } = useI18n()
+const { commodities: dbCommodities, loadCommodities } = useCommodities()
 
 const showLabels = ref(false)
 const labelIds = ref([])
 function printPalletLabel(uld) {
-  if (!uld.backendId) { toast.warning('Guarda el ULD antes de imprimir su pallet label'); return }
+  if (!uld.backendId) { toast.warning(t('ulds.toast.saveBeforePrint')); return }
   labelIds.value = [uld.backendId]
   showLabels.value = true
 }
@@ -397,14 +426,29 @@ const specialItems = [
   { id: 'spc-nets', awbNumber: 'NETS', shipperName: 'Cargo Nets', consigneeName: 'Cargo Nets Equipment', commodityType: 'NETS', pieces: 0, destination: '', isSpecial: true },
 ]
 
-const VALID_COMMODITIES = new Set(['DRY_CARGO','ELECTRONICS','PERISHABLE','HIGH_VALUES','CIGARETTES','SMALL_PACKAGES','WWEF','LIVE_PLANTS','GENERAL','COMAT','FCC','EMPTY_ULD','EMPTY_PALLET','RED_TAG','EMPTY_BAGS','NETS','SDQ_SDF','SDQ_MIA'])
+const VALID_COMMODITIES = computed(() => {
+  const set = new Set(['DRY_CARGO'])
+  for (const c of dbCommodities.value) set.add(c.code)
+  return set
+})
 
 function normalizeCommodity(val) {
   const v = String(val || '').trim().toUpperCase()
-  return VALID_COMMODITIES.has(v) ? v : 'GENERAL'
+  return VALID_COMMODITIES.value.has(v) ? v : 'GENERAL'
 }
 
 const expandedUldId = ref(null)
+const statusFilter = ref('')
+const searchText = ref('')
+const destFilter = ref('')
+
+const uldStatusOptions = computed(() => [
+  { value: 'OPEN', label: t('ulds.status.OPEN'), dotClass: 'bg-slate-400' },
+  { value: 'BUILT', label: t('ulds.status.BUILT'), dotClass: 'bg-blue-500' },
+  { value: 'SEALED', label: t('ulds.status.SEALED'), dotClass: 'bg-amber-500' },
+  { value: 'LOADED', label: t('ulds.status.LOADED'), dotClass: 'bg-emerald-600' },
+  { value: 'OFFLOADED', label: t('ulds.status.OFFLOADED'), dotClass: 'bg-red-500' },
+])
 
 const TARE_MAP = {
   AAY: 460, AAD: 540, AAZ: 500, AMP: 600, AMJ: 610,
@@ -442,7 +486,30 @@ const suggestedTareLbs = computed(() => {
   return defaultTareFor(expanded.uldType) || TARE_MAP[expanded.uldType.toUpperCase()] || null
 })
 
-const filteredUlDs = computed(() => localUlds.value)
+const filteredUlDs = computed(() => {
+  let list = localUlds.value
+  if (statusFilter.value) {
+    list = list.filter(u => u.status === statusFilter.value)
+  }
+  if (destFilter.value) {
+    const d = destFilter.value.toUpperCase()
+    list = list.filter(u => {
+      const mawbs = u.mawbs || []
+      return mawbs.some(m => (m.destination || '').toUpperCase() === d) || (u.route || '').toUpperCase().includes(d)
+    })
+  }
+  const q = searchText.value.trim().toLowerCase()
+  if (q) {
+    list = list.filter(u => {
+      const haystack = [
+        u.uldNumber, u.status, u.route,
+        ...(u.mawbs || []).map(m => m.awbNumber),
+      ].filter(Boolean).join(' ').toLowerCase()
+      return haystack.includes(q)
+    })
+  }
+  return list
+})
 
 function formatDate(iso) {
   if (!iso) return '—'
@@ -614,12 +681,17 @@ function onMawbInput(uld, mIdx) {
 }
 
 function onMawbBlur(uld, mIdx) {
-  setTimeout(() => { uld.mawbs[mIdx]._showSuggestions = false }, 200)
+  setTimeout(() => {
+    if (uld.mawbs && uld.mawbs[mIdx]) {
+      uld.mawbs[mIdx]._showSuggestions = false
+    }
+  }, 200)
 }
 
 function selectMawbSuggestion(uld, mIdx, selected) {
   uld.mawbs[mIdx].awbNumber = selected.awbNumber
   uld.mawbs[mIdx]._showSuggestions = false
+  uld.mawbs[mIdx]._isSpecial = !!selected.isSpecial
   onMawbSelect(uld, mIdx)
 }
 
@@ -650,6 +722,42 @@ function mawbHasReceipt(awbNumber) {
   return mawbReceiptInfo(awbNumber).hasReceipt
 }
 
+function mawbInBookings(awbNumber) {
+  if (!awbNumber) return false
+  return (appStore.bookings || []).some(b => b.awbNumber === awbNumber)
+}
+
+function mawbStatusForAwb(awbNumber) {
+  if (!awbNumber) return null
+  const m = (appStore.mawbs || []).find(x => x.awbNumber === awbNumber)
+  return m?.status || null
+}
+
+function mawbStatusLabel(awbNumber) {
+  const s = mawbStatusForAwb(awbNumber)
+  if (!s) return '—'
+  const key = 'ulds.mawbStatus.' + s
+  return te(key) ? t(key) : s
+}
+
+function mawbStatusDotClass(awbNumber) {
+  const s = mawbStatusForAwb(awbNumber)
+  if (s === 'RECEIVED') return 'bg-amber-400'
+  if (s === 'MANIFESTED') return 'bg-emerald-500'
+  if (s === 'DEPARTED' || s === 'ARRIVED') return 'bg-blue-500'
+  if (s === 'BOOKED') return 'bg-slate-400'
+  return 'bg-slate-200'
+}
+
+function mawbStatusTextClass(awbNumber) {
+  const s = mawbStatusForAwb(awbNumber)
+  if (s === 'RECEIVED') return 'text-amber-600'
+  if (s === 'MANIFESTED') return 'text-emerald-600'
+  if (s === 'DEPARTED' || s === 'ARRIVED') return 'text-blue-600'
+  if (s === 'BOOKED') return 'text-slate-500'
+  return 'text-slate-400'
+}
+
 function totalUldPieces(uld) {
   return (uld.mawbs || []).reduce((s, m) => s + (m.pieces || 0), 0)
 }
@@ -667,7 +775,7 @@ function rebuildLocalList() {
       uldNumber: u.uldNumber,
       flightId: u.flightId,
       flightLabel: flight?.flightNumber || 'FLOTANTE',
-      route: flight ? (flight.origin + ' -> ' + flight.destination) : 'Sin Vuelo',
+      route: flight ? (flight.origin + ' -> ' + flight.destination) : t('ulds.noFlight'),
       uldType: u.uldType,
       config: u.config,
       position: u.position,
@@ -689,6 +797,7 @@ function rebuildLocalList() {
           awbNumber: m.mawbLabel || '',
           _showSuggestions: false,
           _suggestions: [],
+          _isSpecial: false,
           commodityType: m.description || 'DRY_CARGO',
           commodityHint: m.description || '',
           pieces: m.pieces || 0,
@@ -739,7 +848,7 @@ function createNewBlankUld() {
 }
 
 async function dismountUld(uld) {
-  if (!confirm(`¿Desmontar ULD ${uld.uldNumber || ''}? Se eliminarán todas las MAWB asignadas, sello, posición, peso y se dejará en estado OPEN.`)) return
+  if (!confirm(t('ulds.confirmDemountFull', { number: uld.uldNumber || '' }))) return
   try {
     // 1. Delete all ULD-AWB links
     const existing = await uldAwbsApi.getByUld(uld.backendId)
@@ -766,7 +875,7 @@ async function dismountUld(uld) {
     expandedUldId.value = null
   } catch (e) {
     toast.error(extractError(e))
-    alert('Error al desmontar ULD: ' + (e.response?.data?.message || e.message))
+    alert(t('ulds.toast.demountError', { error: e.response?.data?.message || e.message }))
   }
 }
 
@@ -779,7 +888,7 @@ async function deleteUld(uld) {
   }
   const hasCargo = (uld.mawbs || []).length > 0
   if (hasCargo) {
-    if (!confirm(`El ULD ${uld.uldNumber || ''} tiene ${uld.mawbs.length} MAWB(s). Se desmontará primero y luego se eliminará. ¿Continuar?`)) return
+    if (!confirm(t('ulds.confirmDeleteWithCargo', { number: uld.uldNumber || '', count: uld.mawbs.length }))) return
     // Dismount first
     try {
       const existing = await uldAwbsApi.getByUld(uld.backendId)
@@ -800,11 +909,11 @@ async function deleteUld(uld) {
       await uldsApi.assignFlight(uld.backendId, null)
     } catch (e) {
       toast.error(extractError(e))
-      alert('Error al desmontar ULD: ' + (e.response?.data?.message || e.message))
+      alert(t('ulds.toast.demountError', { error: e.response?.data?.message || e.message }))
       return
     }
   } else {
-    if (!confirm(`¿Eliminar ULD ${uld.uldNumber || ''} permanentemente?`)) return
+    if (!confirm(t('ulds.confirmDelete', { number: uld.uldNumber || '' }))) return
   }
   try {
     await uldsApi.delete(uld.backendId)
@@ -814,25 +923,25 @@ async function deleteUld(uld) {
     rebuildLocalList()
   } catch (e) {
     toast.error(extractError(e))
-    alert('Error al eliminar ULD: ' + (e.response?.data?.message || e.message))
+    alert(t('ulds.toast.deleteError', { error: e.response?.data?.message || e.message }))
   }
 }
 
 async function saveUld(uld) {
   if (!uld.uldNumber) {
-    alert('Código ULD requerido')
+    alert(t('ulds.uldNumberRequired'))
     return
   }
   const flightId = uld.saveFlightId
 
   if (!flightId) {
     if (!uld.backendId) {
-      alert('Selecciona un vuelo para asignar este ULD')
+      alert(t('ulds.selectFlightRequired'))
       return
     }
     // Floating ULD without flight change — just update fields
     try {
-      uld.notes = [uld.door ? `Ubicación: ${uld.door}` : '', uld.filledBy ? `Llenado por: ${uld.filledBy}` : '', uld.notes].filter(Boolean).join(' | ')
+      uld.notes = [uld.door ? t('ulds.notesLocation', { value: uld.door }) : '', uld.filledBy ? t('ulds.notesFilledBy', { value: uld.filledBy }) : '', uld.notes].filter(Boolean).join(' | ')
       await uldsApi.update(uld.backendId, {
         airlineId: uld.airlineId || appStore.selectedFlight?.airlineId || null,
         uldNumber: uld.uldNumber,
@@ -871,7 +980,7 @@ async function saveUld(uld) {
       rebuildLocalList()
     } catch (e) {
       toast.error(extractError(e))
-      alert('Error: ' + (e.response?.data?.message || e.message))
+      alert(t('common.errorPrefix', { message: e.response?.data?.message || e.message }))
     }
     return
   }
@@ -879,7 +988,7 @@ async function saveUld(uld) {
 
   try {
     uld.flightId = flightId
-    uld.notes = [uld.door ? `Ubicación: ${uld.door}` : '', uld.filledBy ? `Llenado por: ${uld.filledBy}` : '', uld.notes].filter(Boolean).join(' | ')
+    uld.notes = [uld.door ? t('ulds.notesLocation', { value: uld.door }) : '', uld.filledBy ? t('ulds.notesFilledBy', { value: uld.filledBy }) : '', uld.notes].filter(Boolean).join(' | ')
     const result = await uldsStore.dispatchUld(uld, flightId)
     uld.backendId = result?.id || uld.backendId
     // Delete existing ULD-AWB links before recreating
@@ -910,7 +1019,7 @@ async function saveUld(uld) {
     await appStore.loadAllMawbs()
   } catch (e) {
     toast.error(extractError(e))
-    alert('Error: ' + (e.response?.data?.message || e.message))
+    alert(t('common.errorPrefix', { message: e.response?.data?.message || e.message }))
   }
 }
 
@@ -932,6 +1041,7 @@ function addMawbRow(uld) {
     receivedPieces: 0,
     reservedPieces: 0,
     availablePieces: 0,
+    _isSpecial: false,
     _showSuggestions: false,
     _suggestions: [],
   })
@@ -976,7 +1086,7 @@ function statusBadgeClass(status) {
 
 function flightLabel(uld) {
   if (!uld.flightLabel) return '---'
-  if (uld.flightLabel === 'FLOTANTE') return 'FLOTANTE'
+  if (uld.flightLabel === 'FLOTANTE') return t('ulds.floating')
   if (uld.flightLabel === 'TBD') return 'TBD'
   const num = parseInt(uld.flightLabel, 10)
   if (!isNaN(num)) return airlineCodeById(uld.airlineId) + '-' + uld.flightLabel
@@ -1014,6 +1124,7 @@ onMounted(async () => {
     appStore.loadAllMawbs(),
     appStore.loadReceipts(),
     appStore.loadUlds(),
+    loadCommodities(),
   ])
   loadTypeConfig()
   rebuildLocalList()

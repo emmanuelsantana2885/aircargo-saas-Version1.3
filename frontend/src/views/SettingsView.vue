@@ -1,26 +1,34 @@
 <template>
   <div class="ds-page max-w-6xl mx-auto">
     <div class="ds-section-header mb-4">
-      <h1 class="ds-title">System Settings</h1>
+      <h1 class="ds-title">{{ t('settings.title') }}</h1>
     </div>
 
     <!-- Tabs -->
     <div class="flex gap-1 mb-4">
-      <button @click="activeTab = 'users'"
+      <button v-if="auth.role !== 'BI_USER'" @click="activeTab = 'users'"
         :class="activeTab === 'users' ? 'ds-btn-primary' : 'ds-btn-secondary'">
-        Usuarios
+        {{ t('settings.tabs.users') }}
       </button>
       <button v-if="auth.role === 'SUPER_USER'" @click="activeTab = 'sites'"
         :class="activeTab === 'sites' ? 'ds-btn-primary' : 'ds-btn-secondary'">
-        Sitios
+        {{ t('settings.tabs.sites') }}
       </button>
       <button v-if="canManageSettings" @click="activeTab = 'airlines'"
         :class="activeTab === 'airlines' ? 'ds-btn-primary' : 'ds-btn-secondary'">
-        Aerolíneas
+        {{ t('settings.tabs.airlines') }}
       </button>
       <button v-if="canManageSettings" @click="activeTab = 'uldconfig'"
         :class="activeTab === 'uldconfig' ? 'ds-btn-primary' : 'ds-btn-secondary'">
-        Config ULD
+        {{ t('settings.tabs.uldConfig') }}
+      </button>
+      <button v-if="canManageSettings" @click="activeTab = 'commodities'"
+        :class="activeTab === 'commodities' ? 'ds-btn-primary' : 'ds-btn-secondary'">
+        {{ t('settings.tabs.commodities') }}
+      </button>
+      <button v-if="canManageSettings || auth.role === 'BI_USER'" @click="activeTab = 'api'"
+        :class="activeTab === 'api' ? 'ds-btn-primary' : 'ds-btn-secondary'">
+        {{ t('settings.tabs.apiBi') }}
       </button>
 
     </div>
@@ -30,13 +38,13 @@
       <div class="flex items-center justify-between mb-3">
         <div class="flex items-center gap-3">
           <div class="relative flex-1 max-w-xs">
-            <input v-model="searchQuery" placeholder="Buscar por email o nombre..."
+            <input v-model="searchQuery" :placeholder="t('settings.users.searchPlaceholder')"
               class="ds-input">
           </div>
-          <span class="ds-stat">{{ filteredUsers.length }} usuarios</span>
+          <span class="ds-stat">{{ t('settings.users.userCount', { n: filteredUsers.length }) }}</span>
         </div>
         <button @click="openCreate" class="ds-btn-primary">
-          + Nuevo usuario
+          + {{ t('settings.users.newUser') }}
         </button>
       </div>
 
@@ -46,14 +54,14 @@
         <table class="w-full text-sm" style="min-width: 800px">
           <thead>
             <tr class="bg-slate-800 text-white text-[13px] font-bold uppercase tracking-wider [&>th]:px-4 [&>th]:py-2.5 [&>th]:text-left [&>th]:font-semibold">
-              <th>Email</th>
-              <th>Nombre</th>
-              <th>Rol</th>
-              <th>Sitios</th>
-              <th class="text-center" style="width: 80px">Activo</th>
-              <th class="text-center" style="width: 100px">Contraseña</th>
-              <th class="text-center" style="width: 80px">MFA</th>
-              <th class="text-right" style="width: 240px">Acciones</th>
+              <th>{{ t('settings.users.email') }}</th>
+              <th>{{ t('settings.users.fullName') }}</th>
+              <th>{{ t('settings.users.role') }}</th>
+              <th>{{ t('settings.users.sites') }}</th>
+              <th class="text-center" style="width: 80px">{{ t('settings.users.active') }}</th>
+              <th class="text-center" style="width: 100px">{{ t('settings.users.password') }}</th>
+              <th class="text-center" style="width: 80px">{{ t('settings.users.mfa') }}</th>
+              <th class="text-right" style="width: 240px">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -76,13 +84,13 @@
               <td class="text-center">
                 <span class="text-[12px] font-medium px-2 py-0.5 rounded"
                   :class="user.isActive ? 'bg-slate-200 text-slate-900' : 'bg-slate-100 text-slate-400'">
-                  {{ user.isActive ? 'Sí' : 'No' }}
+                  {{ user.isActive ? t('common.yes') : t('common.no') }}
                 </span>
               </td>
               <td class="text-center">
                 <span class="text-[12px] font-medium"
                   :class="user.mustChangePassword ? 'text-red-600' : (user.passwordSet ? 'text-slate-900' : 'text-slate-400')">
-                  {{ user.mustChangePassword ? 'Pendiente' : (user.passwordSet ? 'Establecida' : 'Sin contraseña') }}
+                  {{ user.mustChangePassword ? t('settings.users.passwordStatus.pending') : (user.passwordSet ? t('settings.users.passwordStatus.set') : t('settings.users.passwordStatus.none')) }}
                 </span>
               </td>
               <td class="text-center">
@@ -92,32 +100,32 @@
                       ? 'bg-red-50 text-red-800'
                       : 'bg-green-50 text-green-800')
                     : 'bg-slate-100 text-slate-400'">
-                  {{ user.mfaLocked ? 'Bloqueado' : (user.mfaEnabled ? 'Activo' : 'Inactivo') }}
+                  {{ user.mfaLocked ? t('settings.users.mfaStatus.locked') : (user.mfaEnabled ? t('settings.users.mfaStatus.active') : t('settings.users.mfaStatus.inactive')) }}
                 </span>
               </td>
               <td class="text-right">
                 <div class="flex gap-1 justify-end flex-wrap">
-                  <button @click="startEdit(user)" class="ds-btn-secondary !px-2 !py-1 !text-[12px]">Editar</button>
-                  <button @click="resetPass(user)" class="ds-btn-secondary !px-2 !py-1 !text-[12px]">Reset pass</button>
+                  <button @click="startEdit(user)" class="ds-btn-secondary !px-2 !py-1 !text-[12px]">{{ t('common.edit') }}</button>
+                  <button @click="resetPass(user)" class="ds-btn-secondary !px-2 !py-1 !text-[12px]">{{ t('settings.users.resetPassword') }}</button>
                   <button @click="genTempPassword(user)"
-                    class="px-2 py-1 rounded text-[12px] font-medium transition-all hover:brightness-110 bg-blue-50 text-blue-700">Gen Temp</button>
+                    class="px-2 py-1 rounded text-[12px] font-medium transition-all hover:brightness-110 bg-blue-50 text-blue-700">{{ t('settings.users.genTemp') }}</button>
                   <template v-if="user.mfaEnabled">
                     <button v-if="!user.mfaLocked" @click="lockMfaUser(user)"
-                      class="px-2 py-1 rounded text-[12px] font-medium transition-all hover:brightness-110 bg-red-50 text-red-800">Lock</button>
+                      class="px-2 py-1 rounded text-[12px] font-medium transition-all hover:brightness-110 bg-red-50 text-red-800">{{ t('settings.users.lockMfa') }}</button>
                     <button v-if="user.mfaLocked" @click="unlockMfaUser(user)"
-                      class="px-2 py-1 rounded text-[12px] font-medium transition-all hover:brightness-110 bg-green-50 text-green-800">Unlock</button>
+                      class="px-2 py-1 rounded text-[12px] font-medium transition-all hover:brightness-110 bg-green-50 text-green-800">{{ t('settings.users.unlockMfa') }}</button>
                     <button @click="disableMfaUser(user)"
-                      class="px-2 py-1 rounded text-[12px] font-medium transition-all hover:brightness-110 bg-red-50 text-red-800">Disable MFA</button>
+                      class="px-2 py-1 rounded text-[12px] font-medium transition-all hover:brightness-110 bg-red-50 text-red-800">{{ t('settings.users.disableMfa') }}</button>
                   </template>
                   <button v-if="!user.mfaEnabled" @click="openMfaSetup(user)"
-                    class="px-2 py-1 rounded text-[12px] font-medium transition-all hover:brightness-110 bg-green-50 text-green-800">Enable MFA</button>
-                  <button @click="removeUser(user)" class="ds-btn-secondary !px-2 !py-1 !text-[12px]">Eliminar</button>
+                    class="px-2 py-1 rounded text-[12px] font-medium transition-all hover:brightness-110 bg-green-50 text-green-800">{{ t('settings.users.enableMfa') }}</button>
+                  <button @click="removeUser(user)" class="ds-btn-secondary !px-2 !py-1 !text-[12px]">{{ t('common.delete') }}</button>
                 </div>
               </td>
             </tr>
             <tr v-if="filteredUsers.length === 0">
               <td colspan="8" class="px-4 py-8 text-center text-sm italic text-slate-400">
-                No hay usuarios
+                {{ t('settings.users.empty') }}
               </td>
             </tr>
           </tbody>
@@ -129,25 +137,25 @@
       <div v-if="editingUser" class="ds-modal-backdrop">
         <div class="ds-modal-panel max-w-md max-h-[90vh] overflow-y-auto">
           <div class="ds-modal-header">
-            <h2 class="ds-modal-title">Editar usuario</h2>
+            <h2 class="ds-modal-title">{{ t('settings.users.editUser') }}</h2>
           </div>
           <div class="p-6 space-y-3">
             <div>
-              <label class="ds-label block mb-0.5">Email</label>
+              <label class="ds-label block mb-0.5">{{ t('settings.users.email') }}</label>
               <input v-model="editForm.email" type="email" class="ds-input">
             </div>
             <div>
-              <label class="ds-label block mb-0.5">Nombre</label>
+              <label class="ds-label block mb-0.5">{{ t('settings.users.fullName') }}</label>
               <input v-model="editForm.fullName" class="ds-input">
             </div>
             <div>
-              <label class="ds-label block mb-0.5">Rol</label>
+              <label class="ds-label block mb-0.5">{{ t('settings.users.role') }}</label>
               <select v-model="editForm.role" class="ds-input">
                 <option v-for="r in roles" :key="r" :value="r">{{ roleLabel(r) }}</option>
               </select>
             </div>
             <div>
-              <label class="ds-label block mb-0.5">Sitios</label>
+              <label class="ds-label block mb-0.5">{{ t('settings.users.sites') }}</label>
               <div class="space-y-1 max-h-32 overflow-y-auto">
                 <label v-for="site in allSites" :key="site.id"
                   class="flex items-center gap-2 text-sm cursor-pointer text-slate-900">
@@ -158,15 +166,15 @@
               </div>
             </div>
             <div>
-              <label class="ds-label block mb-0.5">Activo</label>
+              <label class="ds-label block mb-0.5">{{ t('settings.users.active') }}</label>
               <select v-model="editForm.isActive" class="ds-input">
                 <option :value="true">Sí</option>
                 <option :value="false">No</option>
               </select>
             </div>
             <div class="flex gap-2 pt-2">
-              <button @click="saveEdit" class="ds-btn-primary flex-1 justify-center">Guardar</button>
-              <button @click="cancelEdit" class="ds-btn-secondary flex-1 justify-center">Cancelar</button>
+              <button @click="saveEdit" class="ds-btn-primary flex-1 justify-center">{{ t('common.save') }}</button>
+              <button @click="cancelEdit" class="ds-btn-secondary flex-1 justify-center">{{ t('common.cancel') }}</button>
             </div>
           </div>
         </div>
@@ -176,7 +184,7 @@
       <div v-if="showCreate" class="ds-modal-backdrop">
         <div class="ds-modal-panel max-w-md">
           <div class="ds-modal-header">
-            <h2 class="ds-modal-title">Nuevo usuario</h2>
+            <h2 class="ds-modal-title">{{ t('settings.users.newUser') }}</h2>
           </div>
           <div class="p-6 space-y-3">
             <div>
@@ -194,7 +202,7 @@
               </select>
             </div>
             <div>
-              <label class="ds-label block mb-0.5">Sitios</label>
+              <label class="ds-label block mb-0.5">{{ t('settings.users.sites') }}</label>
               <div class="space-y-1 max-h-32 overflow-y-auto">
                 <label v-for="site in allSites" :key="site.id"
                   class="flex items-center gap-2 text-sm cursor-pointer text-slate-900">
@@ -205,8 +213,8 @@
               </div>
             </div>
             <div class="flex gap-2 pt-2">
-              <button @click="saveCreate" class="ds-btn-primary flex-1 justify-center">Crear</button>
-              <button @click="showCreate = false" class="ds-btn-secondary flex-1 justify-center">Cancelar</button>
+              <button @click="saveCreate" class="ds-btn-primary flex-1 justify-center">{{ t('common.add') }}</button>
+              <button @click="showCreate = false" class="ds-btn-secondary flex-1 justify-center">{{ t('common.cancel') }}</button>
             </div>
           </div>
         </div>
@@ -216,11 +224,11 @@
       <div v-if="showMfaSetup" class="ds-modal-backdrop">
         <div class="ds-modal-panel max-w-sm">
           <div class="ds-modal-header">
-            <h2 class="ds-modal-title">Configurar MFA</h2>
+            <h2 class="ds-modal-title">{{ t('settings.users.mfaSetup') }}</h2>
           </div>
           <div class="p-6">
             <p class="text-[13px] mb-4 text-slate-500">
-              Escanea el código QR con Google Authenticator o Microsoft Authenticator.
+              {{ t('settings.users.mfaQrDesc') }}
             </p>
             <div class="text-center mb-4">
               <div class="inline-block p-3 rounded-lg border border-slate-200 bg-white">
@@ -229,11 +237,11 @@
               </div>
             </div>
             <div class="mb-4">
-              <label class="ds-label block mb-0.5">Clave secreta (copia manual)</label>
+              <label class="ds-label block mb-0.5">{{ t('settings.users.mfaSecretKey') }}</label>
               <code class="ds-input block text-[12px] break-all font-mono">{{ mfaSecret }}</code>
             </div>
             <div class="mb-4">
-              <label class="ds-label block mb-0.5">Código de verificación</label>
+              <label class="ds-label block mb-0.5">{{ t('settings.users.mfaVerifyCode') }}</label>
               <input v-model="mfaVerifyCode" type="text" inputmode="numeric" maxlength="6"
                 placeholder="000000"
                 class="ds-input text-center font-mono tracking-wider"
@@ -242,8 +250,8 @@
             <div class="flex gap-2">
               <button @click="confirmMfaEnable"
                 :disabled="mfaVerifyCode.length !== 6"
-                class="ds-btn-primary flex-1 justify-center disabled:opacity-40">Habilitar</button>
-              <button @click="cancelMfaSetup" class="ds-btn-secondary flex-1 justify-center">Cancelar</button>
+                class="ds-btn-primary flex-1 justify-center disabled:opacity-40">{{ t('settings.users.enableMfa') }}</button>
+              <button @click="cancelMfaSetup" class="ds-btn-secondary flex-1 justify-center">{{ t('common.cancel') }}</button>
             </div>
           </div>
         </div>
@@ -253,29 +261,29 @@
       <div v-if="showTempPassword" class="ds-modal-backdrop">
         <div class="ds-modal-panel max-w-sm">
           <div class="ds-modal-header">
-            <h2 class="ds-modal-title">Contraseña Temporal Generada</h2>
+            <h2 class="ds-modal-title">{{ t('settings.users.tempPassword.title') }}</h2>
           </div>
           <div class="p-6">
             <p class="text-[13px] mb-4 text-slate-500">
-              Comparte esta contraseña con el usuario. Solo se muestra una vez.
+              {{ t('settings.users.tempPassword.share') }}
             </p>
             <div class="mb-4 p-3 rounded-lg bg-green-50 border border-green-200">
-              <label class="block text-[12px] font-medium mb-1 text-green-800">Contraseña temporal</label>
+              <label class="block text-[12px] font-medium mb-1 text-green-800">{{ t('settings.users.tempPassword.label') }}</label>
               <div class="flex items-center gap-2">
                 <code class="flex-1 text-sm font-mono break-all px-2 py-1 rounded bg-white text-green-800 border border-green-200">
                   {{ generatedPassword }}
                 </code>
                 <button @click="copyPassword"
                   class="px-2 py-1 rounded text-[12px] font-medium transition-all hover:brightness-110 bg-green-100 text-green-800">
-                  Copiar
+                  {{ t('common.copy') }}
                 </button>
               </div>
             </div>
             <p class="text-[12px] mb-4 text-slate-400">
-              El usuario deberá cambiar esta contraseña en su primer inicio de sesión.
+              {{ t('settings.users.tempPassword.mustChange') }}
             </p>
             <button @click="showTempPassword = false" class="ds-btn-primary w-full justify-center">
-              Cerrar
+              {{ t('common.close') }}
             </button>
           </div>
         </div>
@@ -285,9 +293,9 @@
     <!-- ============ SITES TAB (SuperUser only) ============ -->
     <template v-if="activeTab === 'sites'">
       <div class="flex items-center justify-between mb-3">
-        <span class="ds-stat">{{ allSites.length }} sitios</span>
+        <span class="ds-stat">{{ t('settings.sites.count', { n: allSites.length }) }}</span>
         <button @click="openSiteCreate" class="ds-btn-primary">
-          + Nuevo sitio
+          + {{ t('settings.sites.newSite') }}
         </button>
       </div>
 
@@ -297,11 +305,11 @@
         <table class="w-full text-sm" style="min-width: 500px">
           <thead>
             <tr class="bg-slate-800 text-white text-[13px] font-bold uppercase tracking-wider [&>th]:px-4 [&>th]:py-2.5 [&>th]:text-left [&>th]:font-semibold">
-              <th>Código</th>
-              <th>Nombre</th>
-              <th>País</th>
-              <th class="text-center" style="width: 80px">Activo</th>
-              <th class="text-right" style="width: 140px">Acciones</th>
+              <th>{{ t('settings.sites.code') }}</th>
+              <th>{{ t('settings.sites.name') }}</th>
+              <th>{{ t('settings.sites.country') }}</th>
+              <th class="text-center" style="width: 80px">{{ t('settings.sites.active') }}</th>
+              <th class="text-right" style="width: 140px">{{ t('common.actions') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -313,19 +321,19 @@
               <td class="text-center">
                 <span class="text-[12px] font-medium px-2 py-0.5 rounded"
                   :class="site.isActive ? 'bg-slate-200 text-slate-900' : 'bg-slate-100 text-slate-400'">
-                  {{ site.isActive ? 'Sí' : 'No' }}
+                  {{ site.isActive ? t('common.yes') : t('common.no') }}
                 </span>
               </td>
               <td class="text-right">
                 <div class="flex gap-1 justify-end">
-                  <button @click="startSiteEdit(site)" class="ds-btn-secondary !px-2 !py-1 !text-[12px]">Editar</button>
-                  <button @click="removeSite(site)" class="ds-btn-secondary !px-2 !py-1 !text-[12px]">Eliminar</button>
+                  <button @click="startSiteEdit(site)" class="ds-btn-secondary !px-2 !py-1 !text-[12px]">{{ t('common.edit') }}</button>
+                  <button @click="removeSite(site)" class="ds-btn-secondary !px-2 !py-1 !text-[12px]">{{ t('common.delete') }}</button>
                 </div>
               </td>
             </tr>
             <tr v-if="allSites.length === 0">
               <td colspan="5" class="px-4 py-8 text-center text-sm italic text-slate-400">
-                No hay sitios
+                {{ t('settings.sites.empty') }}
               </td>
             </tr>
           </tbody>
@@ -337,7 +345,7 @@
       <div v-if="editingSite" class="ds-modal-backdrop">
         <div class="ds-modal-panel max-w-md max-h-[90vh] overflow-y-auto">
           <div class="ds-modal-header">
-            <h2 class="ds-modal-title">Editar sitio</h2>
+            <h2 class="ds-modal-title">{{ t('settings.sites.editSite') }}</h2>
           </div>
           <div class="p-6 space-y-3">
             <div>
@@ -371,7 +379,7 @@
       <div v-if="showSiteCreate" class="ds-modal-backdrop">
         <div class="ds-modal-panel max-w-md">
           <div class="ds-modal-header">
-            <h2 class="ds-modal-title">Nuevo sitio</h2>
+            <h2 class="ds-modal-title">{{ t('settings.sites.newSite') }}</h2>
           </div>
           <div class="p-6 space-y-3">
             <div>
@@ -398,9 +406,9 @@
     <!-- ============ AIRLINES TAB (ADMIN / SuperUser) ============ -->
     <template v-if="activeTab === 'airlines'">
       <div class="flex items-center justify-between mb-3">
-        <span class="ds-stat">{{ airlines.length }} aerolíneas</span>
+        <span class="ds-stat">{{ t('settings.airlines.count', { n: airlines.length }) }}</span>
         <button @click="openAirlineCreate" class="ds-btn-primary">
-          + Nueva aerolínea
+          + {{ t('settings.airlines.newAirline') }}
         </button>
       </div>
 
@@ -427,19 +435,19 @@
               <td class="text-center">
                 <span class="text-[12px] font-medium px-2 py-0.5 rounded"
                   :class="a.isActive ? 'bg-slate-200 text-slate-900' : 'bg-slate-100 text-slate-400'">
-                  {{ a.isActive ? 'Sí' : 'No' }}
+                  {{ a.isActive ? t('common.yes') : t('common.no') }}
                 </span>
               </td>
               <td class="text-right">
                 <div class="flex gap-1 justify-end">
-                  <button @click="startAirlineEdit(a)" class="ds-btn-secondary !px-2 !py-1 !text-[12px]">Editar</button>
-                  <button @click="removeAirline(a)" class="ds-btn-secondary !px-2 !py-1 !text-[12px]">Eliminar</button>
+                  <button @click="startAirlineEdit(a)" class="ds-btn-secondary !px-2 !py-1 !text-[12px]">{{ t('common.edit') }}</button>
+                  <button @click="removeAirline(a)" class="ds-btn-secondary !px-2 !py-1 !text-[12px]">{{ t('common.delete') }}</button>
                 </div>
               </td>
             </tr>
             <tr v-if="airlines.length === 0">
               <td colspan="6" class="px-4 py-8 text-center text-sm italic text-slate-400">
-                No hay aerolíneas
+                {{ t('settings.airlines.empty') }}
               </td>
             </tr>
           </tbody>
@@ -451,7 +459,7 @@
       <div v-if="editingAirline" class="ds-modal-backdrop">
         <div class="ds-modal-panel max-w-md">
           <div class="ds-modal-header">
-            <h2 class="ds-modal-title">Editar aerolínea</h2>
+            <h2 class="ds-modal-title">{{ t('settings.airlines.editAirline') }}</h2>
           </div>
           <div class="p-6 space-y-3">
             <div>
@@ -489,7 +497,7 @@
       <div v-if="showAirlineCreate" class="ds-modal-backdrop">
         <div class="ds-modal-panel max-w-md">
           <div class="ds-modal-header">
-            <h2 class="ds-modal-title">Nueva aerolínea</h2>
+            <h2 class="ds-modal-title">{{ t('settings.airlines.newAirline') }}</h2>
           </div>
           <div class="p-6 space-y-3">
             <div>
@@ -521,13 +529,13 @@
     <template v-if="activeTab === 'uldconfig'">
       <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
         <div class="flex items-center gap-3">
-          <span class="ds-stat">{{ typeConfigs.length }} configs</span>
+          <span class="ds-stat">{{ t('settings.uldConfig.count', { n: typeConfigs.length }) }}</span>
           <select v-model="configAirlineId" @change="loadTypeConfig" class="ds-input !w-auto font-mono">
             <option v-for="a in airlines" :key="a.id" :value="a.id">{{ a.code }} — {{ a.name }}</option>
           </select>
         </div>
         <button @click="addTypeConfigRow" class="ds-btn-primary">
-          + Nueva fila
+          + {{ t('settings.uldConfig.addRow') }}
         </button>
       </div>
 
@@ -548,7 +556,7 @@
               class="border-b border-slate-100">
               <td>
                 <select v-model="cfg.uldType" class="ds-input font-mono">
-                  <option v-for="t in uldTypes" :key="t" :value="t">{{ t }}</option>
+                  <option v-for="tp in uldTypes" :key="tp" :value="tp">{{ tp }}</option>
                 </select>
               </td>
               <td>
@@ -558,17 +566,17 @@
                 <input v-model.number="cfg.maxGrossLbs" type="number" step="0.1" class="ds-input text-right font-mono">
               </td>
               <td>
-                <input v-model="cfg.notes" class="ds-input" placeholder="Observaciones">
+                <input v-model="cfg.notes" class="ds-input" :placeholder="t('settings.uldConfig.notesPlaceholder')">
               </td>
               <td class="text-right">
                 <div class="flex gap-1 justify-end">
-                  <button @click="removeTypeConfigRow(idx)" class="ds-btn-secondary !px-2 !py-1 !text-[12px]">Quitar</button>
+                  <button @click="removeTypeConfigRow(idx)" class="ds-btn-secondary !px-2 !py-1 !text-[12px]">{{ t('settings.uldConfig.remove') }}</button>
                 </div>
               </td>
             </tr>
             <tr v-if="typeConfigs.length === 0">
               <td colspan="5" class="px-4 py-8 text-center text-sm italic text-slate-400">
-                Sin configuración para esta aerolínea. Añade filas y guarda.
+                {{ t('settings.uldConfig.empty') }}
               </td>
             </tr>
           </tbody>
@@ -577,8 +585,384 @@
       </div>
 
       <div class="flex items-center justify-end gap-2 mt-3">
-        <button @click="loadTypeConfig" class="ds-btn-secondary">Descartar cambios</button>
-        <button @click="saveTypeConfig" class="ds-btn-primary">Guardar configuración</button>
+        <button @click="loadTypeConfig" class="ds-btn-secondary">{{ t('settings.uldConfig.discard') }}</button>
+        <button @click="saveTypeConfig" class="ds-btn-primary">{{ t('settings.uldConfig.bulkSave') }}</button>
+      </div>
+    </template>
+
+    <!-- ============ COMMODITIES TAB (ADMIN / SuperUser + TOTP) ============ -->
+    <template v-if="activeTab === 'commodities'">
+      <div class="flex items-center justify-between mb-3">
+        <span class="ds-stat">{{ t('settings.commodities.count', { n: commodityList.length }) }}</span>
+        <div class="flex gap-2">
+          <div class="flex items-center gap-1">
+            <input v-model="commodityTotpCode" type="text" inputmode="numeric" maxlength="6"
+              placeholder="TOTP" class="ds-input !w-20 !py-1 !text-[11px] font-mono text-center" title="Código TOTP para todas las acciones">
+          </div>
+          <button @click="restoreCommodityDefaults" class="ds-btn-secondary" :disabled="commodityTotpCode.length !== 6">
+            {{ t('settings.commodities.restoreDefaults') }}
+          </button>
+          <button @click="openCommodityCreate" class="ds-btn-primary">
+            + {{ t('settings.commodities.newCommodity') }}
+          </button>
+        </div>
+      </div>
+
+      <div class="ds-table-section">
+        <div class="table-scroll-wrapper flex-1 min-h-0 overflow-y-auto">
+        <table class="w-full text-sm" style="min-width: 700px">
+          <thead>
+            <tr class="bg-slate-800 text-white text-[13px] font-bold uppercase tracking-wider [&>th]:px-4 [&>th]:py-2.5 [&>th]:text-left [&>th]:font-semibold">
+              <th>Código</th>
+              <th>Etiqueta</th>
+              <th>Descripción</th>
+              <th>Color</th>
+              <th class="text-right">Orden</th>
+              <th class="text-center" style="width: 80px">Activo</th>
+              <th class="text-right" style="width: 140px">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="c in commodityList" :key="c.id"
+              class="border-b border-slate-100 transition-colors hover:bg-slate-50/80">
+              <td class="font-mono font-semibold text-slate-900">{{ c.code }}</td>
+              <td class="text-slate-900">{{ c.label }}</td>
+              <td class="text-slate-500 text-[12px] max-w-[200px] truncate">{{ c.description || '—' }}</td>
+              <td>
+                <div class="flex items-center gap-2">
+                  <span class="w-4 h-4 rounded border border-slate-200 inline-block" :style="{ backgroundColor: c.color || '#94a3b8' }"></span>
+                  <span class="font-mono text-[12px] text-slate-500">{{ c.color || '—' }}</span>
+                </div>
+              </td>
+              <td class="text-right font-mono text-slate-700">{{ c.sortOrder }}</td>
+              <td class="text-center">
+                <span class="text-[12px] font-medium px-2 py-0.5 rounded"
+                  :class="c.isActive ? 'bg-slate-200 text-slate-900' : 'bg-slate-100 text-slate-400'">
+                  {{ c.isActive ? t('common.yes') : t('common.no') }}
+                </span>
+              </td>
+              <td class="text-right">
+                <div class="flex gap-1 justify-end">
+                  <button @click="startCommodityEdit(c)" class="ds-btn-secondary !px-2 !py-1 !text-[12px]">{{ t('common.edit') }}</button>
+                  <button @click="removeCommodity(c)" class="ds-btn-secondary !px-2 !py-1 !text-[12px]">{{ t('common.delete') }}</button>
+                </div>
+              </td>
+            </tr>
+            <tr v-if="commodityList.length === 0">
+              <td colspan="7" class="px-4 py-8 text-center text-sm italic text-slate-400">
+                {{ t('settings.commodities.empty') }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
+      </div>
+
+      <!-- Commodity edit modal -->
+      <div v-if="editingCommodity" class="ds-modal-backdrop">
+        <div class="ds-modal-panel max-w-md">
+          <div class="ds-modal-header">
+            <h2 class="ds-modal-title">{{ t('settings.commodities.editCommodity') }}</h2>
+          </div>
+          <div class="p-6 space-y-3">
+            <div>
+              <label class="ds-label block mb-0.5">Código</label>
+              <input v-model="commodityForm.code" maxlength="50" required class="ds-input font-mono uppercase">
+            </div>
+            <div>
+              <label class="ds-label block mb-0.5">Etiqueta</label>
+              <input v-model="commodityForm.label" maxlength="100" class="ds-input">
+            </div>
+            <div>
+              <label class="ds-label block mb-0.5">Descripción</label>
+              <input v-model="commodityForm.description" maxlength="500" class="ds-input" placeholder="Descripción opcional">
+            </div>
+            <div>
+              <label class="ds-label block mb-0.5">Color (hex)</label>
+              <div class="flex items-center gap-2">
+                <input v-model="commodityForm.color" maxlength="20" class="ds-input font-mono" placeholder="#94a3b8">
+                <span class="w-8 h-8 rounded border border-slate-200 inline-block flex-shrink-0" :style="{ backgroundColor: commodityForm.color || '#94a3b8' }"></span>
+              </div>
+            </div>
+            <div>
+              <label class="ds-label block mb-0.5">Orden</label>
+              <input v-model.number="commodityForm.sortOrder" type="number" class="ds-input font-mono">
+            </div>
+            <div>
+              <label class="ds-label block mb-0.5">Activo</label>
+              <select v-model="commodityForm.isActive" class="ds-input">
+                <option :value="true">Sí</option>
+                <option :value="false">No</option>
+              </select>
+            </div>
+            <div class="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <label class="ds-label block mb-0.5 text-amber-800">Código TOTP (Authenticator)</label>
+              <input v-model="commodityTotpCode" type="text" inputmode="numeric" maxlength="6"
+                placeholder="000000" class="ds-input text-center font-mono tracking-wider">
+            </div>
+            <div class="flex gap-2 pt-2">
+              <button @click="saveCommodityEdit" :disabled="commodityTotpCode.length !== 6"
+                class="ds-btn-primary flex-1 justify-center disabled:opacity-40">{{ t('common.save') }}</button>
+              <button @click="editingCommodity = null" class="ds-btn-secondary flex-1 justify-center">Cancelar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Commodity create modal -->
+      <div v-if="showCommodityCreate" class="ds-modal-backdrop">
+        <div class="ds-modal-panel max-w-md">
+          <div class="ds-modal-header">
+            <h2 class="ds-modal-title">{{ t('settings.commodities.newCommodity') }}</h2>
+          </div>
+          <div class="p-6 space-y-3">
+            <div>
+              <label class="ds-label block mb-0.5">Código</label>
+              <input v-model="commodityCreateForm.code" maxlength="50" required class="ds-input font-mono uppercase">
+            </div>
+            <div>
+              <label class="ds-label block mb-0.5">Etiqueta</label>
+              <input v-model="commodityCreateForm.label" maxlength="100" class="ds-input">
+            </div>
+            <div>
+              <label class="ds-label block mb-0.5">Descripción</label>
+              <input v-model="commodityCreateForm.description" maxlength="500" class="ds-input" placeholder="Descripción opcional">
+            </div>
+            <div>
+              <label class="ds-label block mb-0.5">Color (hex)</label>
+              <div class="flex items-center gap-2">
+                <input v-model="commodityCreateForm.color" maxlength="20" class="ds-input font-mono" placeholder="#94a3b8">
+                <span class="w-8 h-8 rounded border border-slate-200 inline-block flex-shrink-0" :style="{ backgroundColor: commodityCreateForm.color || '#94a3b8' }"></span>
+              </div>
+            </div>
+            <div>
+              <label class="ds-label block mb-0.5">Orden</label>
+              <input v-model.number="commodityCreateForm.sortOrder" type="number" class="ds-input font-mono">
+            </div>
+            <div class="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <label class="ds-label block mb-0.5 text-amber-800">Código TOTP (Authenticator)</label>
+              <input v-model="commodityTotpCode" type="text" inputmode="numeric" maxlength="6"
+                placeholder="000000" class="ds-input text-center font-mono tracking-wider">
+            </div>
+            <div class="flex gap-2 pt-2">
+              <button @click="saveCommodityCreate" :disabled="commodityTotpCode.length !== 6"
+                class="ds-btn-primary flex-1 justify-center disabled:opacity-40">{{ t('common.add') }}</button>
+              <button @click="showCommodityCreate = false" class="ds-btn-secondary flex-1 justify-center">Cancelar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- ============ API / BI TAB ============ -->
+    <template v-if="activeTab === 'api'">
+      <div class="space-y-4 overflow-y-auto flex-1 pr-1">
+
+        <!-- Header -->
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <h3 class="text-sm font-semibold text-blue-900 mb-1">{{ t('settings.apiBi.biConnection') }}</h3>
+          <p class="text-xs text-blue-700 leading-relaxed">
+            {{ t('settings.apiBi.biConnectionDesc') }}
+          </p>
+        </div>
+
+        <!-- Detected URL -->
+        <div class="ds-table-section">
+          <div class="p-4 space-y-4">
+
+            <div>
+              <label class="ds-label block mb-1">{{ t('settings.apiBi.serverUrl') }}</label>
+              <div class="flex items-center gap-2">
+                <input v-model="customUrl" :placeholder="currentOrigin"
+                  class="ds-input font-mono text-[12px] flex-1">
+                <button @click="customUrl = ''" class="ds-btn-secondary text-[11px] whitespace-nowrap"
+                  v-if="customUrl">{{ t('settings.apiBi.reset') }}</button>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-1">
+                {{ t('settings.apiBi.autoDetected') }}: <code class="font-mono">{{ currentOrigin }}</code>
+              </p>
+            </div>
+
+            <!-- EC2 deployment note -->
+            <div class="bg-slate-50 border border-slate-200 rounded p-3">
+              <p class="text-[11px] text-slate-700 leading-relaxed">
+                <strong class="text-slate-900">{{ t('settings.apiBi.ec2Deploy') }}</strong>
+                Abre la app en tu navegador con la URL publica del servidor.
+                La URL se detecta automaticamente. nginx proxys las llamadas <code class="bg-slate-200 px-1 rounded font-mono text-[10px]">/api/</code> al gateway internamente.
+                Las URLs de abajo ya apuntan al lugar correcto.
+              </p>
+              <div class="bg-slate-900 text-green-400 rounded p-2 font-mono text-[11px] mt-2 overflow-x-auto">
+                <div class="text-slate-500"># {{ t('settings.apiBi.ec2Example') }}</div>
+                <div>{{ gatewayUrl }}/api/bi/dashboard?api_key=TOKEN</div>
+                <div class="text-slate-500 mt-1"># {{ t('settings.apiBi.ec2PowerBI') }}</div>
+              </div>
+            </div>
+
+            <!-- API Key -->
+            <div>
+              <label class="ds-label block mb-1">{{ t('settings.apiBi.serviceName') }}</label>
+              <div class="flex items-center gap-2">
+                <input :value="biToken" readonly
+                  class="ds-input font-mono text-[10px] flex-1 bg-slate-50 select-all">
+                <button @click="copyToClipboard(biToken, 'token')"
+                  class="ds-btn-secondary text-[12px] whitespace-nowrap">
+                  {{ copied && copiedEndpoint === 'token' ? t('common.copied', {text:''}) : t('common.copy') }}
+                </button>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-1">
+                Cuenta: <span class="font-mono">bi@rannik.com</span> (BI_USER) — Expira: 2027-08-18
+              </p>
+            </div>
+
+            <!-- Test Connection -->
+            <div>
+              <button @click="testConnection" :disabled="connectionTesting"
+                class="ds-btn-primary text-[12px]">
+                {{ connectionTesting ? t('common.loading') : t('settings.apiBi.testConnection') }}
+              </button>
+              <span v-if="connectionStatus" class="ml-3 text-[12px]"
+                :class="connectionStatus.ok ? 'text-green-700 font-medium' : 'text-red-600'">
+                {{ connectionStatus.msg }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick start: Power BI -->
+        <div class="ds-table-section">
+          <div class="p-4">
+            <div class="flex items-center gap-2 mb-3">
+              <span class="text-amber-500 text-lg">&#9632;</span>
+              <label class="ds-label block !mb-0">{{ t('settings.apiBi.powerBI') }}</label>
+            </div>
+            <div class="space-y-2 text-[12px] text-slate-600 leading-relaxed">
+              <div class="flex items-start gap-3">
+                <span class="flex-shrink-0 w-5 h-5 rounded-full bg-slate-800 text-white text-[10px] font-bold flex items-center justify-center mt-0.5">1</span>
+                <p>{{ t('settings.apiBi.powerBIOpen') }}</p>
+              </div>
+              <div class="flex items-start gap-3">
+                <span class="flex-shrink-0 w-5 h-5 rounded-full bg-slate-800 text-white text-[10px] font-bold flex items-center justify-center mt-0.5">2</span>
+                <p>Home &rarr; <strong>Get Data</strong> &rarr; <strong>Web</strong></p>
+              </div>
+              <div class="flex items-start gap-3">
+                <span class="flex-shrink-0 w-5 h-5 rounded-full bg-slate-800 text-white text-[10px] font-bold flex items-center justify-center mt-0.5">3</span>
+                <div>
+                  <p>Copia esta URL y pegala:</p>
+                  <div class="flex items-center gap-2 mt-1 bg-slate-900 rounded px-3 py-2">
+                    <code class="text-green-400 font-mono text-[11px] flex-1 overflow-x-auto whitespace-nowrap">{{ gatewayUrl }}/api/bi/dashboard?api_key={{ biToken.substring(0, 20) }}...</code>
+                    <button @click="copyToClipboard(`${gatewayUrl}/api/bi/dashboard?api_key=${biToken}`, 'pbi-url')"
+                      class="text-[10px] text-blue-400 hover:text-blue-300 whitespace-nowrap">
+                      {{ copied && copiedEndpoint === 'pbi-url' ? t('common.copied', {text:''}) : t('settings.apiBi.copyUrl') }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="flex items-start gap-3">
+                <span class="flex-shrink-0 w-5 h-5 rounded-full bg-slate-800 text-white text-[10px] font-bold flex items-center justify-center mt-0.5">4</span>
+                <p>Power BI carga el JSON &rarr; <strong>Convert to Table</strong> &rarr; Expandir columnas</p>
+              </div>
+              <div class="flex items-start gap-3">
+                <span class="flex-shrink-0 w-5 h-5 rounded-full bg-slate-800 text-white text-[10px] font-bold flex items-center justify-center mt-0.5">5</span>
+                <p>Repite con los otros endpoints que necesites como tablas separadas</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Endpoints list -->
+        <div class="ds-table-section">
+          <div class="p-4">
+            <label class="ds-label block mb-2">{{ t('settings.apiBi.endpointsTitle') }}</label>
+            <div class="grid grid-cols-1 gap-1.5">
+              <div v-for="ep in biEndpoints" :key="ep.path"
+                @click="copyToClipboard(`${gatewayUrl}${ep.path}?api_key=${biToken}`, ep.path)"
+                class="flex items-center justify-between bg-slate-50 rounded px-3 py-2 border border-slate-100 hover:border-blue-300 hover:bg-blue-50/30 cursor-pointer transition-all group">
+                <div class="min-w-0 flex-1">
+                  <code class="text-[11px] font-mono text-slate-900 block truncate">GET {{ ep.path }}</code>
+                  <p class="text-[10px] text-slate-500 mt-0.5">{{ ep.desc }}</p>
+                </div>
+                <span class="text-[10px] text-blue-500 group-hover:text-blue-700 whitespace-nowrap ml-3 flex-shrink-0">
+                  {{ copied && copiedEndpoint === ep.path ? t('common.copied', {text:''}) : t('settings.apiBi.copyUrl') }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Advanced guides -->
+        <div class="ds-table-section">
+          <div class="p-4 space-y-4">
+            <label class="ds-label block">{{ t('settings.apiBi.quickStart') }}</label>
+
+            <!-- Power BI M query -->
+            <details class="group">
+              <summary class="flex items-center gap-2 cursor-pointer text-[13px] font-semibold text-slate-800 hover:text-blue-700 select-none">
+                <svg class="w-4 h-4 text-amber-500 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                Power BI — Power Query (M)
+              </summary>
+              <div class="mt-2 ml-6 space-y-2 text-[12px] text-slate-600 leading-relaxed">
+                <p class="font-medium text-slate-800">{{ t('settings.apiBi.pythonDirectDesc') }}</p>
+                <div class="bg-slate-900 text-green-400 rounded p-2 font-mono text-[11px] overflow-x-auto">
+                  <div>let</div>
+                  <div>&nbsp;&nbsp;url = "{{ gatewayUrl }}/api/bi/dashboard?api_key=TOKEN_AQUI",</div>
+                  <div>&nbsp;&nbsp;json = Json.Document(Web.Contents(url)),</div>
+                  <div>&nbsp;&nbsp;table = Table.FromRecords({json})</div>
+                  <div>in table</div>
+                </div>
+              </div>
+            </details>
+
+            <!-- Tableau -->
+            <details class="group">
+              <summary class="flex items-center gap-2 cursor-pointer text-[13px] font-semibold text-slate-800 hover:text-blue-700 select-none">
+                <svg class="w-4 h-4 text-blue-500 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                Tableau
+              </summary>
+              <div class="mt-2 ml-6 space-y-2 text-[12px] text-slate-600 leading-relaxed">
+                <ol class="list-decimal list-inside space-y-1">
+                  <li>Abre Tableau &rarr; <strong>Connect</strong> &rarr; <strong>To a Server</strong> &rarr; <strong>Web Data Connector</strong></li>
+                  <li>Pega la URL de cualquier endpoint (clic en "Copiar URL" arriba)</li>
+                  <li>Tableau carga el JSON como tabla</li>
+                </ol>
+              </div>
+            </details>
+
+            <!-- Metabase -->
+            <details class="group">
+              <summary class="flex items-center gap-2 cursor-pointer text-[13px] font-semibold text-slate-800 hover:text-blue-700 select-none">
+                <svg class="w-4 h-4 text-purple-500 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                Metabase
+              </summary>
+              <div class="mt-2 ml-6 space-y-2 text-[12px] text-slate-600 leading-relaxed">
+                <ol class="list-decimal list-inside space-y-1">
+                  <li>Metabase &rarr; Admin &rarr; <strong>Databases</strong> &rarr; <strong>Add database</strong></li>
+                  <li>Tipo: <strong>HTTP API</strong> o <strong>REST API / JSON</strong></li>
+                  <li>Base URL: <code class="bg-slate-100 px-1 rounded font-mono text-[11px]">{{ gatewayUrl }}</code></li>
+                  <li>Headers: <code class="bg-slate-100 px-1 rounded font-mono text-[11px]">Authorization: Bearer TOKEN_AQUI</code></li>
+                </ol>
+              </div>
+            </details>
+
+            <!-- curl / Python -->
+            <details class="group">
+              <summary class="flex items-center gap-2 cursor-pointer text-[13px] font-semibold text-slate-800 hover:text-blue-700 select-none">
+                <svg class="w-4 h-4 text-slate-500 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                curl / Python / pandas
+              </summary>
+              <div class="mt-2 ml-6 space-y-2 text-[12px] text-slate-600 leading-relaxed">
+                <div class="bg-slate-900 text-green-400 rounded p-2 font-mono text-[11px] overflow-x-auto">
+                  <div class="text-slate-500"># curl</div>
+                  <div>curl "{{ gatewayUrl }}/api/bi/dashboard?api_key=TOKEN_AQUI"</div>
+                  <div class="text-slate-500 mt-2"># Python + pandas</div>
+                  <div>import pandas as pd</div>
+                  <div>df = pd.read_json("{{ gatewayUrl }}/api/bi/weight-report?api_key=TOKEN_AQUI")</div>
+                </div>
+              </div>
+            </details>
+
+          </div>
+        </div>
+
       </div>
     </template>
 
@@ -588,13 +972,18 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { usersApi } from '../api/users'
+
+const { t } = useI18n()
 import { sitesApi } from '../api/sites'
 import { airlinesApi } from '../api/airlines'
 import { uldTypeConfigApi } from '../api/uldTypeConfig'
+import { commodityTypesApi } from '../api/commodityTypes'
 import { useAuthStore } from '../stores/auth'
 import { useToastStore } from '../stores/toast'
 import { extractError } from '../utils/error'
+import client from '../api/client'
 
 const toast = useToastStore()
 const auth = useAuthStore()
@@ -619,12 +1008,74 @@ const uldTypes = ['PMC', 'PAH', 'PAG', 'PAJ', 'AAY', 'AAZ', 'AAD', 'PIP', 'BULK'
 const typeConfigs = ref([])
 const configAirlineId = ref(null)
 
+const commodityList = ref([])
+const editingCommodity = ref(null)
+const showCommodityCreate = ref(false)
+const commodityForm = ref({ code: '', label: '', description: '', color: '#94a3b8', sortOrder: 0, isActive: true })
+const commodityCreateForm = ref({ code: '', label: '', description: '', color: '#94a3b8', sortOrder: 0, isActive: true })
+const commodityTotpCode = ref('')
+
+const biToken = 'eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiI5MjYyZTE4Ny1lZGY3LTQ2YWMtODllNy1lYmEyZmRjMTY2YWUiLCJyb2xlIjoiQklfVVNFUiIsImFpcmxpbmVJZCI6IjAwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAwMSIsImVtYWlsIjoiYmlAcmFubmlrLmNvbSIsImZ1bGxOYW1lIjoiQkkgVXNlciIsInRva2VuVHlwZSI6InNlcnZpY2UiLCJpYXQiOjE3ODcxMTEzMjUsImV4cCI6MTgxODY0NzMyNX0.-JobVlHpmcRAW6wmJ_kpQhAHe9zB1Ty5gdqveidy1qzU9P2D-YYKtNPtNLIydaOCDfl4gHyRNbpYkF6TB4ie2w'
+const currentOrigin = window.location.origin
+const copied = ref(false)
+const copiedEndpoint = ref('')
+const customUrl = ref('')
+const connectionStatus = ref(null)
+const connectionTesting = ref(false)
+
+const biEndpoints = [
+  { path: '/api/bi/dashboard', desc: 'Resumen general (KPIs, totales, % completado)' },
+  { path: '/api/bi/flights', desc: t('settings.apiBi.biFlightsDesc') },
+  { path: '/api/bi/weight-report', desc: t('settings.apiBi.biWeightReportDesc') },
+  { path: '/api/bi/summary', desc: t('settings.apiBi.biSummaryDesc') },
+  { path: '/api/bi/daily', desc: t('settings.apiBi.biDailyDesc') },
+  { path: '/api/bi/top-mawbs', desc: 'Top MAWBs por peso' },
+  { path: '/api/bi/by-location', desc: 'Estadísticas por origen/destino' },
+  { path: '/api/bi/timeline', desc: 'Timeline de actividad' },
+  { path: '/api/bi/flight-performance', desc: t('settings.apiBi.biFlightPerformanceDesc') },
+  { path: '/api/flights/list', desc: 'Lista de vuelos (paginado)' },
+  { path: '/api/mawbs', desc: 'Lista de MAWBs (paginado)' },
+]
+
+const gatewayUrl = computed(() => {
+  if (customUrl.value.trim()) return customUrl.value.trim().replace(/\/+$/, '')
+  const loc = window.location
+  return loc.origin
+})
+
+function copyToClipboard(text, label) {
+  navigator.clipboard.writeText(text)
+  copied.value = true
+  copiedEndpoint.value = label || ''
+  setTimeout(() => { copied.value = false; copiedEndpoint.value = '' }, 2000)
+}
+
+async function testConnection() {
+  connectionTesting.value = true
+  connectionStatus.value = null
+  try {
+    const res = await client.get('/api/bi/dashboard', {
+      params: { api_key: biToken }
+    })
+    if (res.status === 200 && res.data) {
+      const keys = Object.keys(res.data)
+      connectionStatus.value = { ok: true, msg: `Conexión exitosa — ${keys.length} campos en respuesta` }
+    } else {
+      connectionStatus.value = { ok: false, msg: `Respuesta inesperada: HTTP ${res.status}` }
+    }
+  } catch (e) {
+    connectionStatus.value = { ok: false, msg: extractError(e, t('settings.apiBi.connectionError')) }
+  } finally {
+    connectionTesting.value = false
+  }
+}
+
 async function loadAirlines() {
   try {
     const res = await airlinesApi.getAll()
     airlines.value = res.data || []
   } catch (e) {
-    toast.error(extractError(e, 'No se pudieron cargar las aerolíneas'))
+    toast.error(extractError(e, t('settings.airlines.toast.error')))
   }
 }
 
@@ -635,14 +1086,14 @@ function openAirlineCreate() {
 
 async function saveAirlineCreate() {
   const f = airlineCreateForm.value
-  if (!f.code || !f.name) { toast.warning('Código y nombre son obligatorios'); return }
+  if (!f.code || !f.name) { toast.warning(t('settings.airlines.validation')); return }
   try {
     await airlinesApi.create({ ...f, isActive: f.isActive ?? true })
-    toast.success('Aerolínea creada')
+    toast.success(t('settings.airlines.toast.created'))
     showAirlineCreate.value = false
     await loadAirlines()
   } catch (e) {
-    toast.error(extractError(e, 'Error al crear la aerolínea'))
+    toast.error(extractError(e, t('settings.airlines.toast.error')))
   }
 }
 
@@ -657,25 +1108,25 @@ function startAirlineEdit(a) {
 
 async function saveAirlineEdit() {
   const f = airlineForm.value
-  if (!f.code || !f.name) { toast.warning('Código y nombre son obligatorios'); return }
+  if (!f.code || !f.name) { toast.warning(t('settings.airlines.validation')); return }
   try {
     await airlinesApi.update(f.id, { ...f })
-    toast.success('Aerolínea actualizada')
+    toast.success(t('settings.airlines.toast.updated'))
     editingAirline.value = null
     await loadAirlines()
   } catch (e) {
-    toast.error(extractError(e, 'Error al actualizar la aerolínea'))
+    toast.error(extractError(e, t('settings.airlines.toast.error')))
   }
 }
 
 async function removeAirline(a) {
-  if (!confirm(`¿Eliminar la aerolínea ${a.name} (${a.code})?`)) return
+  if (!confirm(t('settings.airlines.deleteConfirm'))) return
   try {
     await airlinesApi.delete(a.id)
-    toast.success('Aerolínea eliminada')
+    toast.success(t('settings.airlines.toast.deleted'))
     await loadAirlines()
   } catch (e) {
-    toast.error(extractError(e, 'Error al eliminar la aerolínea'))
+    toast.error(extractError(e, t('settings.airlines.toast.error')))
   }
 }
 
@@ -689,12 +1140,12 @@ async function loadTypeConfig() {
       maxGrossLbs: c.maxGrossLbs != null ? Number(c.maxGrossLbs) : null,
     }))
   } catch (e) {
-    toast.error(extractError(e, 'No se pudo cargar la configuración ULD'))
+    toast.error(extractError(e, t('settings.uldConfig.toast.error')))
   }
 }
 
 function addTypeConfigRow() {
-  if (!configAirlineId.value) { toast.warning('Selecciona una aerolínea primero'); return }
+  if (!configAirlineId.value) { toast.warning(t('settings.uldConfig.selectAirline')); return }
   typeConfigs.value.push({
     id: null, airlineId: configAirlineId.value, uldType: 'PMC',
     defaultTareLbs: 0, maxGrossLbs: null, notes: '',
@@ -715,10 +1166,10 @@ async function saveTypeConfig() {
   }))
   try {
     await uldTypeConfigApi.replaceForAirline(configAirlineId.value, rows)
-    toast.success('Configuración ULD guardada')
+    toast.success(t('settings.uldConfig.toast.saved'))
     await loadTypeConfig()
   } catch (e) {
-    toast.error(extractError(e, 'Error al guardar la configuración ULD'))
+    toast.error(extractError(e, t('settings.uldConfig.toast.error')))
   }
 }
 
@@ -803,7 +1254,7 @@ async function saveEdit() {
 }
 
 async function removeUser(user) {
-  if (!confirm(`¿Eliminar a ${user.email}?`)) return
+  if (!confirm(t('settings.users.deleteConfirm'))) return
   try {
     await usersApi.delete(user.id)
     await loadUsers()
@@ -811,7 +1262,7 @@ async function removeUser(user) {
 }
 
 async function resetPass(user) {
-  if (!confirm(`¿Restablecer contraseña de ${user.email}?`)) return
+  if (!confirm(t('settings.users.resetPasswordConfirm'))) return
   try {
     await usersApi.resetPassword(user.id)
     await loadUsers()
@@ -843,10 +1294,10 @@ async function confirmMfaEnable() {
     await usersApi.mfaEnable(mfaSetupUser.value.id, mfaSecret.value, mfaVerifyCode.value)
     showMfaSetup.value = false
     mfaSetupUser.value = null
-    toast.success('MFA habilitado correctamente')
+    toast.success(t('settings.users.toast.mfaEnabled'))
     await loadUsers()
   } catch (e) {
-    toast.error(e.response?.data?.error || 'Código inválido')
+    toast.error(e.response?.data?.error || t('settings.users.toast.invalidCode'))
   }
 }
 
@@ -859,7 +1310,7 @@ function cancelMfaSetup() {
 }
 
 async function disableMfaUser(user) {
-  if (!confirm(`¿Deshabilitar MFA para ${user.email}?`)) return
+  if (!confirm(t('settings.users.confirmDisableMfa'))) return
   try {
     await usersApi.mfaDisable(user.id)
     await loadUsers()
@@ -867,7 +1318,7 @@ async function disableMfaUser(user) {
 }
 
 async function lockMfaUser(user) {
-  if (!confirm(`¿Bloquear la cuenta de ${user.email}? No podrá iniciar sesión.`)) return
+  if (!confirm(t('settings.users.confirmLock'))) return
   try {
     await usersApi.mfaLock(user.id)
     await loadUsers()
@@ -875,7 +1326,7 @@ async function lockMfaUser(user) {
 }
 
 async function unlockMfaUser(user) {
-  if (!confirm(`¿Desbloquear la cuenta de ${user.email}?`)) return
+  if (!confirm(t('settings.users.confirmUnlock'))) return
   try {
     await usersApi.mfaUnlock(user.id)
     await loadUsers()
@@ -928,7 +1379,7 @@ async function saveSiteEdit() {
 }
 
 async function removeSite(site) {
-  if (!confirm(`¿Eliminar el sitio ${site.name} (${site.code})?`)) return
+  if (!confirm(t('settings.sites.deleteConfirm'))) return
   try {
     await sitesApi.delete(site.id)
     await loadSites()
@@ -936,7 +1387,7 @@ async function removeSite(site) {
 }
 
 async function genTempPassword(user) {
-  if (!confirm(`¿Generar contraseña temporal para ${user.email}?`)) return
+  if (!confirm(t('settings.users.confirmGenTemp'))) return
   try {
     const res = await usersApi.generateTempPassword(user.id)
     generatedPassword.value = res.data.tempPassword
@@ -948,19 +1399,90 @@ async function genTempPassword(user) {
 async function copyPassword() {
   try {
     await navigator.clipboard.writeText(generatedPassword.value)
-    toast.success('Contraseña copiada al portapapeles')
+    toast.success(t('settings.users.toast.passwordCopied'))
   } catch {
-    toast.error('No se pudo copiar')
+    toast.error(t('settings.users.toast.copyFailed'))
   }
 }
 
+async function loadCommodities() {
+  try {
+    const res = await commodityTypesApi.getAll(false)
+    commodityList.value = res.data || []
+  } catch (e) { toast.error(extractError(e, t('settings.commodities.toast.error'))) }
+}
+
+function openCommodityCreate() {
+  commodityCreateForm.value = { code: '', label: '', description: '', color: '#94a3b8', sortOrder: commodityList.value.length, isActive: true }
+  commodityTotpCode.value = ''
+  showCommodityCreate.value = true
+}
+
+function startCommodityEdit(c) {
+  commodityForm.value = { code: c.code, label: c.label, description: c.description || '', color: c.color || '#94a3b8', sortOrder: c.sortOrder, isActive: c.isActive }
+  commodityTotpCode.value = ''
+  editingCommodity.value = c
+}
+
+async function saveCommodityEdit() {
+  if (!editingCommodity.value || commodityTotpCode.value.length !== 6) return
+  try {
+    await commodityTypesApi.update(editingCommodity.value.id, commodityForm.value, commodityTotpCode.value)
+    toast.success(t('settings.commodities.toast.updated'))
+    editingCommodity.value = null
+    commodityTotpCode.value = ''
+    await loadCommodities()
+  } catch (e) { toast.error(extractError(e, t('settings.commodities.toast.error'))) }
+}
+
+async function saveCommodityCreate() {
+  if (commodityTotpCode.value.length !== 6) return
+  const f = commodityCreateForm.value
+  if (!f.code) { toast.warning(t('settings.commodities.codeRequired')); return }
+  try {
+    await commodityTypesApi.create({ ...f, isActive: f.isActive ?? true }, commodityTotpCode.value)
+    toast.success(t('settings.commodities.toast.created'))
+    showCommodityCreate.value = false
+    commodityTotpCode.value = ''
+    await loadCommodities()
+  } catch (e) { toast.error(extractError(e, t('settings.commodities.toast.error'))) }
+}
+
+async function removeCommodity(c) {
+  if (commodityTotpCode.value.length !== 6) { toast.warning(t('settings.commodities.totpRequired')); return }
+  if (!confirm(t('settings.commodities.deleteConfirm'))) return
+  try {
+    await commodityTypesApi.delete(c.id, commodityTotpCode.value)
+    toast.success(t('settings.commodities.toast.deleted'))
+    commodityTotpCode.value = ''
+    await loadCommodities()
+  } catch (e) { toast.error(extractError(e, t('settings.commodities.toast.error'))) }
+}
+
+async function restoreCommodityDefaults() {
+  if (commodityTotpCode.value.length !== 6) { toast.warning(t('settings.commodities.totpRequired')); return }
+  if (!confirm(t('settings.commodities.restoreConfirm'))) return
+  try {
+    const res = await commodityTypesApi.restoreDefaults(commodityTotpCode.value)
+    const restored = res.data?.restored || 0
+    toast.success(t('settings.commodities.toast.restored', { n: restored }))
+    commodityTotpCode.value = ''
+    await loadCommodities()
+  } catch (e) { toast.error(extractError(e, t('settings.commodities.toast.error'))) }
+}
+
 onMounted(async () => {
+  if (auth.role === 'BI_USER') {
+    activeTab.value = 'api'
+    return
+  }
   await loadUsers()
   if (auth.role === 'SUPER_USER') {
     await loadSites()
   }
   if (canManageSettings.value) {
     await loadAirlines()
+    await loadCommodities()
     if (airlines.value.length) {
       configAirlineId.value = airlines.value[0].id
     }

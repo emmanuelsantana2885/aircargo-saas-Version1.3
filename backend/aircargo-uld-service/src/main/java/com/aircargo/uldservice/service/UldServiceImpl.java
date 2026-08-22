@@ -1,6 +1,7 @@
 package com.aircargo.uldservice.service;
 
 import com.aircargo.common.dto.PageResponse;
+import com.aircargo.feign.client.MawbClient;
 import com.aircargo.uldservice.dto.UldAwbDTO;
 import com.aircargo.uldservice.dto.UldDTO;
 import com.aircargo.uldservice.entity.Uld;
@@ -23,14 +24,17 @@ import java.util.stream.Collectors;
 @Service
 public class UldServiceImpl implements UldService {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(UldServiceImpl.class);
     private static final BigDecimal KG_PER_LB = new BigDecimal("0.453592");
 
     private final UldRepository uldRepository;
     private final UldAwbRepository uldAwbRepository;
+    private final MawbClient mawbClient;
 
-    public UldServiceImpl(UldRepository uldRepository, UldAwbRepository uldAwbRepository) {
+    public UldServiceImpl(UldRepository uldRepository, UldAwbRepository uldAwbRepository, MawbClient mawbClient) {
         this.uldRepository = uldRepository;
         this.uldAwbRepository = uldAwbRepository;
+        this.mawbClient = mawbClient;
     }
 
     private void computeMetricWeights(Uld e) {
@@ -186,7 +190,34 @@ public class UldServiceImpl implements UldService {
                 .orElseThrow(() -> new IllegalArgumentException("ULD not found: " + id));
         uld.setFlightId(flightId);
         Uld saved = uldRepository.save(uld);
+
+        // Auto-set MAWB status to MANIFESTED when ULD is assigned to a flight
+        if (flightId != null) {
+            setMawbStatusToManifested(id);
+        }
+
         return enrichWithAwbs(UldDTO.fromEntity(saved));
+    }
+
+    private void setMawbStatusToManifested(UUID uldId) {
+        try {
+            List<UldAwb> links = uldAwbRepository.findByUldId(uldId);
+            for (UldAwb link : links) {
+                if (link.getMawbId() != null) {
+                    try {
+                        var mawb = mawbClient.getMawbById(link.getMawbId());
+                        if (mawb != null && ("BOOKED".equals(mawb.getStatus()) || "RECEIVED".equals(mawb.getStatus()))) {
+                            mawbClient.updateMawbStatus(link.getMawbId(), "MANIFESTED");
+                            log.info("Auto-set MAWB {} status to MANIFESTED (ULD assigned to flight)", link.getMawbId());
+                        }
+                    } catch (Exception e) {
+                        log.warn("Failed to set MAWB {} to MANIFESTED: {}", link.getMawbId(), e.getMessage());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to resolve ULD-AWB links for ULD {}: {}", uldId, e.getMessage());
+        }
     }
 
     @Override

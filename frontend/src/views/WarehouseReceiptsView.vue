@@ -3,27 +3,27 @@
     <header class="ds-section-header">
       <div class="flex items-end gap-3 flex-1 min-w-0 flex-wrap">
         <div>
-          <h1 class="ds-title">Warehouse Receipts</h1>
-          <p class="ds-subtitle hidden sm:block">SDQ Dock // Recepción de Carga</p>
+          <h1 class="ds-title">{{ t('warehouse.title') }}</h1>
+          <p class="ds-subtitle hidden sm:block">{{ t('warehouse.subtitle') }}</p>
         </div>
         <div class="h-8 w-[1px] bg-slate-200 hidden sm:block"></div>
         <div class="flex flex-col gap-0.5 opacity-50 hidden md:flex">
-          <span class="ds-label hidden sm:block">Vuelo</span>
+          <span class="ds-label hidden sm:block">{{ t('common.flight') }}</span>
           <select disabled
             class="bg-slate-100 border border-slate-300 rounded px-2 py-1 font-black text-slate-800 uppercase tracking-widest text-[15px] min-w-[120px] cursor-not-allowed">
-            <option value="">Todos los vuelos</option>
+            <option value="">{{ t('common.all') }}</option>
             <option v-for="f in store.flights" :key="f.id" :value="f.id">
               {{ airlineCodeById(f.airlineId) }}-{{ f.flightNumber }} ({{ f.origin }}→{{ f.destination }})
             </option>
           </select>
         </div>
         <div class="flex flex-col gap-0.5 flex-1 min-w-[140px] max-w-[280px]">
-          <span class="ds-label hidden sm:block">Filtro (* &lt; &gt; =)</span>
-          <input v-model="filterTextRaw" type="text" placeholder="Filtro (* > =)"
+          <span class="ds-label hidden sm:block">{{ t('common.search') }} (* &lt; &gt; =)</span>
+          <input v-model="filterTextRaw" type="text" :placeholder="t('common.search')"
             class="ds-input" />
         </div>
         <div class="flex flex-col gap-0.5">
-          <span class="ds-label hidden sm:block">Fecha</span>
+          <span class="ds-label hidden sm:block">{{ t('common.date') }}</span>
           <input v-model="filterDate" type="date"
             class="ds-input" />
         </div>
@@ -32,6 +32,24 @@
         <span class="h-1.5 w-1.5 rounded-full bg-slate-500 "></span> {{ filteredMawbs.length }}/{{ store.mawbs.length }} MAWBs
       </div>
     </header>
+
+    <div v-if="overdueMawbs.length > 0 && !overdueMawbsDismissed"
+      class="mx-3 mb-2 px-4 py-2.5 bg-amber-50 border border-amber-300 rounded-lg flex items-start gap-3 text-[13px]">
+      <span class="text-amber-500 text-[20px] leading-none mt-0.5 shrink-0">&#9888;</span>
+      <div class="flex-1 min-w-0">
+        <span class="font-bold text-amber-800">{{ overdueMawbs.length }} {{ t('warehouse.overdue.title') }}</span>
+        <span class="text-amber-700 ml-1">— {{ t('warehouse.overdue.desc') }}</span>
+        <div class="mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
+          <span v-for="o in overdueMawbs" :key="o.mawb.id"
+            class="font-mono font-bold text-amber-900 cursor-pointer hover:underline"
+            @click="toggleExpand(o.mawb)">
+            {{ o.mawb.awbNumber || o.mawb.id?.slice(0, 8) }}
+            <span class="font-normal text-amber-600 text-[12px]">({{ o.flight.flightNumber || t('warehouse.overdue.noFlight') }})</span>
+          </span>
+        </div>
+      </div>
+      <button @click="overdueMawbsDismissed = true" class="text-amber-400 hover:text-amber-600 text-[18px] leading-none shrink-0 mt-0.5" title="Cerrar">&times;</button>
+    </div>
 
     <section class="ds-table-section mb-1.5">
       <div class="overflow-x-auto shrink-0">
@@ -67,7 +85,7 @@
               class="px-3 py-1.5 cursor-pointer hover:bg-slate-100 truncate" :class="columnFilters.shipper === v ? 'bg-slate-50 text-slate-700 font-bold' : ''">{{ v }}</div>
           </div>
         </div>
-        <div class="col-span-1 text-center">Piezas</div>
+        <div class="col-span-1 text-center">{{ t('common.pieces') }}</div>
         <div class="col-span-2 text-right pr-2">Peso (kg)</div>
         <div class="col-span-1 text-center relative">
           <span @click="toggleHeaderFilter('dest')"
@@ -112,7 +130,7 @@
         <button @click="applyBulkStatus" class="ds-btn-primary text-[11px] px-2 py-0.5">
           Aplicar
         </button>
-        <button @click="selectedMawbIds.clear()" class="text-slate-950 hover:text-slate-950 text-[14px] font-mono underline ml-auto">Limpiar</button>
+        <button @click="selectedMawbIds.clear()" class="text-slate-950 hover:text-slate-950 text-[14px] font-mono underline ml-auto">{{ t('warehouse.signatures.clear') }}</button>
       </div>
 
       <div v-if="store.mawbs.length === 0" class="flex-1 flex items-center justify-center">
@@ -125,7 +143,7 @@
           <div v-for="m in filteredMawbs" :key="m.id" class="flex flex-col">
           <div class="overflow-x-auto">
           <div class="grid grid-cols-12 items-center py-1.5 px-5 transition-all duration-150 cursor-pointer border-t"
-            :class="[expandedId === m.id ? 'row-selected' : '', selectedMawbIds.has(m.id) ? 'bg-slate-50/50' : '']" style="border-color: var(--border); min-width: 700px;"
+            :class="[expandedId === m.id ? 'row-selected' : '', selectedMawbIds.has(m.id) ? 'bg-slate-50/50' : '', overdueSet.has(m.id) ? 'bg-amber-50/60 border-l-2 !border-l-amber-400' : '']" style="border-color: var(--border); min-width: 700px;"
             @click="toggleExpand(m)">
             <div class="col-span-1 flex items-center justify-center relative z-10">
               <input type="checkbox" :checked="selectedMawbIds.has(m.id)"
@@ -176,6 +194,8 @@
               </div>
               <span class="text-[12px] font-mono font-bold uppercase tracking-wider whitespace-nowrap"
                 :class="statusLabelClass(m)">{{ statusLabel(m) }}</span>
+              <span v-if="overdueSet.has(m.id)"
+                class="text-amber-500 text-[16px] leading-none animate-pulse" title="Recibido pero vuelo ya pasó — pendiente de despacho">&#9888;</span>
               <button @click.stop="toggleMawbEvidenceManager(m)"
                 class="ml-auto text-[13px] px-1.5 py-0.5 rounded border border-slate-300 text-slate-950 hover:text-slate-950 hover:border-slate-950 transition font-mono"
                 title="Gestionar evidencias documentales de esta MAWB">
@@ -229,7 +249,7 @@
                         class="ds-input uppercase" />
                     </div>
                     <div>
-                      <label class="ds-label">Shipper Name</label>
+                      <label class="ds-label">{{ t('warehouse.form.shipperName') }}</label>
                       <div class="flex gap-2 items-center">
                         <input v-model="receiptForms[m.id].shipperName" type="text" placeholder="Shipper"
                           class="ds-input flex-1"
@@ -270,7 +290,7 @@
                           class="ds-input" />
                       </div>
                       <div>
-                        <label class="ds-label">MAWB Weight (Greatest Shipper Reported)</label>
+                        <label class="ds-label">{{ t('warehouse.form.mawbWeight') }}</label>
                         <input v-model.number="receiptForms[m.id].mawbWeightGreatest" type="number" step="0.001"
                           class="ds-input" />
                       </div>
@@ -362,7 +382,7 @@
                         </label>
                         <label class="text-[12px] font-mono font-bold text-slate-950 flex items-center gap-1.5 cursor-pointer select-none">
                           <input type="checkbox" v-model="receiptForms[m.id].preBuilt" class="accent-slate-700 rounded w-3 h-3" />
-                          <span>Pre-built / Shipper Built</span>
+                          <span>{{ t('warehouse.checkboxes.preBuilt') }}</span>
                         </label>
                       </div>
                     </div>
@@ -630,7 +650,7 @@
 
                 <!-- Evidencias del MAWB (desde base de datos) -->
                 <div v-if="(receiptForms[m.id].mawbEvidence || []).length > 0">
-                  <span class="text-[12px] font-mono font-bold text-slate-950 uppercase tracking-wider mb-1 block">Evidencias del MAWB</span>
+                  <span class="text-[12px] font-mono font-bold text-slate-950 uppercase tracking-wider mb-1 block">{{ t('warehouse.evidence.mawbEvidence') }}</span>
                   <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
                     <div v-for="(ev, ei) in receiptForms[m.id].mawbEvidence" :key="'mawb-' + ei"
                       class="relative border border-slate-200 rounded bg-slate-50/30 overflow-hidden group cursor-pointer" @click="previewEvidence(ev)">
@@ -767,7 +787,7 @@
         <div class="ds-modal-panel max-w-xl p-0" style="max-height: 80vh;">
           <div class="ds-modal-header px-4 py-2.5">
             <span class="ds-modal-title">
-              Evidencias — {{ mawbEvidenceMgr.mawb?.awbNumber || 'MAWB' }}
+              {{ t('warehouse.evidence.title') }} — {{ mawbEvidenceMgr.mawb?.awbNumber || 'MAWB' }}
             </span>
             <button @click="closeMawbEvidenceMgr" class="text-slate-950 hover:text-slate-950 transition text-base">✕</button>
           </div>
@@ -829,13 +849,13 @@
                 <div class="grid grid-cols-2 gap-x-4 gap-y-1.5">
                   <span class="text-slate-500 uppercase tracking-wider">MAWB</span>
                   <span class="font-bold text-right">{{ pendingSubmitMawb.awbNumber }}</span>
-                  <span class="text-slate-500 uppercase tracking-wider">Destino</span>
+                  <span class="text-slate-500 uppercase tracking-wider">{{ t('warehouse.form.destination') }}</span>
                   <span class="font-bold text-right">{{ receiptForms[pendingSubmitMawb.id]?.destination || pendingSubmitMawb.destination || '—' }}</span>
-                  <span class="text-slate-500 uppercase tracking-wider">Piezas</span>
+                  <span class="text-slate-500 uppercase tracking-wider">{{ t('common.pieces') }}</span>
                   <span class="font-bold text-right">{{ (receiptForms[pendingSubmitMawb.id]?.pieces || []).reduce((s, p) => s + (p.pieces || 1), 0) }}</span>
                   <span class="text-slate-500 uppercase tracking-wider">Peso (Kg)</span>
                   <span class="font-bold text-right">{{ (receiptForms[pendingSubmitMawb.id]?.pieces || []).reduce((s, p) => s + (p.scaleWeightKg || 0), 0).toFixed(1) }}</span>
-                  <span class="text-slate-500 uppercase tracking-wider">Shipper</span>
+                  <span class="text-slate-500 uppercase tracking-wider">{{ t('warehouse.form.shipperName') }}</span>
                   <span class="font-bold text-right truncate">{{ receiptForms[pendingSubmitMawb.id]?.shipperName || pendingSubmitMawb.shipperName || '—' }}</span>
                   <span class="text-slate-500 uppercase tracking-wider">Consignee</span>
                   <span class="font-bold text-right truncate">{{ receiptForms[pendingSubmitMawb.id]?.consigneeName || pendingSubmitMawb.consigneeName || '—' }}</span>
@@ -945,7 +965,10 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, reactive } from 'vue'
 import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAppStore } from '../stores/app'
+
+const { t } = useI18n()
 import SignaturePad from '../components/SignaturePad.vue'
 import CameraCapture from '../components/CameraCapture.vue'
 import EditReceiptModal from '../components/EditReceiptModal.vue'
@@ -966,6 +989,7 @@ function airlineCodeById(airlineId) {
 }
 
 const expandedId = ref(localStorage.getItem('WAREHOUSE_EXPANDED_MAWB') || null)
+const overdueMawbsDismissed = ref(false)
 const localStep = ref(1)
 const submitting = ref(false)
 const successMsg = ref('')
@@ -1158,16 +1182,16 @@ const uniqueValues = computed(() => {
 
 const statusOptions = [
   { key: 'BOOKED', label: 'Pendientes', dotClass: 'bg-slate-400' },
-  { key: 'RECEIVED', label: 'Recibidos', dotClass: 'bg-blue-500' },
-  { key: 'MANIFESTED', label: 'Manifestados', dotClass: 'bg-amber-500' },
-  { key: 'DEPARTED', label: 'Despachados', dotClass: 'bg-emerald-500' },
+  { key: 'RECEIVED', label: 'Recibidos', dotClass: 'bg-amber-400' },
+  { key: 'MANIFESTED', label: 'Manifestados', dotClass: 'bg-emerald-500' },
+  { key: 'DEPARTED', label: 'Despachados', dotClass: 'bg-blue-500' },
 ]
 
 const statusDotClass = {
   BOOKED: 'bg-slate-400',
-  RECEIVED: 'bg-blue-500',
-  MANIFESTED: 'bg-amber-500',
-  DEPARTED: 'bg-emerald-500',
+  RECEIVED: 'bg-amber-400',
+  MANIFESTED: 'bg-emerald-500',
+  DEPARTED: 'bg-blue-500',
 }
 
 function toggleHeaderFilter(col) {
@@ -1305,9 +1329,9 @@ function matchAnyField(m, fn) {
 const steps = ['HEADER', 'PIECES', 'REMARKS', 'EVIDENCE', 'SIGNATURES']
 const statusSteps = [
   { key: 'BOOKED',     color: 'bg-slate-500 border-slate-600',  label: 'Pendiente',  tone: 'slate' },
-  { key: 'RECEIVED',   color: 'bg-blue-500 border-blue-600',    label: 'Recibido',   tone: 'blue' },
-  { key: 'MANIFESTED', color: 'bg-amber-500 border-amber-600',  label: 'Manifestado', tone: 'amber' },
-  { key: 'DEPARTED',   color: 'bg-emerald-500 border-emerald-600', label: 'Despachado', tone: 'emerald' },
+  { key: 'RECEIVED',   color: 'bg-amber-500 border-amber-600',  label: 'Recibido',   tone: 'amber' },
+  { key: 'MANIFESTED', color: 'bg-emerald-500 border-emerald-600', label: 'Manifestado', tone: 'emerald' },
+  { key: 'DEPARTED',   color: 'bg-blue-500 border-blue-600',    label: 'Despachado', tone: 'blue' },
 ]
 const statusOrder = ['BOOKED', 'RECEIVED', 'MANIFESTED', 'DEPARTED']
 
@@ -1336,9 +1360,9 @@ function statusLabel(m) {
 
 const statusLabelCls = {
   BOOKED: 'text-slate-500',
-  RECEIVED: 'text-blue-700',
-  MANIFESTED: 'text-amber-700',
-  DEPARTED: 'text-emerald-700',
+  RECEIVED: 'text-amber-700',
+  MANIFESTED: 'text-emerald-700',
+  DEPARTED: 'text-blue-700',
   ARRIVED: 'text-slate-700',
   CANCELLED: 'text-red-600',
 }
@@ -2259,6 +2283,26 @@ const receiptTotals = computed(() => {
   }
   return totals
 })
+
+const overdueMawbs = computed(() => {
+  const today = new Date().toISOString().slice(0, 10)
+  const flightMap = {}
+  for (const f of store.flights) flightMap[f.id] = f
+  const result = []
+  for (const m of store.mawbs) {
+    const hasReceipt = !!receiptById.value[m.id]
+    const st = m.status || 'BOOKED'
+    if (hasReceipt && st !== 'DEPARTED') {
+      const flight = flightMap[m.flightId]
+      if (flight && flight.flightDate && flight.flightDate < today) {
+        result.push({ mawb: m, flight })
+      }
+    }
+  }
+  return result
+})
+
+const overdueSet = computed(() => new Set(overdueMawbs.value.map(o => o.mawb.id)))
 
 const receiptById = computed(() => {
   const map = {}

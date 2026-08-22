@@ -20,40 +20,30 @@
     </div>
 
     <!-- ═══ FILTER BAR ═══ -->
-    <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4 shrink-0 p-3 rounded-lg border border-slate-200 bg-slate-50">
-      <div>
-        <label class="ds-label block mb-1">Tipo</label>
+    <FilterBar
+      v-model:date-from="dateFrom"
+      v-model:date-to="dateTo"
+      :show-period-presets="true"
+      :show-date-from="true"
+      :show-date-to="true"
+      :show-search="false"
+      :show-search-button="true"
+      :show-clear="true"
+      :loading="loading"
+      search-button-label="Consultar"
+      loading-label="Consultando..."
+      @search="loadData"
+      @clear="clearFilters"
+      container-class="mb-4 shrink-0 p-3 rounded-lg border border-slate-200 bg-slate-50"
+    >
+      <div class="h-6 w-[1px] bg-slate-300 self-end mb-0.5"></div>
+      <div class="flex flex-col gap-0.5">
+        <label class="ds-label">Tipo</label>
         <select v-model="exportType" class="ds-input !w-auto min-w-[130px]">
           <option v-for="t in types" :key="t.value" :value="t.value">{{ t.label }}</option>
         </select>
       </div>
-
-      <div class="h-6 w-[1px] bg-slate-300 self-end mb-0.5"></div>
-
-      <div>
-        <label class="ds-label block mb-1">Desde</label>
-        <input type="date" v-model="dateFrom" class="ds-input !w-[150px]">
-      </div>
-      <div>
-        <label class="ds-label block mb-1">Hasta</label>
-        <input type="date" v-model="dateTo" class="ds-input !w-[150px]">
-      </div>
-
-      <div class="self-end mb-0.5">
-        <button @click="loadData" :disabled="loading"
-          class="ds-btn-primary"
-          :class="loading ? '!bg-slate-400 !border-slate-400 cursor-wait' : ''">
-          <IconSearch :size="14" />
-          {{ loading ? 'Consultando...' : 'Consultar' }}
-        </button>
-      </div>
-
-      <div class="self-end mb-0.5">
-        <button @click="clearFilters" class="ds-btn-secondary">
-          Limpiar
-        </button>
-      </div>
-    </div>
+    </FilterBar>
 
     <!-- ═══ TABLE ═══ -->
     <div class="ds-table-section">
@@ -141,6 +131,7 @@ import {
   IconDownload,
   IconAlertCircle,
 } from '@tabler/icons-vue'
+import FilterBar from '../components/FilterBar.vue'
 
 const types = [
   { value: 'MAWBS', label: 'MAWBs' },

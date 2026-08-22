@@ -10,8 +10,6 @@ import com.aircargo.feign.client.MawbClient;
 import com.aircargo.feign.client.BookingClient;
 import com.aircargo.common.auth.UserPrincipal;
 import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.scheduling.annotation.Async;
@@ -33,21 +31,16 @@ public class WarehouseServiceImpl implements WarehouseService {
     private final ReceiptPieceRepository pieceRepository;
     private final MawbClient mawbClient;
     private final BookingClient bookingClient;
-    private final RabbitTemplate rabbitTemplate;
     private final ReceiptExportService receiptExportService;
     private final ReceiptFullPdfService receiptFullPdfService;
     private final PdfGenerationService pdfGenerationService;
     private final ObjectMapper objectMapper;
     private final MawbNumberResolver mawbNumberResolver;
 
-    @Value("${rabbitmq.exchange:aircargo.events}")
-    private String exchange;
-
     public WarehouseServiceImpl(WarehouseReceiptRepository receiptRepository,
                                  ReceiptPieceRepository pieceRepository,
                                  MawbClient mawbClient,
                                  BookingClient bookingClient,
-                                 RabbitTemplate rabbitTemplate,
                                  ReceiptExportService receiptExportService,
                                  ReceiptFullPdfService receiptFullPdfService,
                                  PdfGenerationService pdfGenerationService,
@@ -57,7 +50,6 @@ public class WarehouseServiceImpl implements WarehouseService {
         this.pieceRepository = pieceRepository;
         this.mawbClient = mawbClient;
         this.bookingClient = bookingClient;
-        this.rabbitTemplate = rabbitTemplate;
         this.receiptExportService = receiptExportService;
         this.receiptFullPdfService = receiptFullPdfService;
         this.pdfGenerationService = pdfGenerationService;
@@ -108,6 +100,9 @@ public class WarehouseServiceImpl implements WarehouseService {
 
         // Sync MAWB and booking
         syncMawbAndBooking(saved);
+
+        // Auto-set MAWB status to RECEIVED if currently BOOKED
+        updateMawbStatusToReceived(saved.getMawbId());
 
         // Publish event
         publishReceiptCreatedEvent(saved);
@@ -187,6 +182,9 @@ public class WarehouseServiceImpl implements WarehouseService {
 
             // Sync
             syncMawbAndBooking(existing);
+
+            // Auto-set MAWB status to RECEIVED if currently BOOKED
+            updateMawbStatusToReceived(existing.getMawbId());
 
             return WarehouseReceiptDTO.fromEntity(saved);
         });
@@ -628,15 +626,20 @@ public class WarehouseServiceImpl implements WarehouseService {
         }
     }
 
-    private void publishReceiptCreatedEvent(WarehouseReceipt receipt) {
+    private void updateMawbStatusToReceived(UUID mawbId) {
+        if (mawbId == null) return;
         try {
-            var event = new com.aircargo.common.event.ReceiptCreatedEvent(
-                    receipt.getId(), receipt.getMawbId(),
-                    receipt.getMawbNumber() != null ? receipt.getMawbNumber() : ""
-            );
-            rabbitTemplate.convertAndSend(exchange, "receipt.created", event);
+            var mawb = mawbClient.getMawbById(mawbId);
+            if (mawb != null && "BOOKED".equals(mawb.getStatus())) {
+                mawbClient.updateMawbStatus(mawbId, "RECEIVED");
+                log.info("Auto-set MAWB {} status to RECEIVED", mawbId);
+            }
         } catch (Exception e) {
-            // Log but don't fail
+            log.warn("Failed to auto-set MAWB {} status to RECEIVED: {}", mawbId, e.getMessage());
         }
+    }
+
+    private void publishReceiptCreatedEvent(WarehouseReceipt receipt) {
+        log.warn("RabbitMQ not available - event not published: receipt.created");
     }
 }

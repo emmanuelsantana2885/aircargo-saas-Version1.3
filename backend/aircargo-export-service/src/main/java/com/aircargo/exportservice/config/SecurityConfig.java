@@ -32,7 +32,7 @@ public class SecurityConfig {
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/catalog/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/exports/**").hasAnyAuthority("READ_ONLY", "ADMIN", "SUPER_USER", "BI_USER")
-                .requestMatchers(HttpMethod.GET, "/api/bi/**").hasAnyAuthority("ADMIN", "SUPER_USER", "BI_USER")
+                .requestMatchers(HttpMethod.GET, "/api/bi/**").hasAnyAuthority("READ_ONLY", "ADMIN", "SUPER_USER", "BI_USER")
                 .requestMatchers(HttpMethod.GET, "/api/reports/**").hasAnyAuthority("ADMIN", "SUPER_USER", "BI_USER")
                 .anyRequest().authenticated()
             )

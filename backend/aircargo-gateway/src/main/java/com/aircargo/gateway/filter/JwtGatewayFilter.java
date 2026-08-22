@@ -45,11 +45,18 @@ public class JwtGatewayFilter implements GlobalFilter, Ordered {
         }
 
         String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            return reject(exchange, HttpStatus.UNAUTHORIZED, "Missing or invalid Authorization header");
+        String token = null;
+
+        String apiKey = request.getQueryParams().getFirst("api_key");
+        if (apiKey != null && !apiKey.isBlank()) {
+            token = apiKey;
+        } else if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            token = authHeader.substring(7);
         }
 
-        String token = authHeader.substring(7);
+        if (token == null || token.isBlank()) {
+            return reject(exchange, HttpStatus.UNAUTHORIZED, "Missing or invalid Authorization header");
+        }
         try {
             if (!jwtUtil.isValid(token)) {
                 return reject(exchange, HttpStatus.UNAUTHORIZED, "Invalid or expired token");
@@ -66,15 +73,18 @@ public class JwtGatewayFilter implements GlobalFilter, Ordered {
             String email = claims.get("email", String.class);
             String fullName = claims.get("fullName", String.class);
 
-            ServerHttpRequest mutatedRequest = request.mutate()
+            ServerHttpRequest.Builder builder = request.mutate()
                     .header("X-User-Id", userId != null ? userId : "")
                     .header("X-User-Email", email != null ? email : "")
                     .header("X-User-Role", role != null ? role : "")
                     .header("X-User-Airline-Id", airlineId != null ? airlineId : "")
                     .header("X-User-Full-Name", fullName != null ? fullName : "")
                     .header("X-Forwarded-For", request.getRemoteAddress() != null
-                            ? request.getRemoteAddress().getAddress().getHostAddress() : "unknown")
-                    .build();
+                            ? request.getRemoteAddress().getAddress().getHostAddress() : "unknown");
+
+            builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+
+            ServerHttpRequest mutatedRequest = builder.build();
 
             return chain.filter(exchange.mutate().request(mutatedRequest).build());
 

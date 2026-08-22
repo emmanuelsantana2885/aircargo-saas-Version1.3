@@ -138,13 +138,13 @@ export const useAuthStore = defineStore('auth', () => {
     if (!role.value) return false
     switch (role.value) {
       case 'SUPER_USER': return true
-      case 'ADMIN': return ['DASHBOARD', 'FLIGHTS', 'MAWBS', 'LOAD_PLANNING', 'ULDS', 'BOOKINGS', 'RECEIPTS', 'USERS', 'SETTINGS', 'EXPORTS'].includes(viewName)
+      case 'ADMIN': return ['DASHBOARD', 'FLIGHTS', 'MAWBS', 'LOAD_PLANNING', 'ULDS', 'BOOKINGS', 'RECEIPTS', 'USERS', 'SETTINGS', 'SECURITY', 'EXPORTS'].includes(viewName)
       case 'READ_ONLY': return true
       case 'WAREHOUSE_ASSISTANT': return viewName === 'RECEIPTS' || viewName === 'DASHBOARD'
       case 'OPERATIONS': return ['DASHBOARD', 'FLIGHTS', 'MAWBS', 'LOAD_PLANNING', 'ULDS'].includes(viewName)
       case 'TRAFFIC': return ['DASHBOARD', 'BOOKINGS', 'MAWBS', 'LOAD_PLANNING', 'ULDS'].includes(viewName)
       case 'LOAD_PLANNER': return ['DASHBOARD', 'FLIGHTS', 'LOAD_PLANNING', 'ULDS'].includes(viewName)
-      case 'BI_USER': return ['DASHBOARD', 'BI', 'API_CATALOG'].includes(viewName)
+      case 'BI_USER': return ['DASHBOARD', 'BI', 'API_CATALOG', 'SETTINGS'].includes(viewName)
       default: return false
     }
   }

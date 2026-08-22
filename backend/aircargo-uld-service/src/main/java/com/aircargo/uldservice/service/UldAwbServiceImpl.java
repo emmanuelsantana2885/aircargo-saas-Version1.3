@@ -1,5 +1,6 @@
 package com.aircargo.uldservice.service;
 
+import com.aircargo.feign.client.MawbClient;
 import com.aircargo.uldservice.dto.UldAwbDTO;
 import com.aircargo.uldservice.entity.UldAwb;
 import com.aircargo.uldservice.repository.UldAwbRepository;
@@ -16,13 +17,18 @@ import java.util.stream.Collectors;
 @Service
 public class UldAwbServiceImpl implements UldAwbService {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(UldAwbServiceImpl.class);
+
     private final UldAwbRepository uldAwbRepository;
     private final UldRepository uldRepository;
+    private final MawbClient mawbClient;
 
     public UldAwbServiceImpl(UldAwbRepository uldAwbRepository,
-                              UldRepository uldRepository) {
+                              UldRepository uldRepository,
+                              MawbClient mawbClient) {
         this.uldAwbRepository = uldAwbRepository;
         this.uldRepository = uldRepository;
+        this.mawbClient = mawbClient;
     }
 
     @Override
@@ -57,6 +63,28 @@ public class UldAwbServiceImpl implements UldAwbService {
         UldAwb entity = UldAwbDTO.toEntity(dto);
         entity.setId(null);
         UldAwb saved = uldAwbRepository.save(entity);
+
+        // Auto-set MAWB status to MANIFESTED when ULD is assigned to a flight
+        if (dto.getMawbId() != null) {
+            try {
+                uldRepository.findById(dto.getUldId()).ifPresent(uld -> {
+                    if (uld.getFlightId() != null) {
+                        try {
+                            var mawb = mawbClient.getMawbById(dto.getMawbId());
+                            if (mawb != null && ("BOOKED".equals(mawb.getStatus()) || "RECEIVED".equals(mawb.getStatus()))) {
+                                mawbClient.updateMawbStatus(dto.getMawbId(), "MANIFESTED");
+                                log.info("Auto-set MAWB {} to MANIFESTED (ULD-AWB created for flight-assigned ULD)", dto.getMawbId());
+                            }
+                        } catch (Exception e) {
+                            log.warn("Failed to set MAWB {} to MANIFESTED: {}", dto.getMawbId(), e.getMessage());
+                        }
+                    }
+                });
+            } catch (Exception e) {
+                log.warn("Failed to resolve ULD for MAWB status update: {}", e.getMessage());
+            }
+        }
+
         return UldAwbDTO.fromEntity(saved);
     }
 

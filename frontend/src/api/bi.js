@@ -8,4 +8,6 @@ export const biApi = {
   getUlds:      (params = {}) => api.get('/bi/ulds', { params }),
   getDashboard: () => api.get('/bi/dashboard'),
   getDaily:     (params = {}) => api.get('/bi/daily', { params }),
+  getWeightReport: (params = {}) => api.get('/bi/weight-report', { params }),
+  getWeightSummary: (params = {}) => api.get('/bi/weight-summary', { params }),
 }

@@ -2,35 +2,49 @@
   <div class="ds-page">
     <header class="ds-section-header">
       <div>
-        <h1 class="ds-title">Payload Dashboard</h1>
-        <p class="ds-subtitle">SDQ Hub // Payload Despachado por Vuelo</p>
+        <h1 class="ds-title">{{ t('dashboard.title') }}</h1>
+        <p class="ds-subtitle">{{ t('dashboard.subtitle') }}</p>
       </div>
       <div class="flex items-center gap-3 text-[12px] font-mono font-bold flex-wrap">
         <span class="ds-stat">
-          <span class="h-2 w-2 rounded-full" style="background: var(--accent)"></span> LIVE
+          <span class="h-2 w-2 rounded-full" style="background: var(--accent)"></span> {{ t('dashboard.live') }}
         </span>
         <span class="ds-divider"></span>
-        <span class="ds-stat">{{ filteredFlights.length }} vuelos</span>
+        <span class="ds-stat">{{ t('dashboard.flightsCount', { n: filteredFlights.length }) }}</span>
         <span class="ds-divider"></span>
         <button @click="descargarReporte" class="ds-btn-primary">
-         <span class="text-[14px] font-semibold leading-none">↓</span> Descargar Reporte
+         <span class="text-[14px] font-semibold leading-none">↓</span> {{ t('dashboard.downloadReport') }}
         </button>
       </div>
     </header>
 
-    <section class="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 my-3 shrink-0">
-      <div class="flex items-center gap-2">
-        <label class="ds-label">Desde</label>
-        <input v-model="dateFrom" type="date" class="ds-input w-auto" />
-      </div>
-      <div class="flex items-center gap-2">
-        <label class="ds-label">Hasta</label>
-        <input v-model="dateTo" type="date" class="ds-input w-auto" />
-      </div>
-      <div class="text-[12px] font-mono text-slate-500 ml-auto flex items-center gap-4">
-        <span class="ds-stat">Total Neto: <strong class="text-slate-950">{{ totalNetPayload }} lbs</strong></span>
-        <span class="ds-stat">Total ULDs: <strong class="text-slate-950">{{ totalUldsCount }}</strong></span>
-        <span class="ds-stat">Total MAWBs: <strong class="text-slate-950">{{ totalMawbsCount }}</strong></span>
+    <!-- Tabs -->
+    <div class="flex gap-1 mb-4">
+      <button @click="activeTab = 'flights'"
+        :class="activeTab === 'flights' ? 'ds-btn-primary' : 'ds-btn-secondary'">
+        {{ t('dashboard.tabs.flights') }}
+      </button>
+      <button @click="activeTab = 'weight-report'"
+        :class="activeTab === 'weight-report' ? 'ds-btn-primary' : 'ds-btn-secondary'">
+        {{ t('dashboard.tabs.weightReport') }}
+      </button>
+    </div>
+
+    <!-- ============ FLIGHTS TAB ============ -->
+    <template v-if="activeTab === 'flights'">
+    <FilterBar
+      v-model:date-from="dateFrom"
+      v-model:date-to="dateTo"
+      :show-date-from="true"
+      :show-date-to="true"
+      :show-search="false"
+      container-class="my-3 shrink-0"
+    />
+    <section class="flex items-center gap-4 my-1 shrink-0">
+      <div class="text-[12px] font-mono text-slate-500 flex items-center gap-4">
+        <span class="ds-stat">{{ t('dashboard.totalNet') }} <strong class="text-slate-950">{{ totalNetPayload }} {{ t('common.lbs') }}</strong></span>
+        <span class="ds-stat">{{ t('dashboard.totalUlds') }} <strong class="text-slate-950">{{ totalUldsCount }}</strong></span>
+        <span class="ds-stat">{{ t('dashboard.totalMawbs') }} <strong class="text-slate-950">{{ totalMawbsCount }}</strong></span>
       </div>
     </section>
 
@@ -43,21 +57,21 @@
               <th class="text-center px-2 py-2.5 whitespace-nowrap w-8 sticky left-0 z-10 bg-slate-800">#</th>
               <th class="text-center px-2 py-2.5 whitespace-nowrap w-8 sticky left-8 z-10 bg-slate-800">
                 <button @click="toggleAllExpanded" class="flex items-center justify-center gap-1 hover:opacity-70 transition"
-                  :title="allExpanded ? 'Colapsar todos' : 'Expandir todos'">
+                  :title="allExpanded ? t('dashboard.collapseAll') : t('dashboard.expandAll')">
                   <span class="text-[14px]">{{ allExpanded ? '▲' : '▼' }}</span>
                 </button>
               </th>
-              <th class="text-left px-2 py-2.5 whitespace-nowrap sticky left-16 z-10 bg-slate-800">Vuelo</th>
-              <th class="text-center px-2 py-2.5 whitespace-nowrap sticky left-[140px] z-10 bg-slate-800">Ruta</th>
-              <th class="text-center px-2 py-2.5 whitespace-nowrap sticky left-[220px] z-10 bg-slate-800">Fecha</th>
-              <th class="text-center px-2 py-2.5 whitespace-nowrap">Estado</th>
-              <th class="text-center px-2 py-2.5 whitespace-nowrap w-16">ULDs</th>
-              <th class="text-center px-2 py-2.5 whitespace-nowrap w-14">Pos</th>
-              <th class="text-right px-2 py-2.5 whitespace-nowrap w-24">Gross</th>
-              <th class="text-right px-2 py-2.5 whitespace-nowrap w-24">Tare</th>
-              <th class="text-right px-2 py-2.5 whitespace-nowrap w-24">Neto</th>
-              <th class="text-center px-2 py-2.5 whitespace-nowrap w-12">Docs</th>
-              <th class="text-right px-2 py-2.5 whitespace-nowrap w-24 text-emerald-600">Payload</th>
+              <th class="text-left px-2 py-2.5 whitespace-nowrap sticky left-16 z-10 bg-slate-800">{{ t('dashboard.table.flight') }}</th>
+              <th class="text-center px-2 py-2.5 whitespace-nowrap sticky left-[140px] z-10 bg-slate-800">{{ t('dashboard.table.route') }}</th>
+              <th class="text-center px-2 py-2.5 whitespace-nowrap sticky left-[220px] z-10 bg-slate-800">{{ t('dashboard.table.date') }}</th>
+              <th class="text-center px-2 py-2.5 whitespace-nowrap">{{ t('dashboard.table.status') }}</th>
+              <th class="text-center px-2 py-2.5 whitespace-nowrap w-16">{{ t('dashboard.table.ulds') }}</th>
+              <th class="text-center px-2 py-2.5 whitespace-nowrap w-14">{{ t('dashboard.table.pos') }}</th>
+              <th class="text-right px-2 py-2.5 whitespace-nowrap w-24">{{ t('dashboard.table.gross') }}</th>
+              <th class="text-right px-2 py-2.5 whitespace-nowrap w-24">{{ t('dashboard.table.tare') }}</th>
+              <th class="text-right px-2 py-2.5 whitespace-nowrap w-24">{{ t('dashboard.table.net') }}</th>
+              <th class="text-center px-2 py-2.5 whitespace-nowrap w-12">{{ t('dashboard.table.docs') }}</th>
+              <th class="text-right px-2 py-2.5 whitespace-nowrap w-24 text-emerald-600">{{ t('dashboard.table.payload') }}</th>
               <!-- Commodity columns - dynamic based on filtered flights -->
               <th v-for="c in visibleCommodities" :key="c.type"
                 class="text-right px-2 py-2.5 whitespace-nowrap w-20 text-[12px]"
@@ -72,10 +86,10 @@
           </thead>
           <tbody>
             <tr v-if="loading" class="h-32">
-              <td :colspan="14 + visibleCommodities.length" class="text-center text-[14px] font-mono text-slate-400 ">Cargando datos...</td>
+              <td :colspan="14 + visibleCommodities.length" class="text-center text-[14px] font-mono text-slate-400 ">{{ t('dashboard.loadingData') }}</td>
             </tr>
             <tr v-else-if="filteredFlights.length === 0" class="h-32">
-              <td :colspan="14 + visibleCommodities.length" class="text-center text-[14px] font-mono text-slate-400 uppercase tracking-widest">No hay vuelos en este rango</td>
+              <td :colspan="14 + visibleCommodities.length" class="text-center text-[14px] font-mono text-slate-400 uppercase tracking-widest">{{ t('dashboard.noFlightsInRange') }}</td>
             </tr>
             <template v-for="(f, fi) in filteredFlights" :key="f.id">
               <tr class="border-b border-slate-100 transition-colors duration-150 hover:bg-slate-50/80"
@@ -85,7 +99,7 @@
                   <button @click="toggleExpand(f.id)"
                     class="flex items-center justify-center w-6 h-6 rounded hover:bg-slate-200 transition text-slate-500 hover:text-slate-900"
                     :aria-expanded="isExpanded(f.id)"
-                    :title="isExpanded(f.id) ? 'Colapsar detalle' : 'Expandir detalle'">
+                    :title="isExpanded(f.id) ? t('dashboard.collapseDetail') : t('dashboard.expandDetail')">
                     <span class="text-[12px] transition-transform duration-200" :style="{ transform: isExpanded(f.id) ? 'rotate(180deg)' : '' }">▼</span>
                   </button>
                 </td>
@@ -128,7 +142,7 @@
             <tr class="bg-slate-50 border-t-2 border-slate-300 font-bold hover:bg-slate-100 transition-colors">
               <td class="text-center px-2 py-2 text-slate-400">Σ</td>
               <td class="text-center px-2 py-2"></td>
-              <td class="px-2 py-2 text-slate-500 sticky left-16 z-10 bg-slate-50">TOTAL</td>
+              <td class="px-2 py-2 text-slate-500 sticky left-16 z-10 bg-slate-50">{{ t('dashboard.table.total') }}</td>
               <td class="text-center px-2 py-2 sticky left-[140px] z-10 bg-slate-50"></td>
               <td class="text-center px-2 py-2 sticky left-[220px] z-10 bg-slate-50"></td>
               <td class="text-center px-2 py-2"></td>
@@ -150,21 +164,227 @@
         </div>
       </div>
     </section>
+    </template>
+    <!-- ============ END FLIGHTS TAB ============ -->
+
+    <!-- ============ WEIGHT REPORT TAB ============ -->
+    <template v-if="activeTab === 'weight-report'">
+    <div class="flex items-end gap-2 shrink-0">
+      <FilterBar
+        v-model:date-from="wrDateFrom"
+        v-model:date-to="wrDateTo"
+        v-model:commodity="wrCommodity"
+        v-model:search-text="wrFlightNumber"
+        :show-period-presets="true"
+        :show-date-from="true"
+        :show-date-to="true"
+        :show-commodity="true"
+        :show-search="true"
+        :show-search-button="true"
+        :show-clear="true"
+        :loading="wrLoading"
+        :search-label="t('common.flight')"
+        :search-placeholder="t('dashboard.wr.searchPlaceholder')"
+        :search-button-label="t('common.search')"
+        @search="loadWeightReport"
+        @clear="wrDateFrom = ''; wrDateTo = ''; wrCommodity = ''; wrFlightNumber = ''; loadWeightReport()"
+      />
+      <button v-if="wrRows.length" @click="exportWeightCSV" class="ds-btn-secondary mb-0.5">
+        <span class="text-[14px] font-semibold leading-none">&#8595;</span> {{ t('dashboard.wr.exportCsv') }}
+      </button>
+    </div>
+
+    <!-- Summary Cards -->
+    <div v-if="wrSummary" class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+      <div class="ds-card">
+        <div class="ds-card-label">{{ t('dashboard.wr.summary.totalRows') }}</div>
+        <div class="ds-card-value">{{ wrSummary.totalRows }}</div>
+      </div>
+      <div class="ds-card">
+        <div class="ds-card-label">{{ t('dashboard.wr.summary.receivedPieces') }}</div>
+        <div class="ds-card-value">{{ wrSummary.totalReceivedPieces }}</div>
+      </div>
+      <div class="ds-card">
+        <div class="ds-card-label">{{ t('dashboard.wr.summary.physicalWeightLbs') }}</div>
+        <div class="ds-card-value text-emerald-700">{{ formatNum(wrSummary.totalPhysicalWeightLbs) }}</div>
+      </div>
+      <div class="ds-card">
+        <div class="ds-card-label">{{ t('dashboard.wr.summary.dispatchedWeightLbs') }}</div>
+        <div class="ds-card-value text-amber-700">{{ formatNum(wrSummary.totalDispatchedWeightLbs) }}</div>
+      </div>
+    </div>
+
+    <!-- Per-Commodity Breakdown -->
+    <div v-if="wrSummary?.byCommodity && Object.keys(wrSummary.byCommodity).length > 1" class="mb-4">
+      <div class="text-[12px] font-bold text-slate-500 uppercase tracking-wider mb-2">{{ t('dashboard.wr.byCommodity') }}</div>
+      <div class="flex flex-wrap gap-2">
+        <div v-for="(data, code) in wrSummary.byCommodity" :key="code"
+          class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-[12px]">
+          <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" :style="{ background: commodityColor(code) }"></span>
+          <span class="font-bold text-slate-800">{{ code }}</span>
+          <span class="text-slate-400">|</span>
+          <span class="text-slate-600">{{ t('dashboard.wr.piecesUnit', { n: data.totalReceivedPieces }) }}</span>
+          <span class="text-slate-400">|</span>
+          <span class="font-semibold text-emerald-700">{{ formatNum(data.totalPhysicalWeightLbs) }} {{ t('common.lbs') }}</span>
+          <span class="text-slate-400">→</span>
+          <span class="font-semibold text-amber-700">{{ t('dashboard.wr.dispatchedLbs', { n: formatNum(data.totalDispatchedWeightLbs) }) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Weight Report Table -->
+    <section class="ds-table-section">
+      <div class="overflow-auto flex-1 min-h-0 scrollbar-none" style="max-height:60vh">
+        <table class="w-full border-collapse text-[12px] font-mono">
+          <thead class="bg-slate-100 sticky top-0 z-10">
+            <tr>
+              <th class="text-left px-2 py-2 text-[11px] font-bold text-slate-600 border-b border-slate-200">{{ t('dashboard.wr.table.awb') }}</th>
+              <th class="text-left px-2 py-2 text-[11px] font-bold text-slate-600 border-b border-slate-200">{{ t('dashboard.wr.table.shipper') }}</th>
+              <th class="text-left px-2 py-2 text-[11px] font-bold text-slate-600 border-b border-slate-200">{{ t('dashboard.wr.table.consignee') }}</th>
+              <th class="text-center px-2 py-2 text-[11px] font-bold text-slate-600 border-b border-slate-200">{{ t('dashboard.wr.table.dest') }}</th>
+              <th class="text-center px-2 py-2 text-[11px] font-bold text-slate-600 border-b border-slate-200">{{ t('dashboard.wr.table.commodity') }}</th>
+              <th class="text-center px-2 py-2 text-[11px] font-bold text-slate-600 border-b border-slate-200">{{ t('dashboard.wr.table.flight') }}</th>
+              <th class="text-center px-2 py-2 text-[11px] font-bold text-slate-600 border-b border-slate-200">{{ t('dashboard.wr.table.date') }}</th>
+              <th class="text-right px-2 py-2 text-[11px] font-bold text-slate-600 border-b border-slate-200">{{ t('dashboard.wr.table.pcsRec') }}</th>
+              <th class="text-right px-2 py-2 text-[11px] font-bold text-slate-600 border-b border-slate-200">{{ t('dashboard.wr.table.physicalLbs') }}</th>
+              <th class="text-right px-2 py-2 text-[11px] font-bold text-slate-600 border-b border-slate-200">{{ t('dashboard.wr.table.dispatchedLbs') }}</th>
+              <th class="text-right px-2 py-2 text-[11px] font-bold text-slate-600 border-b border-slate-200">{{ t('dashboard.wr.table.pcsDisp') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(row, idx) in wrRows" :key="idx"
+              class="hover:bg-blue-50/30 border-b border-slate-100">
+              <td class="px-2 py-1.5 font-bold text-slate-900">{{ row.awbNumber }}</td>
+              <td class="px-2 py-1.5 text-slate-600">{{ row.shipperName }}</td>
+              <td class="px-2 py-1.5 text-slate-600">{{ row.consigneeName }}</td>
+              <td class="text-center px-2 py-1.5">{{ row.destination }}</td>
+              <td class="text-center px-2 py-1.5">
+                <span v-if="row.commodityType"
+                  class="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold"
+                  :style="{ background: commodityColor(row.commodityType) + '18', color: commodityColor(row.commodityType) }">
+                  {{ row.commodityType }}
+                </span>
+              </td>
+              <td class="text-center px-2 py-1.5 font-semibold">{{ row.flightNumber }}</td>
+              <td class="text-center px-2 py-1.5">{{ row.flightDate }}</td>
+              <td class="text-right px-2 py-1.5 tabular-nums">{{ row.receivedPieces }}</td>
+              <td class="text-right px-2 py-1.5 tabular-nums font-semibold text-emerald-700">{{ formatNum(row.physicalWeightLbs) }}</td>
+              <td class="text-right px-2 py-1.5 tabular-nums font-semibold text-amber-700">{{ formatNum(row.dispatchedWeightLbs) }}</td>
+              <td class="text-right px-2 py-1.5 tabular-nums">{{ row.dispatchedPieces }}</td>
+            </tr>
+            <tr v-if="!wrRows.length && !wrLoading">
+              <td colspan="11" class="text-center py-8 text-slate-400">{{ t('dashboard.wr.noData') }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+    </template>
+    <!-- ============ END WEIGHT REPORT TAB ============ -->
+
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useAppStore } from '../stores/app'
 import { downloadCSV } from '../utils/csv'
 import FlightDetail from '../components/FlightDetail.vue'
+import { useCommodities } from '../composables/useCommodities'
+import { biApi } from '../api/bi'
+import FilterBar from '../components/FilterBar.vue'
 
+const { t } = useI18n()
 const appStore = useAppStore()
+const { commodities: dbCommodities, loadCommodities } = useCommodities()
 
 const dateFrom = ref('')
 const dateTo = ref('')
 const loading = ref(false)
 const expandedFlights = ref(new Set())
+const activeTab = ref('flights')
+
+watch(activeTab, (tab) => {
+  if (tab === 'weight-report' && !wrRows.value.length && !wrLoading.value) {
+    loadWeightReport()
+  }
+})
+
+// Weight report state
+const wrDateFrom = ref('')
+const wrDateTo = ref('')
+const wrCommodity = ref('')
+const wrFlightNumber = ref('')
+const wrLoading = ref(false)
+const wrRows = ref([])
+const wrSummary = ref(null)
+
+function formatNum(v) {
+  if (v == null) return '0'
+  const n = Number(v)
+  return isNaN(n) ? '0' : n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 1 })
+}
+
+function commodityColor(code) {
+  const c = dbCommodities.value.find(x => x.code === code)
+  return c?.color || '#6b7280'
+}
+
+async function loadWeightReport() {
+  wrLoading.value = true
+  try {
+    const params = {}
+    if (wrDateFrom.value) params.dateFrom = wrDateFrom.value
+    if (wrDateTo.value) params.dateTo = wrDateTo.value
+    if (wrCommodity.value) params.commodityType = wrCommodity.value
+    if (wrFlightNumber.value) params.awbNumber = wrFlightNumber.value
+    const [rowsRes, sumRes] = await Promise.all([
+      biApi.getWeightReport(params),
+      biApi.getWeightSummary(params),
+    ])
+    wrRows.value = rowsRes.data
+    wrSummary.value = sumRes.data
+  } catch (e) {
+    console.error('Weight report error:', e)
+    wrRows.value = []
+    wrSummary.value = null
+  } finally {
+    wrLoading.value = false
+  }
+}
+
+function exportWeightCSV() {
+  if (!wrRows.value.length) return
+  const headers = [
+    t('dashboard.wr.csvHeaders.awb'),
+    t('dashboard.wr.csvHeaders.shipper'),
+    t('dashboard.wr.csvHeaders.consignee'),
+    t('dashboard.wr.csvHeaders.dest'),
+    t('dashboard.wr.csvHeaders.commodity'),
+    t('dashboard.wr.csvHeaders.flight'),
+    t('dashboard.wr.csvHeaders.date'),
+    t('dashboard.wr.csvHeaders.pcsRec'),
+    t('dashboard.wr.csvHeaders.physicalLbs'),
+    t('dashboard.wr.csvHeaders.dispatchedLbs'),
+    t('dashboard.wr.csvHeaders.pcsDisp'),
+  ]
+  const csvRows = [headers.join(',')]
+  for (const r of wrRows.value) {
+    csvRows.push([
+      r.awbNumber, r.shipperName, r.consigneeName, r.destination,
+      r.commodityType, r.flightNumber, r.flightDate,
+      r.receivedPieces, r.physicalWeightLbs, r.dispatchedWeightLbs, r.dispatchedPieces
+    ].map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
+  }
+  const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${t('dashboard.wr.csvFilename')}-${new Date().toISOString().slice(0,10)}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
 
 const filteredFlights = computed(() => {
   let list = appStore.flights
@@ -224,34 +444,17 @@ function payloadLbs(flightId) {
   return grossLbs(flightId) - bellyTareLbs(flightId)
 }
 
-// ── Commodity definitions & ordering ──────────────────────────
-const COMMODITY_ORDER = [
-  'PERISHABLE', 'DRY_CARGO', 'ELECTRONICS', 'HIGH_VALUES', 'CIGARETTES',
-  'SMALL_PACKAGES', 'WWEF', 'LIVE_PLANTS', 'GENERAL', 'COMAT', 'FCC',
-  'EMPTY_ULD', 'EMPTY_PALLET', 'RED_TAG', 'EMPTY_BAGS', 'NETS',
-  'SDQ_SDF', 'SDQ_MIA'
-]
+// ── Commodity definitions & ordering (dynamic from DB) ──────────────────────────
+const COMMODITY_ORDER = computed(() => dbCommodities.value.map(c => c.code))
 
-const COMMODITY_MAP = {
-  PERISHABLE:       { label: 'PERISHABLE',        short: 'PER',  color: '#ef4444' },
-  DRY_CARGO:        { label: 'DRY CARGO',         short: 'DRY',  color: '#64748b' },
-  ELECTRONICS:      { label: 'ELECTRONICS',       short: 'ELEC', color: '#8b5cf6' },
-  HIGH_VALUES:      { label: 'HIGH VALUES',       short: 'HIGH', color: '#f59e0b' },
-  CIGARETTES:       { label: 'CIGARETTES',        short: 'CIG',  color: '#78716c' },
-  SMALL_PACKAGES:   { label: 'SMALL PACKAGES',    short: 'SMP',  color: '#06b6d4' },
-  WWEF:             { label: 'WWEF',              short: 'WWEF', color: '#ec4899' },
-  LIVE_PLANTS:      { label: 'LIVE PLANTS',       short: 'PLNT', color: '#22c55e' },
-  GENERAL:          { label: 'GENERAL',           short: 'GEN',  color: '#94a3b8' },
-  COMAT:            { label: 'COMAT',             short: 'COMT', color: '#a3a3a3' },
-  FCC:              { label: 'FCC',               short: 'FCC',  color: '#78716c' },
-  EMPTY_ULD:        { label: 'EMPTY ULD',         short: 'EMP',  color: '#d1d5db' },
-  EMPTY_PALLET:     { label: 'EMPTY PALLET',      short: 'EPT',  color: '#d1d5db' },
-  RED_TAG:          { label: 'RED TAG',           short: 'RED',  color: '#dc2626' },
-  EMPTY_BAGS:       { label: 'EMPTY BAGS',        short: 'BAG',  color: '#a3a3a3' },
-  NETS:             { label: 'NETS',              short: 'NET',  color: '#52525b' },
-  SDQ_SDF:          { label: 'SDQ-SDF',           short: 'SDQ',  color: '#2563eb' },
-  SDQ_MIA:          { label: 'SDQ-MIA',           short: 'MIA',  color: '#2563eb' },
-}
+const COMMODITY_MAP = computed(() => {
+  const map = {}
+  for (const c of dbCommodities.value) {
+    const shortLen = Math.min(c.code.length, 4)
+    map[c.code] = { label: c.label, short: c.code.slice(0, shortLen), color: c.color || '#94a3b8' }
+  }
+  return map
+})
 
 // ULD IDs per flight (cached for fast lookup during commodity calculations)
 const _uldIdCache = new Map()
@@ -291,7 +494,7 @@ function commodityPayload(flightId, commodityType) {
 function commodityTooltip(flightId, commodityType) {
   const mawbs = flightMawbs(flightId)
   const items = mawbs.filter(m => (m.commodityType || 'DRY_CARGO') === commodityType)
-  if (!items.length) return `${COMMODITY_MAP[commodityType]?.label || commodityType}: 0 lbs`
+  if (!items.length) return t('dashboard.tooltip.commodityZero', { label: COMMODITY_MAP.value[commodityType]?.label || commodityType })
   const totalLbs = items.reduce((s, m) => s + mawbDispatchedWeightLbs(m, flightId), 0)
   const uldIds = flightUldIdSet(flightId)
   const totalPcs = items.reduce((s, m) => {
@@ -299,7 +502,7 @@ function commodityTooltip(flightId, commodityType) {
     return s + links.reduce((ps, l) => ps + (Number(l.pieces) || 0), 0)
   }, 0)
   const awbNumbers = items.map(m => m.awbNumber).join(', ')
-  return `${COMMODITY_MAP[commodityType]?.label || commodityType}: ${Math.round(totalLbs)} lbs (${totalPcs} pcs desp.) • ${awbNumbers}`
+  return t('dashboard.tooltip.commodity', { label: COMMODITY_MAP.value[commodityType]?.label || commodityType, lbs: Math.round(totalLbs), pcs: totalPcs }) + ` • ${awbNumbers}`
 }
 
 // Visible commodities = those with dispatched payload > 0 in ANY filtered flight
@@ -311,9 +514,9 @@ const visibleCommodities = computed(() => {
       if (mawbDispatchedWeightLbs(m, f.id) > 0) activeTypes.add(type)
     })
   })
-  return COMMODITY_ORDER
+  return COMMODITY_ORDER.value
     .filter(t => activeTypes.has(t))
-    .map(t => ({ type: t, ...COMMODITY_MAP[t] }))
+    .map(t => ({ type: t, ...COMMODITY_MAP.value[t] }))
 })
 
 // Table min-width for horizontal scroll
@@ -388,7 +591,18 @@ function isExpanded(flightId) {
 
 function descargarReporte() {
   // Build headers: fixed + commodity columns
-  const fixedHeaders = ['Flight Number', 'Route', 'Date', 'Status', 'ULD Count', 'Positions', 'Gross Lbs', 'Tare Lbs', 'Net Lbs', 'Payload Lbs']
+  const fixedHeaders = [
+    t('dashboard.csvHeaders.flightNumber'),
+    t('dashboard.csvHeaders.route'),
+    t('dashboard.csvHeaders.date'),
+    t('dashboard.csvHeaders.status'),
+    t('dashboard.csvHeaders.uldCount'),
+    t('dashboard.csvHeaders.positions'),
+    t('dashboard.csvHeaders.grossLbs'),
+    t('dashboard.csvHeaders.tareLbs'),
+    t('dashboard.csvHeaders.netLbs'),
+    t('dashboard.csvHeaders.payloadLbs'),
+  ]
   const commodityHeaders = visibleCommodities.value.map(c => c.short)
   const headers = [...fixedHeaders, ...commodityHeaders]
 
@@ -408,7 +622,7 @@ function descargarReporte() {
     const commodityVals = visibleCommodities.value.map(c => commodityPayload(f.id, c.type) || '')
     return [...fixed, ...commodityVals]
   })
-  downloadCSV(headers, rows, `reporte-vuelos-${new Date().toISOString().slice(0, 10)}.csv`)
+  downloadCSV(headers, rows, `${t('dashboard.csvFilename')}-${new Date().toISOString().slice(0, 10)}.csv`)
 }
 
 function getStatusDot(status) {
@@ -447,6 +661,7 @@ function statusLabel(status) {
 
 onMounted(async () => {
   loading.value = true
+  await loadCommodities()
   await appStore.loadFlights()
   if (appStore.flights.length) {
     await Promise.all([
@@ -468,5 +683,18 @@ onMounted(async () => {
 
 tr[v-show="true"] td > div {
   animation: slideDown 0.2s ease-out;
+}
+
+.ds-card {
+  @apply bg-white border border-slate-200 rounded-lg px-3 py-2.5;
+}
+.ds-card-label {
+  @apply text-[10px] font-mono font-semibold text-slate-500 uppercase tracking-wide mb-1;
+}
+.ds-card-value {
+  @apply text-[18px] font-mono font-bold text-slate-900;
+}
+.ds-btn-secondary {
+  @apply px-3 py-1.5 rounded-md text-[12px] font-semibold font-mono border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition;
 }
 </style>

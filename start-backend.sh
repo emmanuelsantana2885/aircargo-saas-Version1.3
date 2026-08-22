@@ -73,6 +73,13 @@ wait_health aircargo-gateway 8080 300 || exit 1
 wait_health aircargo-auth-service 9092 240 || exit 1
 
 # 3) The remaining 8 — booted sequentially so they don't collide on CPU/mem
+# Detect RabbitMQ for notification-service
+RABBITMQ_ENABLED=true
+(echo > /dev/tcp/127.0.0.1/5672) 2>/dev/null || {
+    echo "  ⚠️  RabbitMQ(:5672) no disponible — notification-service arranca SIN listeners AMQP"
+    RABBITMQ_ENABLED=false
+}
+
 for entry in "aircargo-flight-service 9093" \
              "aircargo-booking-service 9094" \
              "aircargo-mawb-service 9095" \
@@ -85,7 +92,7 @@ for entry in "aircargo-flight-service 9093" \
     port="${entry##* }"
     (
         cd "$AIR_ROOT/backend/$name"
-        java $MAX_CONNS $JAVA_OPTS -jar "target/${name}-1.2.0-SNAPSHOT.jar" >> "/tmp/${name}.log" 2>&1 &
+        RABBITMQ_ENABLED="$RABBITMQ_ENABLED" java $MAX_CONNS $JAVA_OPTS -jar "target/${name}-1.2.0-SNAPSHOT.jar" >> "/tmp/${name}.log" 2>&1 &
     )
     wait_health "$name" "$port" 240 || exit 1
 done

@@ -4,15 +4,15 @@
     <header class="ds-section-header">
       <div class="flex flex-wrap items-center gap-3 md:gap-4">
         <div>
-          <h1 class="ds-title">Bookings Hub</h1>
-          <p class="ds-subtitle">SDQ Control Desk</p>
+          <h1 class="ds-title">{{ t('bookings.title') }}</h1>
+          <p class="ds-subtitle">{{ t('bookings.subtitle') }}</p>
         </div>
         <div class="ds-divider"></div>
         <div class="flex flex-col gap-0.5">
-          <span class="text-[13px] font-black text-slate-950 uppercase tracking-widest">Vuelo</span>
+          <span class="text-[13px] font-black text-slate-950 uppercase tracking-widest">{{ t('flights.table.flight') }}</span>
           <select v-model="localFlightId" @change="onFlightChange"
             class="bg-slate-100 border border-slate-300 rounded px-3 py-1.5 font-black text-slate-950 focus:outline-none uppercase tracking-widest text-[14px] cursor-pointer min-w-[160px]">
-            <option value="" disabled>Seleccionar vuelo</option>
+            <option value="" disabled>{{ t('bookings.selectFlight') }}</option>
             <option v-for="flight in flightList" :key="flight.id" :value="flight.id">
               {{ airlineCodeById(flight.airlineId) }}-{{ flight.flightNumber }} ({{ flight.origin }}→{{ flight.destination }}) — {{ flight.flightDate }}
             </option>
@@ -22,38 +22,33 @@
           <span>{{ store.selectedFlight.aircraftReg || '—' }}</span>
           <span>{{ store.selectedFlight.flightDate }}</span>
         </div>
-        <div class="relative">
-          <button @click.stop="showStatusFilter = !showStatusFilter"
-            class="flex items-center gap-1.5 px-2.5 py-1.5 rounded border font-mono uppercase tracking-wider text-[14px] transition"
-            :class="statusFilter ? 'bg-slate-50 border-slate-400 text-slate-800' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-100'">
-            <span class="inline-block w-2 h-2 rounded-full" :class="statusFilter ? statusFilterColor(statusFilter) : 'bg-slate-400'"></span>
-            {{ statusFilterLabel }}
-            <span v-if="statusFilter" @click.stop="statusFilter = ''" class="ml-0.5 text-[14px] hover:text-slate-600">✕</span>
-          </button>
-          <div v-if="showStatusFilter" class="absolute top-full left-0 mt-1 bg-white border border-slate-300 rounded shadow-lg z-10 min-w-[140px]">
-            <div @click="statusFilter = ''; showStatusFilter = false" class="px-3 py-1.5 text-[14px] font-mono cursor-pointer hover:bg-slate-100 text-slate-500" :class="!statusFilter ? 'bg-slate-50 font-bold' : ''">Todos</div>
-            <div v-for="opt in statusOptions" :key="opt.value" @click="statusFilter = opt.value; showStatusFilter = false"
-              class="px-3 py-1.5 text-[14px] font-mono cursor-pointer hover:bg-slate-100 flex items-center gap-2"
-              :class="statusFilter === opt.value ? 'bg-slate-50 font-bold' : ''">
-              <span class="inline-block w-2 h-2 rounded-full" :class="opt.colorClass"></span>
-              {{ opt.label }}
-            </div>
-          </div>
-        </div>
-        <div class="relative">
-          <input v-model="searchText" type="text" placeholder="Buscar AWB / cliente / destino..."
-            class="w-[220px] bg-white border border-slate-300 rounded px-3 py-1.5 text-[13px] font-mono text-slate-950 outline-none focus:border-slate-500 transition-colors placeholder:text-slate-400" />
-        </div>
+        <FilterBar
+          v-model:status="statusFilter"
+          v-model:mawb-number="bkMawbFilter"
+          v-model:shipper-name="bkShipperFilter"
+          v-model:consignee-name="bkConsigneeFilter"
+          v-model:destination="bkDestFilter"
+          :show-status="true"
+          :show-mawb="true"
+          :show-shipper="true"
+          :show-consignee="true"
+          :show-destination="true"
+          :status-options="statusOptions"
+          :show-count="true"
+          :filtered-count="visibleBookings.length"
+          :total-count="store.bookings.length"
+          container-class="!gap-1"
+        />
       </div>
       <div class="flex items-center gap-2">
         <button @click="triggerImport" class="ds-btn-secondary">
-          <span class="text-[14px] font-semibold leading-none">↑</span> Import XLSX
+          <span class="text-[14px] font-semibold leading-none">↑</span> {{ t('bookings.importXlsx') }}
         </button>
         <button @click="exportCSV" class="ds-btn-secondary">
-          <span class="text-[14px] font-semibold leading-none">↓</span> Export CSV
+          <span class="text-[14px] font-semibold leading-none">↓</span> {{ t('bookings.exportCsv') }}
         </button>
         <button @click="openCreate" class="ds-btn-primary">
-          <span class="text-[14px] font-semibold leading-none">+</span> New Booking
+          <span class="text-[14px] font-semibold leading-none">+</span> {{ t('bookings.newBooking') }}
         </button>
         <input type="file" ref="fileInput" @change="handleFileImport" accept=".xlsx,.xls" class="hidden" />
       </div>
@@ -62,22 +57,22 @@
     <section class="ds-table-section">
       <div class="table-scroll-wrapper flex-1 min-h-0">
       <div class="ds-table-header" style="min-width: 900px">
-        <div class="col-span-2 text-left">Booking ID</div>
-        <div class="col-span-2 text-left">Vuelo / Fecha</div>
-        <div class="col-span-2 text-left">Agente / Broker</div>
-        <div class="col-span-2 text-left">Shipper <span class="text-slate-300 font-normal">(Recibo)</span></div>
-        <div class="col-span-1 text-center">Piezas</div>
-        <div class="col-span-1 text-right pr-2">Peso</div>
-        <div class="col-span-1 text-center bg-slate-800 py-0.5 rounded border border-slate-600 text-white font-black tracking-wide">Estatus MAWB</div>
+        <div class="col-span-2 text-left">{{ t('bookings.table.booking') }}</div>
+        <div class="col-span-2 text-left">{{ t('flights.table.flight') }} / {{ t('flights.table.date') }}</div>
+        <div class="col-span-2 text-left">{{ t('bookings.table.clientName') }}</div>
+        <div class="col-span-2 text-left">{{ t('common.shipper') }} <span class="text-slate-300 font-normal">{{ t('bookings.table.receipt') }}</span></div>
+        <div class="col-span-1 text-center">{{ t('bookings.table.skids') }}</div>
+        <div class="col-span-1 text-right pr-2">{{ t('bookings.table.weightKg') }}</div>
+        <div class="col-span-1 text-center bg-slate-800 py-0.5 rounded border border-slate-600 text-white font-black tracking-wide">{{ t('bookings.table.mawbStatus') }}</div>
         <div class="col-span-1"></div>
       </div>
 
       <div v-if="store.loading && !store.bookings.length" class="flex-1 flex items-center justify-center">
-        <span class="text-[14px] font-mono text-slate-950 ">Cargando bookings...</span>
+        <span class="text-[14px] font-mono text-slate-950 ">{{ t('common.loading') }}</span>
       </div>
 
       <div v-else-if="deduplicatedBookings.length === 0" class="flex-1 flex items-center justify-center">
-        <p class="text-[14px] font-mono text-slate-950 uppercase tracking-widest">{{ store.selectedFlightId ? 'No hay reservas para este vuelo' : 'No hay reservas. Crea una con el botón New Booking.' }}</p>
+        <p class="text-[14px] font-mono text-slate-950 uppercase tracking-widest">{{ store.selectedFlightId ? t('bookings.empty') : t('bookings.emptyCreate') }}</p>
       </div>
 
       <div v-else class="divide-y divide-slate-100 text-[13px] text-slate-950 overflow-y-auto flex-1 min-h-0 scrollbar-none">
@@ -86,7 +81,7 @@
 
           <div class="col-span-2 font-mono font-black text-slate-950 relative z-10 text-[13px] flex items-center gap-2">
             <span>{{ b.awbNumber || b.id?.slice(0, 8) || 'N/A' }}</span>
-            <span v-if="b._dupCount > 1" class="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-slate-100 text-slate-700 text-[12px] font-bold" title="Reservas duplicadas agrupadas">{{ b._dupCount }}x</span>
+            <span v-if="b._dupCount > 1" class="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-slate-100 text-slate-700 text-[12px] font-bold" :title="t('bookings.dupGroupedTooltip')">{{ b._dupCount }}x</span>
           </div>
 
           <div class="col-span-2 font-mono font-bold text-[18px] text-slate-950 relative z-10 flex flex-col leading-tight">
@@ -100,7 +95,7 @@
 
           <div class="col-span-2 text-slate-900 font-bold relative z-10 truncate pr-2 font-mono text-[13px] flex flex-col leading-tight">
             <span>{{ bookingReceipt(b)?.shipperName || b.shipperName || '—' }}</span>
-            <span v-if="bookingReceipt(b)" class="text-[13px] text-slate-600 font-semibold">&#10003; Recibido</span>
+            <span v-if="bookingReceipt(b)" class="text-[13px] text-slate-600 font-semibold">&#10003; {{ t('bookings.status.RECEIVED') }}</span>
           </div>
 
           <div class="col-span-1 text-center font-mono font-bold text-slate-900 relative z-10">
@@ -120,14 +115,19 @@
           <div class="col-span-1 flex items-center justify-center gap-1.5 relative z-10">
             <div class="flex items-center gap-2 text-[17px] font-mono" :title="'MAWB: ' + getMawbStatus(b)">
               <span class="inline-block w-2.5 h-2.5" :class="getMawbStatusClass(b)"></span>
-              <span class="px-1.5 py-0.5 rounded text-[12px] font-medium" style="background: var(--bg); color: var(--text)">{{ getMawbStatus(b) }}</span>
+              <span class="px-1.5 py-0.5 rounded text-[12px] font-medium" :style="getMawbBadgeStyle(b)">{{ getMawbStatus(b) }}</span>
               <span v-if="getMawbStatus(b) !== '—'" class="text-slate-300 text-[13px]">·</span>
             </div>
           </div>
           <div class="col-span-1 flex justify-end relative z-10">
+            <button @click.stop="openEdit(b)"
+              class="text-slate-400 hover:text-blue-600 transition-colors p-1"
+              :title="t('common.edit')">
+              <IconPencil :size="15" :stroke-width="1.5" />
+            </button>
             <button @click.stop="removeBooking(b)"
               class="text-slate-400 hover:text-slate-600 transition-colors p-1"
-              title="Eliminar booking">
+              :title="t('common.delete')">
               <IconTrash :size="15" :stroke-width="1.5" />
             </button>
           </div>
@@ -138,57 +138,57 @@
     <div v-if="showModal" class="ds-modal-backdrop" @click.self="closeModal">
       <div class="ds-modal-panel">
         <div class="ds-modal-header">
-          <h2 class="ds-modal-title">Nuevo Booking</h2>
+          <h2 class="ds-modal-title">{{ editingBooking ? t('bookings.editBooking') : t('bookings.newBooking') }}</h2>
           <button @click="closeModal" class="text-slate-400 hover:text-slate-950 transition"><IconX :size="18" :stroke-width="2" /></button>
         </div>
           <div class="space-y-4">
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="ds-label">Cliente *</label>
-              <input v-model="form.clientName" type="text" placeholder="Nombre del agente" class="ds-input" />
+              <label class="ds-label">{{ t('bookings.form.client') }} *</label>
+              <input v-model="form.clientName" type="text" :placeholder="t('bookings.form.clientPlaceholder')" class="ds-input" />
             </div>
             <div>
-              <label class="ds-label">Contacto *</label>
-              <input v-model="form.contactName" type="text" placeholder="Persona de contacto" class="ds-input" />
+              <label class="ds-label">{{ t('bookings.form.contact') }} *</label>
+              <input v-model="form.contactName" type="text" :placeholder="t('bookings.form.contactPlaceholder')" class="ds-input" />
             </div>
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="ds-label">Shipper</label>
-              <input v-model="form.shipperName" type="text" placeholder="Nombre del shipper" class="ds-input" />
+              <label class="ds-label">{{ t('common.shipper') }}</label>
+              <input v-model="form.shipperName" type="text" :placeholder="t('bookings.form.shipperName')" class="ds-input" />
             </div>
             <div>
-              <label class="ds-label">Consignee (CNEE)</label>
-              <input v-model="form.cnee" type="text" placeholder="Nombre del consignatario"
+              <label class="ds-label">{{ t('bookings.form.consigneeLabel') }}</label>
+              <input v-model="form.cnee" type="text" :placeholder="t('bookings.form.consigneeName')"
                 class="ds-input" />
             </div>
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="ds-label">Número MAWB</label>
+              <label class="ds-label">{{ t('bookings.form.mawbNumber') }}</label>
               <input v-model="form.awbNumber" type="text" placeholder="UPS-XXX-XXXX"
                 class="w-full text-[14px] font-mono px-4 py-2.5 rounded border border-slate-400 outline-none focus:border-slate-950 transition uppercase" />
             </div>
             <div>
-              <label class="ds-label">Peso Reservado (kg) *</label>
+              <label class="ds-label">{{ t('bookings.form.reservedKg') }} *</label>
               <input v-model.number="form.reservedKg" type="number" step="0.001"
                 class="ds-input" />
             </div>
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="ds-label">Destino</label>
+              <label class="ds-label">{{ t('common.destination') }}</label>
               <input v-model="form.destination" type="text" maxlength="3" placeholder="MIA"
                 class="ds-input uppercase" />
             </div>
             <div class="grid grid-cols-2 gap-2">
               <div>
-                <label class="ds-label">Skids</label>
+                <label class="ds-label">{{ t('bookings.form.skids') }}</label>
                 <input v-model.number="form.skids" type="number" min="0"
                   class="ds-input" />
               </div>
               <div>
-                <label class="ds-label">Unidades</label>
+                <label class="ds-label">{{ t('bookings.form.units') }}</label>
                 <input v-model.number="form.units" type="number" min="0"
                   class="ds-input" />
               </div>
@@ -196,32 +196,32 @@
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="ds-label">Tipo de Commodity</label>
+              <label class="ds-label">{{ t('bookings.form.commodityType') }}</label>
               <select v-model="form.commodityType"
                 class="ds-input">
                 <option v-for="c in commodityTypes" :key="c" :value="c">{{ c }}</option>
               </select>
             </div>
             <div>
-              <label class="ds-label">Prioridad</label>
+              <label class="ds-label">{{ t('bookings.form.priority') }}</label>
               <input v-model.number="form.priority" type="number" min="0" max="10"
                 class="ds-input" />
             </div>
           </div>
           <div>
-            <label class="ds-label">Notas</label>
-            <textarea v-model="form.notes" rows="2" placeholder="Instrucciones especiales..."
+            <label class="ds-label">{{ t('bookings.form.notes') }}</label>
+            <textarea v-model="form.notes" rows="2" :placeholder="t('bookings.form.notesPlaceholder')"
               class="ds-input resize-none"></textarea>
           </div>
         </div>
         <div class="flex justify-end gap-2 mt-6 pt-4 border-t border-slate-200">
           <button @click="closeModal"
             class="ds-btn-secondary">
-            Cancelar
+            {{ t('common.cancel') }}
           </button>
           <button @click="saveBooking" :disabled="saving"
             class="ds-btn-primary">
-            <span>{{ saving ? 'Guardando...' : 'Crear Booking' }}</span>
+            <span>{{ saving ? t('common.saving') : (editingBooking ? t('bookings.saveChanges') : t('bookings.create')) }}</span>
           </button>
         </div>
       </div>
@@ -232,8 +232,8 @@
       <div class="bg-white rounded-xl border border-slate-200 shadow-2xl w-full max-w-4xl max-h-[80vh] flex flex-col">
         <div class="flex justify-between items-center px-6 py-4 border-b border-slate-200 shrink-0">
           <div>
-            <h2 class="ds-modal-title">Previsualización de Importación</h2>
-            <p class="text-[13px] font-mono text-slate-950 mt-0.5">{{ parsedRows.length }} registros encontrados en el archivo</p>
+            <h2 class="ds-modal-title">{{ t('bookings.import.previewTitle') }}</h2>
+            <p class="text-[13px] font-mono text-slate-950 mt-0.5">{{ t('bookings.import.rowsFound', { n: parsedRows.length }) }}</p>
           </div>
           <button @click="closeImportModal" class="text-slate-950 hover:text-slate-950"><IconX :size="16" :stroke-width="2" /></button>
         </div>
@@ -243,16 +243,16 @@
             <thead class="bg-slate-100 sticky top-0 z-10">
               <tr class="text-[13px] font-black text-slate-950 uppercase tracking-wider">
                 <th class="text-left px-5 py-3 border-b border-slate-400">#</th>
-                <th class="text-left px-5 py-3 border-b border-slate-400">Cliente</th>
-                <th class="text-left px-5 py-3 border-b border-slate-400">Contacto</th>
-                <th class="text-left px-5 py-3 border-b border-slate-400">Shipper</th>
-                <th class="text-left px-5 py-3 border-b border-slate-400">CNEE</th>
-                <th class="text-center px-4 py-3 border-b border-slate-400">AWb</th>
-                <th class="text-center px-4 py-3 border-b border-slate-400">Skids</th>
-                <th class="text-center px-4 py-3 border-b border-slate-400">Uni</th>
-                <th class="text-right px-4 py-3 border-b border-slate-400">Kg</th>
-                <th class="text-center px-4 py-3 border-b border-slate-400">Dest</th>
-                <th class="text-center px-4 py-3 border-b border-slate-400">Com</th>
+                <th class="text-left px-5 py-3 border-b border-slate-400">{{ t('bookings.form.client') }}</th>
+                <th class="text-left px-5 py-3 border-b border-slate-400">{{ t('bookings.form.contact') }}</th>
+                <th class="text-left px-5 py-3 border-b border-slate-400">{{ t('common.shipper') }}</th>
+                <th class="text-left px-5 py-3 border-b border-slate-400">{{ t('bookings.import.cnee') }}</th>
+                <th class="text-center px-4 py-3 border-b border-slate-400">{{ t('bookings.table.awb') }}</th>
+                <th class="text-center px-4 py-3 border-b border-slate-400">{{ t('bookings.table.skids') }}</th>
+                <th class="text-center px-4 py-3 border-b border-slate-400">{{ t('bookings.import.unitsShort') }}</th>
+                <th class="text-right px-4 py-3 border-b border-slate-400">{{ t('common.kg') }}</th>
+                <th class="text-center px-4 py-3 border-b border-slate-400">{{ t('common.dest') }}</th>
+                <th class="text-center px-4 py-3 border-b border-slate-400">{{ t('bookings.import.commodityShort') }}</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-300">
@@ -274,15 +274,15 @@
         </div>
 
         <div class="flex justify-between items-center px-6 py-4 border-t border-slate-200 bg-slate-100 rounded-b-xl shrink-0">
-          <span class="text-[13px] font-mono text-slate-950">Se crearán {{ parsedRows.length }} bookings + MAWBs automáticamente</span>
+          <span class="text-[13px] font-mono text-slate-950">{{ t('bookings.import.willCreate', { n: parsedRows.length }) }}</span>
           <div class="flex gap-2">
             <button @click="closeImportModal"
               class="ds-btn-secondary">
-              Cancelar
+              {{ t('common.cancel') }}
             </button>
             <button @click="confirmImport" :disabled="importing"
               class="ds-btn-primary">
-              <span>{{ importing ? 'Importando...' : `Importar ${parsedRows.length} registros` }}</span>
+              <span>{{ importing ? t('bookings.import.importing') : t('bookings.import.importN', { n: parsedRows.length }) }}</span>
             </button>
           </div>
         </div>
@@ -294,18 +294,24 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useAppStore } from '../stores/app'
-import { IconX, IconTrash } from '@tabler/icons-vue'
+import { IconX, IconTrash, IconPencil } from '@tabler/icons-vue'
 import * as XLSX from 'xlsx'
 import { downloadCSV } from '../utils/csv'
 import { useToastStore } from '../stores/toast'
 import { extractError } from '../utils/error'
+import { useCommodities } from '../composables/useCommodities'
+import FilterBar from '../components/FilterBar.vue'
 
 const store = useAppStore()
+const { t } = useI18n()
+const { commodities: dbCommodities, loadCommodities } = useCommodities()
 const toast = useToastStore()
 
 const showModal = ref(false)
 const saving = ref(false)
+const editingBooking = ref(null)
 
 const fileInput = ref(null)
 const showImportModal = ref(false)
@@ -316,26 +322,17 @@ const flightList = computed(() => store.flights)
 const localFlightId = ref(store.selectedFlightId)
 
 const statusFilter = ref('')
-const showStatusFilter = ref(false)
-const searchText = ref('')
+const bkMawbFilter = ref('')
+const bkShipperFilter = ref('')
+const bkConsigneeFilter = ref('')
+const bkDestFilter = ref('')
 
 const statusOptions = [
-  { value: 'BOOKED', label: 'Booked', colorClass: 'bg-slate-500' },
-  { value: 'RECEIVED', label: 'Received', colorClass: 'bg-slate-500' },
-  { value: 'MANIFESTED', label: 'Manifested', colorClass: 'bg-slate-500' },
-  { value: 'DEPARTED', label: 'Departed', colorClass: 'bg-slate-950' },
+  { value: 'BOOKED', label: 'Booked', dotClass: 'bg-slate-400' },
+  { value: 'RECEIVED', label: 'Received', dotClass: 'bg-amber-400' },
+  { value: 'MANIFESTED', label: 'Manifested', dotClass: 'bg-emerald-500' },
+  { value: 'DEPARTED', label: 'Departed', dotClass: 'bg-blue-500' },
 ]
-
-const statusFilterLabel = computed(() => {
-  if (!statusFilter.value) return 'Status'
-  const opt = statusOptions.find(o => o.value === statusFilter.value)
-  return opt ? opt.label : 'Status'
-})
-
-function statusFilterColor(val) {
-  const opt = statusOptions.find(o => o.value === val)
-  return opt ? opt.colorClass : 'bg-slate-400'
-}
 
 function onFlightChange() {
   if (localFlightId.value) {
@@ -400,7 +397,7 @@ function parseBookingsFromXLSX(data) {
   return rows
 }
 
-const commodityTypes = ['DRY_CARGO','ELECTRONICS','PERISHABLE','HIGH_VALUES','CIGARETTES','SMALL_PACKAGES','WWEF','LIVE_PLANTS','GENERAL','COMAT','FCC']
+const commodityTypes = computed(() => dbCommodities.value.map(c => c.code))
 
 const visibleBookings = computed(() => {
   let list = store.selectedFlightId
@@ -413,16 +410,27 @@ const visibleBookings = computed(() => {
       return s === statusFilter.value
     })
   }
-  const q = searchText.value.trim().toLowerCase()
-  if (q) {
+  if (bkMawbFilter.value) {
+    const q = bkMawbFilter.value.trim().toLowerCase()
     list = list.filter(b => {
       const m = bookingMawb(b)
-      const haystack = [
-        b.awbNumber, b.clientName, b.shipperName, b.contactName,
-        b.destination, b.notes, m?.awbNumber, m?.shipperName,
-      ].filter(Boolean).join(' ').toLowerCase()
-      return haystack.includes(q)
+      return (b.awbNumber || '').toLowerCase().includes(q) || (m?.awbNumber || '').toLowerCase().includes(q)
     })
+  }
+  if (bkShipperFilter.value) {
+    const q = bkShipperFilter.value.trim().toLowerCase()
+    list = list.filter(b => {
+      const m = bookingMawb(b)
+      return (b.shipperName || '').toLowerCase().includes(q) || (m?.shipperName || '').toLowerCase().includes(q)
+    })
+  }
+  if (bkConsigneeFilter.value) {
+    const q = bkConsigneeFilter.value.trim().toLowerCase()
+    list = list.filter(b => (b.clientName || '').toLowerCase().includes(q) || (b.contactName || '').toLowerCase().includes(q))
+  }
+  if (bkDestFilter.value) {
+    const d = bkDestFilter.value.toUpperCase()
+    list = list.filter(b => (b.destination || '').toUpperCase() === d)
   }
   return list
 })
@@ -497,11 +505,19 @@ function getMawbStatus(b) {
 
 function getMawbStatusClass(b) {
   const s = getMawbStatus(b)
-  if (s === 'BOOKED' || s === '—') return 'bg-slate-500'
-  if (s === 'RECEIVED') return 'bg-slate-500'
-  if (s === 'MANIFESTED') return 'bg-slate-500'
-  if (s === 'DEPARTED' || s === 'ARRIVED') return 'bg-slate-950'
+  if (s === 'RECEIVED') return 'bg-amber-400'
+  if (s === 'MANIFESTED') return 'bg-emerald-500'
+  if (s === 'DEPARTED' || s === 'ARRIVED') return 'bg-blue-500'
+  if (s === 'BOOKED' || s === '—') return 'bg-slate-400'
   return 'bg-slate-300'
+}
+
+function getMawbBadgeStyle(b) {
+  const s = getMawbStatus(b)
+  if (s === 'RECEIVED') return { background: '#fef3c7', color: '#92400e' }
+  if (s === 'MANIFESTED') return { background: '#d1fae5', color: '#065f46' }
+  if (s === 'DEPARTED' || s === 'ARRIVED') return { background: '#dbeafe', color: '#1e40af' }
+  return { background: 'var(--bg, #f1f5f9)', color: 'var(--text, #475569)' }
 }
 
 function exportCSV() {
@@ -520,6 +536,7 @@ function exportCSV() {
 }
 
 function openCreate() {
+  editingBooking.value = null
   const flightNum = store.selectedFlight?.flightNumber || 'XXX'
   form.value = {
     clientName: '', contactName: '', shipperName: '', cnee: '',
@@ -530,8 +547,28 @@ function openCreate() {
   showModal.value = true
 }
 
+function openEdit(b) {
+  editingBooking.value = b
+  form.value = {
+    clientName: b.clientName || '',
+    contactName: b.contactName || '',
+    shipperName: b.shipperName || '',
+    cnee: b.cnee || '',
+    awbNumber: b.awbNumber || '',
+    skids: b.skids || 0,
+    units: b.units || 0,
+    reservedKg: b.reservedKg || null,
+    destination: b.destination || '',
+    commodityType: b.commodityType || 'GENERAL',
+    priority: b.priority || 0,
+    notes: b.notes || '',
+  }
+  showModal.value = true
+}
+
 function closeModal() {
   showModal.value = false
+  editingBooking.value = null
 }
 
 function triggerImport() {
@@ -552,7 +589,7 @@ function handleFileImport(e) {
       showImportModal.value = true
     } catch (err) {
       toast.error(extractError(err))
-      alert('Error al leer el archivo: ' + err.message)
+      alert(t('bookings.toast.fileReadError', { error: err.message }))
     }
   }
   reader.readAsArrayBuffer(file)
@@ -566,7 +603,7 @@ function closeImportModal() {
 
 async function confirmImport() {
   if (!store.selectedFlightId) {
-    alert('Selecciona un vuelo primero')
+    alert(t('bookings.selectFlightFirst'))
     return
   }
   if (parsedRows.value.length === 0) return
@@ -641,7 +678,7 @@ async function saveBooking() {
     return
   }
   if (!store.selectedFlightId) {
-    alert('Selecciona un vuelo primero')
+    alert(t('bookings.selectFlightFirst'))
     return
   }
   try {
@@ -662,42 +699,49 @@ async function saveBooking() {
       priority: form.value.priority,
       notes: form.value.notes,
     }
-    const booking = await store.createBooking(dto)
-    // Auto-create MAWB from booking so it appears in MawbsView/WarehouseReceiptsView/UldsView
-    if (booking?.id) {
-      const awbNumber = form.value.awbNumber || `406-${Date.now().toString().slice(-8).padStart(8, '0')}`
-      try {
-        const mawb = await store.createMawb({
-          airlineId: store.selectedFlight?.airlineId,
-          flightId: store.selectedFlightId,
-          awbNumber: awbNumber,
-          shipperName: form.value.shipperName || form.value.clientName,
-          consigneeName: form.value.cnee || form.value.clientName,
-          origin: store.selectedFlight?.origin || 'SDQ',
-          destination: form.value.destination || store.selectedFlight?.destination || 'MIA',
-          pieces: form.value.skids || form.value.units || 1,
-          reportedWeightKg: form.value.reservedKg || 0,
-          chargeableWeightKg: form.value.reservedKg || 0,
-          commodityType: form.value.commodityType || 'GENERAL',
-          status: 'BOOKED',
-        })
-        const mawbData = mawb.mawb || mawb
-        if (mawb.weightWarning) {
-          console.warn('⚠', mawb.weightWarning)
+    if (editingBooking.value) {
+      await store.updateBooking(editingBooking.value.id, dto)
+      await Promise.all([
+        store.loadBookings(store.selectedFlightId),
+        store.loadMawbs(store.selectedFlightId),
+      ])
+    } else {
+      const booking = await store.createBooking(dto)
+      if (booking?.id) {
+        const awbNumber = form.value.awbNumber || `406-${Date.now().toString().slice(-8).padStart(8, '0')}`
+        try {
+          const mawb = await store.createMawb({
+            airlineId: store.selectedFlight?.airlineId,
+            flightId: store.selectedFlightId,
+            awbNumber: awbNumber,
+            shipperName: form.value.shipperName || form.value.clientName,
+            consigneeName: form.value.cnee || form.value.clientName,
+            origin: store.selectedFlight?.origin || 'SDQ',
+            destination: form.value.destination || store.selectedFlight?.destination || 'MIA',
+            pieces: form.value.skids || form.value.units || 1,
+            reportedWeightKg: form.value.reservedKg || 0,
+            chargeableWeightKg: form.value.reservedKg || 0,
+            commodityType: form.value.commodityType || 'GENERAL',
+            status: 'BOOKED',
+          })
+          const mawbData = mawb.mawb || mawb
+          if (mawb.weightWarning) {
+            console.warn('⚠', mawb.weightWarning)
+          }
+          if (mawbData?.id) {
+            await store.updateBooking(booking.id, { ...dto, mawbId: mawbData.id })
+          }
+        } catch (e2) {
+          toast.error(extractError(e2))
+          const apiMsg = e2.response?.data?.error || e2.response?.data?.message || ''
+          console.warn('MAWB creation non-critical:', e2.message, apiMsg)
         }
-        if (mawbData?.id) {
-          await store.updateBooking(booking.id, { ...dto, mawbId: mawbData.id })
-        }
-      } catch (e2) {
-        toast.error(extractError(e2))
-        const apiMsg = e2.response?.data?.error || e2.response?.data?.message || ''
-        console.warn('MAWB creation non-critical:', e2.message, apiMsg)
       }
+      await Promise.all([
+        store.loadBookings(store.selectedFlightId),
+        store.loadMawbs(store.selectedFlightId),
+      ])
     }
-    await Promise.all([
-      store.loadBookings(store.selectedFlightId),
-      store.loadMawbs(store.selectedFlightId),
-    ])
     closeModal()
   } catch (e) {
     toast.error(extractError(e))
@@ -739,6 +783,7 @@ onMounted(async () => {
   }
   store.loadBookings()
   store.loadAllMawbs()
+  loadCommodities()
 })
 
 watch(() => store.selectedFlightId, (id) => {

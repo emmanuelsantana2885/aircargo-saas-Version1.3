@@ -4,7 +4,6 @@ import com.aircargo.bookingservice.dto.BookingDTO;
 import com.aircargo.bookingservice.entity.Booking;
 import com.aircargo.bookingservice.entity.Flight;
 import com.aircargo.bookingservice.repository.BookingRepository;
-import com.aircargo.common.event.BookingAwbUpdatedEvent;
 import com.aircargo.feign.client.FlightClient;
 import com.aircargo.feign.client.MawbClient;
 import com.aircargo.feign.dto.FlightDTO;
@@ -14,8 +13,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -29,24 +26,6 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class BookingServiceImplTest {
 
-    /**
-     * RabbitTemplate cannot be instrumented by Mockito's inline mockmaker
-     * under JDK 25 (restricted dynamic agent). Use a real subclass that
-     * records convertAndSend calls instead of mocking.
-     */
-    static class FakeRabbitTemplate extends RabbitTemplate {
-        String lastExchange;
-        String lastRoutingKey;
-        Object lastPayload;
-
-        @Override
-        public void convertAndSend(String exchange, String routingKey, Object message) {
-            this.lastExchange = exchange;
-            this.lastRoutingKey = routingKey;
-            this.lastPayload = message;
-        }
-    }
-
     @Mock
     private BookingRepository bookingRepository;
     @Mock
@@ -54,14 +33,11 @@ class BookingServiceImplTest {
     @Mock
     private MawbClient mawbClient;
 
-    private FakeRabbitTemplate rabbitTemplate;
     private BookingServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        rabbitTemplate = new FakeRabbitTemplate();
-        service = new BookingServiceImpl(bookingRepository, flightClient, mawbClient, rabbitTemplate);
-        ReflectionTestUtils.setField(service, "exchange", "aircargo.events");
+        service = new BookingServiceImpl(bookingRepository, flightClient, mawbClient);
     }
 
     private Booking sampleBooking() {
@@ -136,13 +112,6 @@ class BookingServiceImplTest {
 
         assertTrue(result.isPresent());
         assertEquals("406-05912970", result.get().getAwbNumber());
-
-        assertEquals("aircargo.events", rabbitTemplate.lastExchange);
-        assertEquals("booking.awb.updated", rabbitTemplate.lastRoutingKey);
-        assertTrue(rabbitTemplate.lastPayload instanceof BookingAwbUpdatedEvent);
-        BookingAwbUpdatedEvent event = (BookingAwbUpdatedEvent) rabbitTemplate.lastPayload;
-        assertEquals("406-05912970", event.awbNumber());
-        assertEquals(existing.getFlight().getId(), event.flightId());
     }
 
     @Test

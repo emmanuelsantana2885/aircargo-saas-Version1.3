@@ -68,6 +68,10 @@ public class AppUser {
     private Boolean isActive = true;
 
     @Builder.Default
+    @Column(name = "blocked", nullable = false)
+    private Boolean blocked = false;
+
+    @Builder.Default
     @Column(name = "failed_login_attempts", nullable = false)
     private Integer failedLoginAttempts = 0;
 

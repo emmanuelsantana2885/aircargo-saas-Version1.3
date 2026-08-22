@@ -1,6 +1,5 @@
 package com.aircargo.mawbservice.service;
 
-import com.aircargo.common.event.MawbStatusChangedEvent;
 import com.aircargo.mawbservice.dto.MawbDTO;
 import com.aircargo.mawbservice.entity.Mawb;
 import com.aircargo.mawbservice.entity.MawbStatus;
@@ -12,8 +11,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Optional;
@@ -26,34 +23,15 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class MawbServiceImplTest {
 
-    /**
-     * RabbitTemplate cannot be instrumented by Mockito's inline mockmaker
-     * under JDK 25 (restricted dynamic agent). Use a real subclass that
-     * records convertAndSend calls instead of mocking.
-     */
-    static class FakeRabbitTemplate extends RabbitTemplate {
-        String lastRoutingKey;
-        Object lastPayload;
-
-        @Override
-        public void convertAndSend(String exchange, String routingKey, Object message) {
-            this.lastRoutingKey = routingKey;
-            this.lastPayload = message;
-        }
-    }
-
     @Mock
     private MawbRepository mawbRepository;
 
     private ObjectMapper objectMapper = new ObjectMapper();
-    private FakeRabbitTemplate rabbitTemplate;
     private MawbServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        rabbitTemplate = new FakeRabbitTemplate();
-        service = new MawbServiceImpl(mawbRepository, objectMapper, rabbitTemplate);
-        ReflectionTestUtils.setField(service, "exchange", "aircargo.events");
+        service = new MawbServiceImpl(mawbRepository, objectMapper);
     }
 
     private Mawb sampleMawb() {
@@ -122,12 +100,6 @@ class MawbServiceImplTest {
 
         assertTrue(result.isPresent());
         assertEquals(MawbStatus.DEPARTED, result.get().getStatus());
-
-        assertEquals("mawb.status.changed", rabbitTemplate.lastRoutingKey);
-        assertTrue(rabbitTemplate.lastPayload instanceof MawbStatusChangedEvent);
-        MawbStatusChangedEvent event = (MawbStatusChangedEvent) rabbitTemplate.lastPayload;
-        assertEquals("BOOKED", event.oldStatus());
-        assertEquals("DEPARTED", event.newStatus());
     }
 
     @Test
@@ -139,7 +111,7 @@ class MawbServiceImplTest {
 
         service.updateStatus(m.getId(), MawbStatus.BOOKED);
 
-        assertNull(rabbitTemplate.lastPayload);
+        assertEquals(MawbStatus.BOOKED, m.getStatus());
     }
 
     @Test

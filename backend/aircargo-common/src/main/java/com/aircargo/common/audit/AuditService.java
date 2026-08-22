@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -20,35 +21,37 @@ import java.util.UUID;
  * loguea y se ignora (fire-and-forget).
  *
  * Solo se registra en servicios que tienen spring-boot-starter-amqp en su classpath
- * ({@link ConditionalOnClass}). Auth-service conserva su persistencia local en
- * PostgreSQL (audit_log) por ser la fuente que alimenta GET /api/audit-logs.
+ * ({@link ConditionalOnClass}). Para servicios sin RabbitMQ se debe excluir
+ * RabbitAutoConfiguration y el bean Optional&lt;RabbitTemplate&gt; quedará vacío.
  */
-@Service("amqpAuditService")
-@ConditionalOnClass(name = "org.springframework.amqp.rabbit.core.RabbitTemplate")
+@Service
+@ConditionalOnClass(RabbitTemplate.class)
 public class AuditService {
 
     private static final Logger log = LoggerFactory.getLogger(AuditService.class);
 
     private static final String AUDIT_ROUTING_KEY = "audit.log";
 
-    private final RabbitTemplate rabbitTemplate;
+    private final Optional<RabbitTemplate> rabbitTemplate;
 
     @Value("${rabbitmq.exchange:aircargo.events}")
     private String exchange;
 
-    public AuditService(RabbitTemplate rabbitTemplate) {
+    public AuditService(Optional<RabbitTemplate> rabbitTemplate) {
         this.rabbitTemplate = rabbitTemplate;
     }
 
     public void log(UUID userId, String email, String fullName, String action,
                     String entityType, String entityId, String details, String ipAddress) {
-        try {
-            rabbitTemplate.convertAndSend(exchange, AUDIT_ROUTING_KEY,
-                    new AuditLogEvent(userId, email, fullName, action, entityType,
-                            entityId, TextUtil.safe(details), ipAddress));
-        } catch (Exception e) {
-            log.warn("Audit publish failed (non-blocking): {}", e.getMessage());
-        }
+        rabbitTemplate.ifPresent(rt -> {
+            try {
+                rt.convertAndSend(exchange, AUDIT_ROUTING_KEY,
+                        new AuditLogEvent(userId, email, fullName, action, entityType,
+                                entityId, TextUtil.safe(details), ipAddress));
+            } catch (Exception e) {
+                log.warn("Audit publish failed (non-blocking): {}", e.getMessage());
+            }
+        });
     }
 
     public void logLogin(UUID userId, String email, String fullName, String ipAddress) {

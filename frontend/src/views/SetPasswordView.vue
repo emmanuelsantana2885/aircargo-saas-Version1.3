@@ -5,13 +5,13 @@
         <div class="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3" style="background: var(--accent)">
           <IconLock :size="28" color="white" :stroke-width="2" />
         </div>
-        <h1 class="text-xl font-bold" style="color: var(--text)">Establecer contraseña</h1>
-        <p class="text-sm mt-1" style="color: var(--muted)">Ingresa tu nueva contraseña</p>
+        <h1 class="text-xl font-bold" style="color: var(--text)">{{ t('setPassword.title') }}</h1>
+        <p class="text-sm mt-1" style="color: var(--muted)">{{ t('setPassword.subtitle') }}</p>
       </div>
 
       <form @submit.prevent="handleSetPassword" class="space-y-4">
         <div>
-          <label class="block text-xs font-medium mb-1" style="color: var(--text)">Correo electrónico</label>
+          <label class="block text-xs font-medium mb-1" style="color: var(--text)">{{ t('setPassword.email') }}</label>
           <input
             v-model="email"
             type="email"
@@ -23,7 +23,7 @@
         </div>
 
         <div v-if="hasCurrentPassword">
-          <label class="block text-xs font-medium mb-1" style="color: var(--text)">Contraseña actual</label>
+          <label class="block text-xs font-medium mb-1" style="color: var(--text)">{{ t('setPassword.currentPassword') }}</label>
           <input
             v-model="currentPassword"
             type="password"
@@ -36,13 +36,13 @@
         </div>
 
         <div>
-          <label class="block text-xs font-medium mb-1" style="color: var(--text)">Nueva contraseña</label>
+          <label class="block text-xs font-medium mb-1" style="color: var(--text)">{{ t('setPassword.newPassword') }}</label>
           <input
             v-model="newPassword"
             type="password"
             required
             minlength="12"
-            placeholder="Mínimo 12 caracteres"
+            :placeholder="t('setPassword.placeholder')"
             class="w-full px-3 py-2.5 rounded-xl text-sm outline-none transition-all"
             style="background: var(--bg); color: var(--text); border: 1px solid var(--border)"
             :disabled="saving"
@@ -61,13 +61,13 @@
         </div>
 
         <div>
-          <label class="block text-xs font-medium mb-1" style="color: var(--text)">Confirmar contraseña</label>
+          <label class="block text-xs font-medium mb-1" style="color: var(--text)">{{ t('setPassword.confirmPassword') }}</label>
           <input
             v-model="confirmPassword"
             type="password"
             required
             minlength="12"
-            placeholder="Repite la contraseña"
+            :placeholder="t('setPassword.confirmPlaceholder')"
             class="w-full px-3 py-2.5 rounded-xl text-sm outline-none transition-all"
             style="background: var(--bg); color: var(--text); border: 1px solid var(--border)"
             :disabled="saving"
@@ -83,9 +83,9 @@
         >
           <span v-if="saving" class="inline-flex items-center gap-2">
             <span class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-            Guardando...
+            {{ t('setPassword.submitting') }}
           </span>
-          <span v-else>Establecer contraseña</span>
+          <span v-else>{{ t('setPassword.submit') }}</span>
         </button>
 
         <p v-if="errorMsg" class="text-xs text-center" style="color: var(--muted)">{{ errorMsg }}</p>
@@ -93,7 +93,7 @@
 
         <p class="text-xs text-center">
           <router-link to="/login" style="color: var(--accent)" class="underline">
-            Volver al inicio de sesión
+            {{ t('common.back') }} {{ t('login.loginBtn').toLowerCase() }}
           </router-link>
         </p>
       </form>
@@ -104,12 +104,14 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { authApi } from '../api/auth'
 import { IconLock } from '@tabler/icons-vue'
 import { useToastStore } from '../stores/toast'
 import { extractError } from '../utils/error'
 import { checkPasswordStrength, isStrongPassword, passwordRuleLabels } from '../utils/password'
 
+const { t } = useI18n()
 const route = useRoute()
 const toast = useToastStore()
 const router = useRouter()
@@ -138,7 +140,7 @@ const passwordRules = computed(() => {
 onMounted(() => {
   email.value = route.query.email || ''
   if (!email.value) {
-    errorMsg.value = 'Correo electrónico no especificado'
+    errorMsg.value = t('setPassword.error.noEmail')
   }
 })
 
@@ -147,31 +149,27 @@ async function handleSetPassword() {
   successMsg.value = ''
 
   if (newPassword.value !== confirmPassword.value) {
-    errorMsg.value = 'Las contraseñas no coinciden'
+    errorMsg.value = t('setPassword.mismatch')
     return
   }
 
   if (!isStrongPassword(newPassword.value)) {
-    errorMsg.value = 'La contraseña debe tener al menos 12 caracteres e incluir mayúsculas, minúsculas, números y caracteres especiales.'
+    errorMsg.value = t('setPassword.error.weakPassword')
     return
   }
 
   saving.value = true
   try {
     await authApi.setPassword(email.value, newPassword.value, currentPassword.value || undefined)
-
-    successMsg.value = 'Contraseña establecida correctamente'
-
-    setTimeout(() => {
-      router.push('/login')
-    }, 2000)
+    successMsg.value = t('setPassword.success')
+    setTimeout(() => { router.push('/login') }, 2000)
   } catch (e) {
     toast.error(extractError(e))
     const status = e.response?.status
-    if (status === 404) errorMsg.value = 'Usuario no encontrado'
-    else if (status === 403) errorMsg.value = 'Usuario inactivo'
-    else if (status === 401) errorMsg.value = 'Contraseña actual incorrecta'
-    else errorMsg.value = 'Error al conectar con el servidor'
+    if (status === 404) errorMsg.value = t('login.error.invalidCredentials')
+    else if (status === 403) errorMsg.value = t('login.error.inactive')
+    else if (status === 401) errorMsg.value = t('setPassword.error.wrongCurrent')
+    else errorMsg.value = t('login.error.generic')
   } finally {
     saving.value = false
   }

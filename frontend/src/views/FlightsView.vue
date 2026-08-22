@@ -4,8 +4,8 @@
     <!-- Header -->
     <header class="ds-section-header">
       <div>
-        <h1 class="ds-title">Flight Control</h1>
-        <p class="ds-subtitle">SDQ Ramp Ops // Active Manifest Board</p>
+        <h1 class="ds-title">{{ t('flights.title') }}</h1>
+        <p class="ds-subtitle">{{ t('flights.subtitle') }}</p>
       </div>
       <div class="flex items-center gap-2 md:gap-3 flex-wrap">
         <div v-if="store.error" class="text-[14px] font-mono text-slate-600 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg">
@@ -13,12 +13,25 @@
         </div>
         <span class="ds-stat">
           <span class="h-2 w-2 rounded-full bg-slate-500"></span>
-          {{ filteredFlights.length }} VUELOS
+          {{ t('flights.countFlights', { n: filteredFlights.length }) }}
         </span>
-        <input v-model="searchText" type="text" placeholder="Buscar vuelo / ruta / matrícula..."
-          class="w-[200px] bg-white border border-slate-300 rounded px-3 py-1.5 text-[13px] font-mono text-slate-950 outline-none focus:border-slate-500 transition-colors placeholder:text-slate-400" />
+        <FilterBar
+          v-model:search-text="searchText"
+          v-model:destination="destFilter"
+          v-model:date-from="dateFrom"
+          v-model:date-to="dateTo"
+          :show-period-presets="true"
+          :show-date-from="true"
+          :show-date-to="true"
+          :show-destination="true"
+          :show-count="true"
+          :filtered-count="filteredFlights.length"
+          :total-count="store.flights.length"
+          :search-placeholder="t('flights.searchPlaceholder')"
+          container-class="!gap-1"
+        />
         <button @click="openCreate" class="ds-btn-primary">
-          <IconPlus :size="14" :stroke-width="2.5" /> Nuevo Vuelo
+          <IconPlus :size="14" :stroke-width="2.5" /> {{ t('flights.newFlight') }}
         </button>
       </div>
     </header>
@@ -27,36 +40,37 @@
     <section class="ds-table-section">
 
       <div class="table-scroll-wrapper flex-1 min-h-0">
-      <div class="ds-table-header" style="min-width: 900px">
-        <div class="col-span-2">Vuelo</div>
-        <div class="col-span-2">Ruta</div>
-        <div class="col-span-1">Aeronave</div>
-        <div class="col-span-1">Matrícula</div>
-        <div class="col-span-1 text-center">Fecha</div>
-        <div class="col-span-1 text-center">Pos.</div>
-        <div class="col-span-1 text-center">Payload kg</div>
-        <div class="col-span-2 text-center">Estado</div>
-        <div class="col-span-1 text-center">Acciones</div>
+      <div class="ds-table-header" style="min-width: 960px">
+        <div class="col-span-2">{{ t('flights.table.flight') }}</div>
+        <div class="col-span-2">{{ t('flights.table.route') }}</div>
+        <div class="col-span-1">{{ t('flights.table.aircraft') }}</div>
+        <div class="col-span-1">{{ t('flights.table.tail') }}</div>
+        <div class="col-span-1 text-center">{{ t('flights.table.date') }}</div>
+        <div class="col-span-1 text-center">POS</div>
+        <div class="col-span-1 text-center">{{ t('flights.table.payloadKg') }}</div>
+        <div class="col-span-1 text-center">{{ t('flights.table.availPayload') }}</div>
+        <div class="col-span-1 text-center">{{ t('flights.table.status') }}</div>
+        <div class="col-span-1 text-center">{{ t('flights.table.actions') }}</div>
       </div>
 
       <!-- Loading -->
       <div v-if="store.loading" class="flex-1 flex items-center justify-center">
-        <span class="text-[14px] font-mono text-slate-500 uppercase tracking-widest">Cargando vuelos...</span>
+        <span class="text-[14px] font-mono text-slate-500 uppercase tracking-widest">{{ t('common.loading') }}</span>
       </div>
 
       <!-- Empty -->
       <div v-else-if="filteredFlights.length === 0" class="ds-empty">
         <IconPlaneDeparture :size="32" class="text-slate-300" :stroke-width="1.2" />
-        <p class="uppercase tracking-widest">{{ store.flights.length === 0 ? 'No hay vuelos registrados' : 'Ningún vuelo coincide con la búsqueda' }}</p>
+        <p class="uppercase tracking-widest">{{ t('flights.empty') }}</p>
         <button @click="openCreate" class="ds-btn-secondary mt-1">
-          + Crear primer vuelo
+          + {{ t('flights.createFirstFlight') }}
         </button>
       </div>
 
       <!-- Rows -->
       <div v-else class="divide-y divide-slate-100 text-[13px] text-slate-950 overflow-y-auto flex-1 min-h-0 scrollbar-none">
         <div v-for="f in filteredFlights" :key="f.id"
-          class="ds-table-row"
+          class="ds-table-row !py-3.5"
           @click="selectFlight(f)">
 
           <div class="col-span-2 font-mono font-black text-slate-950 relative z-10 flex items-center gap-2">
@@ -73,9 +87,16 @@
           <div class="col-span-1 text-center font-mono font-black text-slate-950 relative z-10">
             {{ f.maxPayloadKg ? Number(f.maxPayloadKg).toLocaleString() : '—' }}
           </div>
+          <div class="col-span-1 text-center font-mono font-bold text-[13px] relative z-10">
+            <span v-if="flightAvailable(f) != null"
+              :class="flightAvailable(f) >= 0 ? 'text-emerald-700' : 'text-red-600'">
+              {{ flightAvailable(f).toLocaleString() }} lbs
+            </span>
+            <span v-else class="text-slate-400">—</span>
+          </div>
 
           <!-- Status flow -->
-          <div class="col-span-2 flex justify-center relative z-10">
+          <div class="col-span-1 flex justify-center relative z-10">
             <div class="flex items-center gap-2">
               <div v-for="step in statusSteps" :key="step.key"
                 class="flex flex-col items-center">
@@ -111,7 +132,7 @@
 
         <div class="ds-modal-header">
           <h2 class="ds-modal-title">
-            {{ editingFlight ? 'Editar Vuelo' : 'Nuevo Vuelo' }}
+            {{ editingFlight ? t('flights.editFlight') : t('flights.newFlight') }}
           </h2>
           <button @click="closeModal" class="text-slate-400 hover:text-slate-950 transition">
             <IconX :size="18" :stroke-width="2" />
@@ -120,41 +141,41 @@
 
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="ds-label">Número de Vuelo *</label>
+            <label class="ds-label">{{ t('flights.form.flightNumber') }} *</label>
             <input v-model="form.flightNumber" type="text" placeholder="335" class="ds-input" />
           </div>
           <div>
-            <label class="ds-label">Fecha *</label>
+            <label class="ds-label">{{ t('flights.form.flightDate') }} *</label>
             <input v-model="form.flightDate" type="date" class="ds-input" />
           </div>
           <div>
-            <label class="ds-label">Origen</label>
+            <label class="ds-label">{{ t('flights.form.origin') }}</label>
             <input v-model="form.origin" type="text" placeholder="SDQ" maxlength="3" class="ds-input uppercase" />
           </div>
           <div>
-            <label class="ds-label">Destino</label>
+            <label class="ds-label">{{ t('flights.form.destination') }}</label>
             <input v-model="form.destination" type="text" placeholder="MIA" maxlength="3" class="ds-input uppercase" />
           </div>
           <div>
-            <label class="ds-label">Tipo de Aeronave</label>
+            <label class="ds-label">{{ t('flights.form.aircraftType') }}</label>
             <select v-model="form.aircraftType" class="ds-input">
-              <option v-for="t in aircraftTypes" :key="t" :value="t">{{ t }}</option>
+              <option v-for="ty in aircraftTypes" :key="ty" :value="ty">{{ ty }}</option>
             </select>
           </div>
           <div>
-            <label class="ds-label">Matrícula (temporal)</label>
+            <label class="ds-label">{{ t('flights.form.tail') }}</label>
             <input v-model="form.aircraftReg" type="text" placeholder="N-372-UP" class="ds-input uppercase" />
           </div>
           <div>
-            <label class="ds-label">Aerolínea *</label>
+            <label class="ds-label">{{ t('flights.form.airline') }} *</label>
             <select v-model="form.airlineId" class="ds-input">
-              <option value="" disabled>Seleccionar aerolínea</option>
+              <option value="" disabled>{{ t('flights.form.selectAirline') }}</option>
               <option v-for="a in airlines" :key="a.id" :value="a.id">{{ a.code }} — {{ a.name }}</option>
             </select>
-            <p v-if="airlinesError" class="text-[12px] font-mono text-slate-400 mt-1">Error cargando aerolíneas. ¿El backend está corriendo?</p>
+            <p v-if="airlinesError" class="text-[12px] font-mono text-slate-400 mt-1">{{ t('flights.form.airlinesLoadError') }}</p>
           </div>
           <div>
-            <label class="ds-label">Posiciones ULD</label>
+            <label class="ds-label">{{ t('flights.form.uldPositions') }}</label>
             <input v-model.number="form.totalPositions" type="number" placeholder="31" class="ds-input" />
           </div>
           <div>
@@ -162,7 +183,7 @@
             <input v-model.number="form.maxPayloadKg" type="number" placeholder="45000" class="ds-input" />
           </div>
           <div class="col-span-2">
-            <label class="ds-label">Estado</label>
+            <label class="ds-label">{{ t('flights.form.status') }}</label>
             <select v-model="form.status" class="ds-input">
               <option v-for="s in flightStatuses" :key="s" :value="s">{{ s }}</option>
             </select>
@@ -171,11 +192,11 @@
 
         <div class="flex justify-end gap-2 mt-6 pt-4 border-t border-slate-200">
           <button @click="closeModal" class="ds-btn-secondary">
-            Cancelar
+            {{ t('common.cancel') }}
           </button>
           <button @click="saveForm" :disabled="saving" class="ds-btn-primary">
             <IconCheck v-if="!saving" :size="14" :stroke-width="2.5" />
-            <span>{{ saving ? 'Guardando...' : (editingFlight ? 'Actualizar' : 'Crear Vuelo') }}</span>
+            <span>{{ saving ? t('common.saving') : (editingFlight ? t('common.update') : t('flights.newFlight')) }}</span>
           </button>
         </div>
       </div>
@@ -187,12 +208,16 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAppStore } from '../stores/app'
 import { airlinesApi } from '../api/airlines'
+import { uldsApi } from '../api/ulds'
 import { IconPlus, IconPencil, IconTrash, IconX, IconCheck, IconPlaneDeparture } from '@tabler/icons-vue'
 import { useToastStore } from '../stores/toast'
 import { extractError } from '../utils/error'
+import FilterBar from '../components/FilterBar.vue'
 
+const { t } = useI18n()
 const store = useAppStore()
 const router = useRouter()
 const toast = useToastStore()
@@ -200,11 +225,64 @@ const toast = useToastStore()
 const airlines = ref([])
 const airlinesError = ref(false)
 const searchText = ref('')
+const destFilter = ref('')
+const dateFrom = ref('')
+const dateTo = ref('')
+
+const flightWeights = ref({})
+
+function isBellyPos(pos) {
+  if (!pos) return false
+  const u = pos.trim().toUpperCase()
+  if (u === 'LOOSE' || u === 'BULK') return true
+  const bellyMap = { B757: ['31','34'], B767: ['A','B'], A300: ['A','B'], A310: ['A','B'], A330: ['A','B'], B777: ['A','B'], B747: ['31','32','33','34'], MD11: ['31','34'] }
+  for (const [, positions] of Object.entries(bellyMap)) {
+    if (positions.map(p => p.toUpperCase()).includes(u)) return true
+  }
+  return false
+}
+
+function loadFlightWeights() {
+  uldsApi.getAll({ size: 500 }).then(res => {
+    const ulds = res.data?.content || res.data || []
+    const map = {}
+    for (const uld of ulds) {
+      const fid = uld.flightId
+      if (!fid) continue
+      if (!map[fid]) map[fid] = { effectiveGross: 0, gross: 0, tare: 0, uldCount: 0 }
+      const w = uld.grossWeightLbs || 0
+      const t = uld.tareLbs || 0
+      map[fid].gross += w
+      map[fid].tare += t
+      map[fid].uldCount++
+      if (isBellyPos(uld.position)) {
+        map[fid].effectiveGross += (w - t)
+      } else {
+        map[fid].effectiveGross += w
+      }
+    }
+    flightWeights.value = map
+  }).catch(() => {})
+}
+
+function flightAvailable(f) {
+  const fw = flightWeights.value[f.id]
+  if (!fw || !f.maxPayloadKg) return null
+  const payloadLbs = f.maxPayloadKg * 2.20462
+  return Math.round(payloadLbs - fw.effectiveGross)
+}
 
 const filteredFlights = computed(() => {
+  let list = store.flights
+  if (dateFrom.value) list = list.filter(f => f.flightDate >= dateFrom.value)
+  if (dateTo.value) list = list.filter(f => f.flightDate <= dateTo.value)
+  if (destFilter.value) {
+    const d = destFilter.value.toUpperCase()
+    list = list.filter(f => (f.destination || '').toUpperCase() === d)
+  }
   const q = searchText.value.trim().toLowerCase()
-  if (!q) return store.flights
-  return store.flights.filter(f => {
+  if (!q) return list
+  return list.filter(f => {
     const haystack = [
       f.flightNumber, f.origin, f.destination, f.aircraftType,
       f.aircraftReg, f.status, f.flightDate,
@@ -219,6 +297,7 @@ onMounted(async () => {
     store.loadFlights(),
     airlinesApi.getAll().then(r => { airlines.value = r.data }).catch((e) => { toast.error(extractError(e)); airlinesError.value = true }),
   ])
+  loadFlightWeights()
 })
 
 // ── Enums ─────────────────────────────────────────────────────
@@ -286,7 +365,7 @@ function closeModal() {
 
 async function saveForm() {
   if (!form.value.airlineId || !form.value.flightNumber || !form.value.flightDate) {
-    alert('Aerolínea, número de vuelo y fecha son requeridos')
+    alert(t('flights.validation.requiredFields'))
     return
   }
   try {
@@ -300,19 +379,19 @@ async function saveForm() {
     closeModal()
   } catch (e) {
     toast.error(extractError(e))
-    alert('Error guardando vuelo: ' + (e.response?.data?.message || e.message))
+    alert(t('flights.toast.saveError', { error: e.response?.data?.message || e.message }))
   } finally {
     saving.value = false
   }
 }
 
 async function confirmDelete(f) {
-  if (!confirm(`¿Eliminar vuelo UPS-${f.flightNumber}? Esta acción no se puede deshacer.`)) return
+  if (!confirm(t('flights.confirmDeleteWithNumber', { number: f.flightNumber }))) return
   try {
     await store.deleteFlight(f.id)
   } catch (e) {
     toast.error(extractError(e))
-    alert('Error eliminando: ' + (e.response?.data?.message || e.message))
+    alert(t('flights.toast.deleteError', { error: e.response?.data?.message || e.message }))
   }
 }
 

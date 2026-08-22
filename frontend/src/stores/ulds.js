@@ -62,7 +62,7 @@ export const useUldsStore = defineStore('ulds', () => {
       const params = { flightId }
       if (appStore.selectedFlight?.airlineId) params.airlineId = appStore.selectedFlight.airlineId
       const res = await api.get('/ulds', { params })
-      uldsByFlight.value[flightId] = res.data?.content || res.data
+      uldsByFlight.value = { ...uldsByFlight.value, [flightId]: res.data?.content || res.data }
     } catch (e) {
       error.value = 'Error cargando ULDs: ' + apiError(e)
     } finally {
@@ -77,7 +77,7 @@ export const useUldsStore = defineStore('ulds', () => {
       const params = {}
       if (appStore.selectedFlight?.airlineId) params.airlineId = appStore.selectedFlight.airlineId
       const res = await api.get('/ulds', { params })
-      floatingUlDs.value = (res.data || []).filter(u => !u.flightId)
+      floatingUlDs.value = (res.data?.content || res.data || []).filter(u => !u.flightId)
       selectedFlightId.value = '__floating__'
     } catch (e) {
       error.value = 'Error cargando ULDs flotantes: ' + apiError(e)

@@ -4,15 +4,15 @@
     <header class="ds-section-header flex-row px-3 py-3">
       <div class="flex items-center gap-6">
         <div class="flex flex-col gap-0.5">
-           <span class="ds-label">Fecha</span>
+           <span class="ds-label">{{ t('common.date') }}</span>
           <input v-model="selectedDate" type="date" @change="onDateChange"
             class="ds-input w-[140px] cursor-pointer" />
         </div>
         <div class="h-8 w-[1px] bg-slate-200"></div>
         <div class="flex flex-col gap-0.5">
-           <span class="ds-label">Flight Number</span>
+           <span class="ds-label">{{ t('loadPlanning.colFlightNumber') }}</span>
           <select v-model="selectedFlightId" @change="syncFlightMetadata" class="ds-input cursor-pointer min-w-[180px]">
-            <option value="" disabled>Seleccionar vuelo</option>
+            <option value="" disabled>{{ t('common.selectFlight') }}</option>
             <option v-for="flight in flightDatabase" :key="flight.id" :value="flight.id">
               {{ airlineCodeById(flight.airlineId) }}-{{ flight.flightNumber }} ({{ flight.origin }}→{{ flight.destination }})
             </option>
@@ -20,30 +20,30 @@
         </div>
         <div class="h-8 w-[1px] bg-slate-200"></div>
         <div class="flex flex-col justify-center">
-           <span class="ds-label">Aircraft-Tail</span>
+           <span class="ds-label">{{ t('loadPlanning.colAircraftTail') }}</span>
           <span class="text-[14px] font-black text-slate-950 uppercase tracking-wider">{{ activeFlightMeta.aircraftReg || '-' }}</span>
         </div>
         <div class="h-8 w-[1px] bg-slate-200"></div>
         <div class="flex flex-col justify-center">
-           <span class="ds-label">Ruta</span>
+           <span class="ds-label">{{ t('loadPlanning.colRoute') }}</span>
           <span class="text-[14px] font-black text-slate-950 uppercase tracking-widest">{{ (activeFlightMeta.origin || '') + '→' + (activeFlightMeta.destination || '-') }}</span>
         </div>
       </div>
       <div class="flex items-center gap-1.5">
         <button v-if="activeFlightMeta.id && activeFlightMeta.status !== 'DEPARTED' && activeFlightMeta.status !== 'ARRIVED' && activeFlightMeta.status !== 'CANCELLED'"
-          @click="dispatchFlight" title="Despachar vuelo"
+          @click="dispatchFlight" :title="t('loadPlanning.dispatchFlight')"
           class="ds-btn-primary px-2 py-1.5">
           <IconPlaneDeparture :size="16" :stroke-width="2.5" />
         </button>
-        <button @click="triggerImport" title="Importar manifiesto XLSX"
+        <button @click="triggerImport" :title="t('loadPlanning.uploadManifest')"
           class="ds-btn-secondary px-2 py-1.5">
           <IconFileUpload :size="16" :stroke-width="2" />
         </button>
-        <button @click="exportPalletSheets" title="Generar Pallet Sheets PDF"
+        <button @click="exportPalletSheets" :title="t('loadPlanning.palletSheets')"
           class="ds-btn-primary px-2 py-1.5 bg-slate-600 hover:bg-slate-500 border-slate-600 hover:border-slate-500">
           <IconFileDescription :size="16" :stroke-width="2" />
         </button>
-        <button @click="exportToXLSX" title="Exportar Load Plan a XLSX"
+        <button @click="exportToXLSX" :title="t('loadPlanning.exportManifest')"
           class="ds-btn-primary px-2 py-1.5">
           <IconFileExport :size="16" :stroke-width="2" />
         </button>
@@ -53,7 +53,7 @@
     <!-- ULD Position Summary -->
     <section v-if="activeManifest.length > 0"
       class="flex items-center gap-3 py-1.5 px-3 bg-white border border-slate-400 rounded-lg mb-1 shrink-0 overflow-x-auto lp-scroll-x text-[13px] font-mono">
-      <span class="ds-label mb-0 shrink-0">POSITIONS</span>
+      <span class="ds-label mb-0 shrink-0">{{ t('loadPlanning.positions') }}</span>
       <div v-for="p in positionSummary" :key="p.pos"
         class="flex items-center gap-1.5 px-2 py-0.5 rounded whitespace-nowrap"
         :class="[p.isBelly ? 'bg-slate-50 border border-slate-300' : 'bg-slate-100 border border-slate-300']">
@@ -64,7 +64,15 @@
       </div>
       <span class="text-slate-300 mx-1">|</span>
       <span class="text-slate-950 font-bold whitespace-nowrap">A/C: {{ aircraftType }}</span>
-      <span class="text-slate-950 font-bold whitespace-nowrap">Total ULDs: {{ activeManifest.length }}</span>
+      <span class="text-slate-950 font-bold whitespace-nowrap">{{ t('loadPlanning.lblTotalUlds') }} {{ activeManifest.length }}</span>
+      <span class="text-slate-300 mx-1">|</span>
+      <span class="text-slate-950 font-bold whitespace-nowrap">{{ t('loadPlanning.lblGross') }} {{ calculatedTotals.gross.toLocaleString() }} lbs</span>
+      <span class="text-slate-950 font-bold whitespace-nowrap">{{ t('loadPlanning.lblPayload') }} {{ calculatedTotals.payloadLbs.toLocaleString() }} lbs</span>
+      <span class="text-slate-300 mx-1">|</span>
+      <span class="font-bold whitespace-nowrap px-2 py-0.5 rounded"
+        :class="calculatedTotals.availableLbs >= 0 ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-red-100 text-red-800 border border-red-300'">
+        {{ t('loadPlanning.lblAvailable') }} {{ calculatedTotals.availableLbs.toLocaleString() }} lbs
+      </span>
     </section>
 
     <!-- Flight ULD Cards -->
@@ -78,7 +86,7 @@
         :class="getCardBorderStyle(uldGroup.status)">
         <span class="font-black text-slate-950 uppercase tracking-tight">{{ uldGroup.uld }}</span>
         <span class="h-2 w-2 rounded-full" :class="getStatusDotColor(uldGroup.status)"></span>
-        <span class="text-slate-950 font-bold uppercase text-[13px]">{{ uldGroup.status }}</span>
+        <span class="text-slate-950 font-bold uppercase text-[13px]">{{ lpStatus(uldGroup.status) }}</span>
         <span class="text-slate-950 font-bold">{{ uldGroup.items.length }} MAWB</span>
         <span class="text-slate-950">{{ (uldGroup.weight || 0).toLocaleString() }} lb</span>
         <select :value="uldGroup.flightId" @change="onTransferRequest(uldGroup.uldId, uldGroup.uld, uldGroup.flightId, $event.target.value)"
@@ -94,15 +102,15 @@
           @dragstart="onDragStart(uld.id, $event)"
           class="flex-shrink-0 bg-white border border-slate-300 border-dashed rounded-lg px-3 py-2 flex items-center gap-2 text-[13px] cursor-grab active:cursor-grabbing select-none">
           <span class="font-black text-slate-700 uppercase tracking-tight">{{ uld.uldNumber || 'SIN-ULD' }}</span>
-          <span class="text-slate-500 text-[13px] font-bold">SIN VUELO</span>
+          <span class="text-slate-500 text-[13px] font-bold">{{ t('ulds.noFlight') }}</span>
           <select :value="uld.flightId" @change="onTransferRequest(uld.id, uld.uldNumber, null, $event.target.value)"
             class="bg-white border border-slate-300 rounded px-2 py-1 text-[13px] font-bold text-slate-950 focus:outline-none cursor-pointer">
-            <option value="" disabled>Asignar vuelo</option>
+            <option value="" disabled>{{ t('ulds.actions.assignFlight') }}</option>
             <option v-for="f in uldsStore.flights" :key="f.id" :value="f.id">
               {{ airlineCodeById(f.airlineId) }}-{{ f.flightNumber }}
             </option>
           </select>
-          <button @click.stop="deleteUld(uld)" title="Eliminar ULD"
+          <button @click.stop="deleteUld(uld)" :title="t('ulds.actions.delete')"
             class="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors">
             <IconTrash size="16" />
           </button>
@@ -121,21 +129,21 @@
         </span>
         <span class="text-center">PCS</span>
         <span class="text-center">%</span>
-        <span class="text-center">GROSS</span>
-        <span class="text-center">TARE</span>
-        <span class="text-center">TYPE</span>
-        <span class="text-center">SEAL</span>
-        <span class="text-center">POS</span>
-        <span class="text-center">DESC</span>
-        <span class="text-center">MAWB</span>
-        <span class="text-center">DEST</span>
+        <span class="text-center">{{ t('loadPlanning.colGross') }}</span>
+        <span class="text-center">{{ t('loadPlanning.colTare') }}</span>
+        <span class="text-center">{{ t('loadPlanning.colType') }}</span>
+        <span class="text-center">{{ t('loadPlanning.colSeal') }}</span>
+        <span class="text-center">{{ t('loadPlanning.colPos') }}</span>
+        <span class="text-center">{{ t('loadPlanning.colDesc') }}</span>
+        <span class="text-center">{{ t('loadPlanning.colMawb') }}</span>
+        <span class="text-center">{{ t('loadPlanning.colDest') }}</span>
       </div>
 
       <div v-if="activeManifest.length === 0"
         class="flex-1 flex flex-col items-center justify-center text-slate-950 text-[14px] gap-2"
         :class="dragOver ? 'bg-slate-50' : ''">
-        <span>Select a flight to view the load plan</span>
-        <span v-if="floatingUlds.length > 0" class="text-[13px] text-slate-300">— o arrastra un ULD flotante aquí —</span>
+        <span>{{ t('loadPlanning.emptySelectFlight') }}</span>
+        <span v-if="floatingUlds.length > 0" class="text-[13px] text-slate-300">{{ t('loadPlanning.dragFloatingHint') }}</span>
       </div>
 
       <div v-else class="divide-y divide-slate-200 text-[13px] overflow-y-auto flex-1 min-h-0 scrollbar-none"
@@ -157,13 +165,13 @@
             <span class="text-center">{{ (uldGroup.tara || 0).toLocaleString() }}</span>
             <span class="text-center">{{ uldGroup.config }}</span>
             <span class="text-center truncate">{{ uldGroup.sello || '-' }}</span>
-            <span class="text-center">
+            <span class="text-center" :class="posCellClass(uldGroup.pos)">
               <input :value="uldGroup.pos || ''" @blur="e => updatePosition(uldGroup.uldId, e.target.value)"
                 @keydown.enter="e => { e.target.blur(); updatePosition(uldGroup.uldId, e.target.value) }"
                 class="w-full bg-transparent outline-none border-b border-transparent focus:border-slate-400 text-center text-[13px] font-mono" />
             </span>
             <span class="text-center text-slate-950 italic">—</span>
-            <span class="text-center text-slate-950 italic">empty</span>
+            <span class="text-center text-slate-950 italic">{{ t('loadPlanning.emptyUld') }}</span>
             <span class="text-center">-</span>
           </div>
           <div v-for="(item, iIdx) in uldGroup.items" :key="iIdx" class="lp-grid py-2 px-5 items-center border-b border-slate-300 last:border-b-0">
@@ -181,7 +189,7 @@
             <span v-else class="text-slate-200 text-center">—</span>
             <span v-if="iIdx === 0" class="text-center truncate">{{ uldGroup.sello || '-' }}</span>
             <span v-else class="text-slate-200 text-center">—</span>
-            <span v-if="iIdx === 0" class="text-center">
+            <span v-if="iIdx === 0" class="text-center" :class="posCellClass(uldGroup.pos)">
               <input :value="uldGroup.pos || ''" @blur="e => updatePosition(uldGroup.uldId, e.target.value)"
                 @keydown.enter="e => { e.target.blur(); updatePosition(uldGroup.uldId, e.target.value) }"
                 class="w-full bg-transparent outline-none border-b border-transparent focus:border-slate-400 text-center text-[13px] font-mono" />
@@ -299,6 +307,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useUldsStore } from '../stores/ulds'
 import { useAppStore } from '../stores/app'
 import api from '../api/client'
@@ -312,6 +321,12 @@ const uldsStore = useUldsStore()
 const appStore = useAppStore()
 const route = useRoute()
 const toast = useToastStore()
+const { t, te } = useI18n()
+
+function lpStatus(status) {
+  const key = `loadPlanning.status.${status}`
+  return te(key) ? t(key) : status
+}
 
 function airlineCodeById(airlineId) {
   const a = appStore.airlines.find(x => x.id === airlineId)
@@ -391,6 +406,20 @@ const bellyPositions = computed(() => {
   return []
 })
 
+function isBellyPosition(pos) {
+  if (!pos) return false
+  const upper = pos.trim().toUpperCase()
+  if (upper === 'LOOSE' || upper === 'BULK') return true
+  return bellyPositions.value.map(p => p.toUpperCase()).includes(upper)
+}
+
+function posCellClass(pos) {
+  if (!pos) return ''
+  return isBellyPosition(pos)
+    ? 'pos-belly'
+    : 'pos-regular'
+}
+
 const positionSummary = computed(() => {
   const posMap = {}
   for (const uld of activeManifest.value) {
@@ -411,8 +440,16 @@ const positionSummary = computed(() => {
 })
 
 const activeManifest = computed(() => {
-  const source = loadPlan.value?.ulds || uldsStore.activeUlds
-  return source.map(uld => ({
+  const liveMap = {}
+  for (const uld of uldsStore.activeUlds || []) liveMap[uld.id] = uld
+  const planIds = loadPlan.value?.ulds ? new Set(loadPlan.value.ulds.map(u => u.id)) : new Set()
+  const merged = []
+  for (const uld of uldsStore.activeUlds || []) merged.push(uld)
+  for (const uld of loadPlan.value?.ulds || []) {
+    if (!planIds.has(uld.id) || liveMap[uld.id]) continue
+    merged.push(uld)
+  }
+  return merged.map(uld => ({
     uldId: uld.id,
     flightId: uld.flightId || '',
     uld: uld.uldNumber || uld.id || 'SIN-ULD',
@@ -438,19 +475,35 @@ const floatingUlds = computed(() => {
 
 const calculatedTotals = computed(() => {
   let uldsCount = activeManifest.value.length
-  let pcs = 0, gross = 0, tare = 0
+  let pcs = 0, gross = 0, tare = 0, effectiveGross = 0
 
   activeManifest.value.forEach(uld => {
-    gross += uld.weight || 0
-    tare += uld.tara || 0
+    const w = uld.weight || 0
+    const t = uld.tara || 0
+    const n = w - t
+    gross += w
+    tare += t
+    if (isBellyPosition(uld.pos)) {
+      effectiveGross += n
+    } else {
+      effectiveGross += w
+    }
     uld.items.forEach(item => { pcs += item.pcs || 0 })
   })
+
+  const payloadKg = activeFlightMeta.value.maxPayloadKg || 0
+  const payloadLbs = payloadKg * 2.20462
+  const availableLbs = payloadLbs - effectiveGross
 
   return {
     uldsCount,
     pcs,
     gross,
     tare,
+    effectiveGross,
+    payloadKg,
+    payloadLbs: Math.round(payloadLbs),
+    availableLbs: Math.round(availableLbs),
     payloadPct: uldsCount ? Math.round(((gross - tare) / Math.max(gross, 1)) * 100) : 0
   }
 })
@@ -501,13 +554,25 @@ onMounted(async () => {
       ])
     } else {
       const today = new Date().toISOString().split('T')[0]
-      selectedDate.value = today
       const matching = uldsStore.flights.filter(f => {
         if (!f.flightDate) return true
         return new Date(f.flightDate).toISOString().split('T')[0] === today
       })
       if (matching.length) {
+        selectedDate.value = today
         selectedFlightId.value = matching[0].id
+      } else {
+        const sorted = [...uldsStore.flights].sort((a, b) => {
+          if (!a.flightDate) return 1
+          if (!b.flightDate) return -1
+          return new Date(b.flightDate) - new Date(a.flightDate)
+        })
+        if (sorted.length) {
+          selectedDate.value = sorted[0].flightDate ? new Date(sorted[0].flightDate).toISOString().split('T')[0] : ''
+          selectedFlightId.value = sorted[0].id
+        }
+      }
+      if (selectedFlightId.value) {
         await Promise.all([
           uldsStore.loadUldsForFlight(selectedFlightId.value),
           fetchLoadPlan(selectedFlightId.value)
@@ -595,7 +660,7 @@ async function updatePosition(uldId, newPos) {
   if (!uldId) return
   const trimmed = (newPos || '').trim()
   try {
-    await uldsApi.update(uldId, { position: trimmed || null })
+    await uldsApi.patch(uldId, { position: trimmed })
     if (selectedFlightId.value) {
       await Promise.all([
         uldsStore.loadUldsForFlight(selectedFlightId.value),
@@ -932,7 +997,7 @@ async function handleFileImport(e) {
         if (item.sealNumber) updatePayload.sealNumber = item.sealNumber
         if (Object.keys(updatePayload).length > 0) {
           try {
-            await uldsApi.update(match.id, updatePayload)
+            await uldsApi.patch(match.id, updatePayload)
             updated++
           } catch { /* skip individual failure */ }
         }
@@ -1041,6 +1106,10 @@ function exportToXLSX() {
 watch(() => uldsStore.activeUlds, (newUlds) => {
   console.warn('LoadPlanning actualizado con', newUlds?.length || 0, 'ULDs')
 }, { deep: true })
+
+watch(calculatedTotals, (t) => {
+  console.warn('[WEIGHT] Gross:', t.gross, 'lbs | Tare:', t.tare, 'lbs | Effective Gross:', t.effectiveGross, 'lbs | Payload:', t.payloadLbs, 'lbs (' + t.payloadKg + ' kg) | Disponible:', t.availableLbs, 'lbs')
+}, { deep: true })
 </script>
 
 <style scoped>
@@ -1053,4 +1122,23 @@ watch(() => uldsStore.activeUlds, (newUlds) => {
 .lp-scroll-x::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 4px; }
 .lp-scroll-x::-webkit-scrollbar-thumb:hover { background: #64748b; }
 .lp-scroll-x { scrollbar-width: auto; scrollbar-color: #94a3b8 #e2e8f0; }
+.pos-regular {
+  background: #dbeafe;
+  border-radius: 4px;
+  padding: 2px 4px;
+}
+.pos-regular input {
+  color: #ea580c;
+  font-weight: 700;
+}
+.pos-belly {
+  background: #fef3c7;
+  border-radius: 4px;
+  padding: 2px 4px;
+  border: 1px solid #f59e0b;
+}
+.pos-belly input {
+  color: #b45309;
+  font-weight: 700;
+}
 </style>
