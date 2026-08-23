@@ -1,1 +1,0 @@
-{"nodes": [{"id": "$graphify-root$_database_migrations_v12_seed_more_airlines_sql", "label": "V12__seed_more_airlines.sql", "file_type": "code", "source_file": "database/migrations/V12__seed_more_airlines.sql", "source_location": null}], "edges": []}

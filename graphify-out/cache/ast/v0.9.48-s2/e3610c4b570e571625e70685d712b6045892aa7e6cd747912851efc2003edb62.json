@@ -1,1 +1,0 @@
-{"nodes": [{"id": "$graphify-root$_database_migrations_v30_create_domain_schemas_sql", "label": "V30__create_domain_schemas.sql", "file_type": "code", "source_file": "database/migrations/V30__create_domain_schemas.sql", "source_location": null}], "edges": []}

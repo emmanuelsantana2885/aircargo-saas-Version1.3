@@ -1,1 +1,0 @@
-{"nodes": [{"id": "$graphify-root$_database_migrations_v2_add_aad_to_uld_type_sql", "label": "V2__add_aad_to_uld_type.sql", "file_type": "code", "source_file": "database/migrations/V2__add_aad_to_uld_type.sql", "source_location": null}], "edges": []}

@@ -1,1 +1,0 @@
-{"nodes": [{"id": "$graphify-root$_database_migrations_v26_add_bi_user_role_sql", "label": "V26__add_bi_user_role.sql", "file_type": "code", "source_file": "database/migrations/V26__add_bi_user_role.sql", "source_location": null}], "edges": []}

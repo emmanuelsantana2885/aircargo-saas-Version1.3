@@ -1,1 +1,0 @@
-{"nodes": [{"id": "$graphify-root$_database_migrations_v18_remove_site_restriction_for_superuser_sql", "label": "V18__remove_site_restriction_for_superuser.sql", "file_type": "code", "source_file": "database/migrations/V18__remove_site_restriction_for_superuser.sql", "source_location": null}], "edges": []}

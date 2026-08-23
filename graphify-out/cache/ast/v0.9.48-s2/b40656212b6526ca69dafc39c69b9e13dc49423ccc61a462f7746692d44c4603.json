@@ -1,1 +1,0 @@
-{"nodes": [{"id": "$graphify-root$_database_migrations_v19_fix_esantana_full_name_sql", "label": "V19__fix_esantana_full_name.sql", "file_type": "code", "source_file": "database/migrations/V19__fix_esantana_full_name.sql", "source_location": null}], "edges": []}

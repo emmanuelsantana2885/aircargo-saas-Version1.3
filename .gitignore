@@ -25,3 +25,4 @@ k8s/secret*.yml
 # Postgres nativo local (fallback sin Docker)
 .local-pg/
 .local-rabbitmq/
+graphify-out/
