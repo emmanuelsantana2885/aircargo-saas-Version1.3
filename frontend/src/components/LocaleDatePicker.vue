@@ -76,12 +76,13 @@ const view = ref({ y: 0, m: 0 })
 // Meses/días vía Intl del navegador — i18n nativo, sin depender de arrays de vue-i18n
 // (t() sobre arrays los interpreta como plurales y no devuelve la lista)
 const intlLocale = computed(() => (locale.value || 'es').startsWith('en') ? 'en-US' : 'es-DO')
+const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s
 const monthsFull = computed(() =>
   Array.from({ length: 12 }, (_, i) =>
-    new Date(2026, i, 1).toLocaleDateString(intlLocale.value, { month: 'long' })))
+    cap(new Date(2026, i, 1).toLocaleDateString(intlLocale.value, { month: 'long' }))))
 const monthsShort = computed(() =>
   Array.from({ length: 12 }, (_, i) =>
-    new Date(2026, i, 1).toLocaleDateString(intlLocale.value, { month: 'short' }).replace('.', '')))
+    cap(new Date(2026, i, 1).toLocaleDateString(intlLocale.value, { month: 'short' }).replace('.', ''))))
 const weekdayLabels = computed(() => {
   // 2026-01-05 fue lunes; lunes primero como el grid
   return Array.from({ length: 7 }, (_, i) =>

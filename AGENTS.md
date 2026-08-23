@@ -91,6 +91,12 @@ Full plan: `Documents/MICROSERVICES-MIGRATION-PLAN.md`
 ## Recent session changes (Aug 22, 2026 (3) — secret.yml fuera del repo)
 `k8s/secret.yml` (manifest K8s con placeholders `${POSTGRES_USER}/${POSTGRES_PASSWORD}/${JWT_SECRET}`, sin valores reales) movido a `~/Desktop/Projects/Rannik/aircargo-deploy-secrets/secret.yml` — carpeta hermana FUERA del proyecto. `.gitignore` ahora bloquea `k8s/secret*.yml` para evitar re-creación accidental. Los demás manifests de `k8s/` referencian el Secret por nombre (`aircargo-secrets`) así que no requieren cambios; al desplegar hay que aplicar la carpeta externa además de `k8s/`. Motivación: Graphify lo marcó como archivo potencialmente sensible durante el indexado del grafo.
 
+## Recent session changes (Aug 23, 2026 (17) — Mayor C resuelta: Frontend resiliente + tests)
+- **`components/ErrorBoundary.vue`**: captura errores de render de las vistas (`onErrorCaptured` → fallback con título/mensaje/Reintentar/Inicio; navegar limpia el estado). Envuelve ambos `router-view` en App.vue. `main.js`: `app.config.errorHandler` global como última red.
+- **Infra de tests (antes cero)**: vitest + @vue/test-utils + happy-dom; script `npm test`; bloque `test:` en vite.config.js. Tests en `frontend/tests/*.spec.js`.
+- **Tests**: ErrorBoundary 3 (sano, crash→fallback, recover) y LocaleDatePicker 5 — **regresión de los bugs reales**: 12 meses en dropdown (t() no devuelve arrays), mes/año actual seleccionados, emisión ISO, botón Hoy, display "15 Ago 2026". Intl devuelve meses en minúscula → capitalizados ahora en el componente.
+- Lección: `vite.config.js` editado con python dejó `,` duplicada y rompió el arranque de Vitest — validar sintaxis tras ediciones programáticas.
+
 ## Recent session changes (Aug 23, 2026 (16) — Mayor B resuelta: Auditoría sin pérdida sin broker)
 **Antes**: booking/mawb/warehouse/flight publicaban auditoría por AMQP fire-and-forget — sin broker los eventos se perdían silenciosamente, y con broker iban a `notification.audit_log`, que el query-side de auth NO lee.
 **Ahora** (`com.aircargo.common.audit.AuditService` reescrito):

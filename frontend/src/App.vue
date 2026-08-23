@@ -4,7 +4,9 @@
     <div class="flex flex-col flex-1 min-w-0 overflow-hidden">
       <Header @toggle-sidebar="toggleSidebar" />
       <main class="flex-1 overflow-auto">
-        <router-view />
+        <ErrorBoundary>
+          <router-view />
+        </ErrorBoundary>
       </main>
     </div>
   </div>
@@ -17,6 +19,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 import { useToastStore } from './stores/toast'
+import ErrorBoundary from './components/ErrorBoundary.vue'
 import Sidebar from './components/layout/Sidebar.vue'
 import Header from './components/layout/Header.vue'
 import ToastNotifications from './components/ToastNotifications.vue'
