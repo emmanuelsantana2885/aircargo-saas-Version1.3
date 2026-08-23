@@ -91,6 +91,23 @@ Full plan: `Documents/MICROSERVICES-MIGRATION-PLAN.md`
 ## Recent session changes (Aug 22, 2026 (3) — secret.yml fuera del repo)
 `k8s/secret.yml` (manifest K8s con placeholders `${POSTGRES_USER}/${POSTGRES_PASSWORD}/${JWT_SECRET}`, sin valores reales) movido a `~/Desktop/Projects/Rannik/aircargo-deploy-secrets/secret.yml` — carpeta hermana FUERA del proyecto. `.gitignore` ahora bloquea `k8s/secret*.yml` para evitar re-creación accidental. Los demás manifests de `k8s/` referencian el Secret por nombre (`aircargo-secrets`) así que no requieren cambios; al desplegar hay que aplicar la carpeta externa además de `k8s/`. Motivación: Graphify lo marcó como archivo potencialmente sensible durante el indexado del grafo.
 
+## Recent session changes (Aug 23, 2026 (16) — Mayor B resuelta: Auditoría sin pérdida sin broker)
+**Antes**: booking/mawb/warehouse/flight publicaban auditoría por AMQP fire-and-forget — sin broker los eventos se perdían silenciosamente, y con broker iban a `notification.audit_log`, que el query-side de auth NO lee.
+**Ahora** (`com.aircargo.common.audit.AuditService` reescrito):
+1. **PRIMARY: INSERT directo en `audit_log` compartida** (JdbcTemplate opcional) — visible al instante en Seguridad vía el merge existente del query side.
+2. **SECUNDARIO best-effort**: publish AMQP para consumidores en tiempo real; su fallo no afecta integridad.
+Sin BD ni broker: log + descarte explícito (nunca lanza). IP pseudonimizada en ambas rutas.
+- Tests: AuditServiceTest 5 casos con fakes manuales (byte-buddy no mockea clases concretas en JDK 25 — patrón FakeJdbc/FakeRabbit para el proyecto).
+- E2E verificado con broker CAÍDO: PUT aerolínea en flight-service → evento `UPDATE | ip truncada` en audit_log compartido y servido por `/api/audit-logs?action=UPDATE`. Jars reconstruidos y desplegados: flight/booking/mawb/warehouse.
+- Nota: con broker arriba hay doble registro (audit_log + notification.audit_log) — inofensivo; la copia de notification queda cubierta por su propio retention job.
+
+## Recent session changes (Aug 23, 2026 (15) — Mayor A resuelta: Retención de auditoría)
+Cumple lo prometido en la Política de Privacidad (24 meses).
+- **`IpAnonymizer`** (`common/util`): trunca último octeto IPv4 / últimos 4 grupos IPv6. Aplicado en `AuditEventStore.append()` y en el publisher AMQP común (`com.aircargo.common.audit.AuditService`) → TODOS los servicios pseudonimizan al escribir.
+- **`AuditRetentionJob`**: auth-service diario 03:30 purga `audit_event` + `audit_log` legacy; notification-service diario 03:35 purga su copia (`notification.audit_log`) con `@EnableScheduling` añadido. Configurable: `app.audit.retention-months=24`.
+- Verificación: login E2E → nuevo evento guarda `ip=127.0.0.0` (truncada) mientras históricos permanecen intactos; test de integración inserta evento de hace 25 meses y la purga lo elimina dejando los recientes. Tests 23 auth + 10 common.
+- Nota H2 para tests: usar `DATEADD(MONTH, -25, now())`, no `INTERVAL '25 months'`.
+
 ## Recent session changes (Aug 23, 2026 (14) — Debilidad #6 resuelta: Política de privacidad + DPA)
 - **`Documents/POLITICA-PRIVACIDAD.md`**: documento formal completo (responsable, datos tratados, finalidades, base legal Art.5 L172-13, conservación, seguridad implementada —BCrypt/AES/TLS/RBAC/MFA/backups—, derechos ARCO con habeas data, sin transferencias internacionales, cláusula de transparencia sobre desarrollo con IA). Campos `[CORCHETES]` por completar antes de publicar.
 - **`Documents/CONTRATO-ENCARGO-TRATAMIENTO-DPA.md`**: plantilla DPA (objeto, instrucciones documentadas, confidencialidad, seguridad mínima, notificación de brechas 48h, subencargados con divulgación de herramientas IA y no-transmisión de datos personales, PI del código entregado, certificado de borrado al término).
