@@ -9,3 +9,9 @@ data:
   POSTGRES_DB: aircargo_db
   RABBITMQ_HOST: rabbitmq
   RABBITMQ_PORT: "5672"
+  # URL pública del frontend (enlaces de reset de contraseña)
+  FRONTEND_URL: https://aircargo.[TU-DOMINIO]
+  # Orígenes permitidos para CORS (coma-separados)
+  CORS_ORIGINS: https://aircargo.[TU-DOMINIO]
+  SMTP_AUTH: "true"
+  SMTP_STARTTLS: "true"
