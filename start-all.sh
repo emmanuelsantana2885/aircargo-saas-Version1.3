@@ -157,8 +157,10 @@ for dir in "${services[@]}"; do
     jar="$AIR_ROOT/$dir/target/${name}-1.2.0-SNAPSHOT.jar"
     [ -f "$jar" ] || { echo "❌ No se encontró $jar"; exit 1; }
     echo "  → Iniciando $name"
-    (RABBITMQ_ENABLED="$RABBITMQ_ENABLED" java -jar "$jar" >> "/tmp/${name}.log" 2>&1) &
-    echo "    [PID $!] -> /tmp/${name}.log"
+    # Los logs van al archivo rotado configurado en cada servicio
+    # (${LOG_DIR:-~}/aircargo-logs/<name>.log); stdout se descarta.
+    (RABBITMQ_ENABLED="$RABBITMQ_ENABLED" java -jar "$jar" > /dev/null 2>&1) &
+    echo "    [PID $!] -> ~/aircargo-logs/${name}.log"
 done
 
 echo "⏳ Esperando Gateway..."
@@ -168,7 +170,8 @@ until curl -s http://localhost:8080/actuator/health | grep -q '"status":"UP"'; d
     now=$(date +%s)
     if (( now - start_time > 120 )); then
         echo "❌ ERROR: Gateway no responde tras 120s."
-        tail -n 30 /tmp/aircargo-gateway.log 2>/dev/null || echo "   (no logs disponibles)"
+        tail -n 30 "${LOG_DIR:-$HOME}/aircargo-logs/gateway.log" 2>/dev/null \
+          || tail -n 30 /tmp/aircargo-gateway.log 2>/dev/null || echo "   (no logs disponibles)"
         exit 1
     fi
     echo -n "."
@@ -188,4 +191,4 @@ echo "   🌐 Frontend : http://localhost:5173"
 echo ""
 echo "🛠️  Utilitaires rápidos:"
 echo "   • restart-all   -> ./start-all.sh"
-echo "   • tail-logs     -> tail -f /tmp/(gateway|auth|flight|booking|mawb|warehouse|uld|load-planning|export|notification).log"
+echo "   • tail-logs     -> tail -f ~/aircargo-logs/(gateway|auth-service|flight-service|booking-service|mawb-service|warehouse-service|uld-service|load-planning-service|export-service|notification-service).log"
