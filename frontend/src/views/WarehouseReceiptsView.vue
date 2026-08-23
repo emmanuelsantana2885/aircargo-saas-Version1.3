@@ -24,8 +24,7 @@
         </div>
         <div class="flex flex-col gap-0.5">
           <span class="ds-label hidden sm:block">{{ t('common.date') }}</span>
-          <input v-model="filterDate" type="date"
-            class="ds-input" />
+          <LocaleDatePicker v-model="filterDate" class="w-[150px]" />
         </div>
       </div>
         <div class="flex items-center gap-2 text-[13px] font-mono font-bold text-slate-950 shrink-0">
@@ -972,6 +971,7 @@ const { t } = useI18n()
 import SignaturePad from '../components/SignaturePad.vue'
 import CameraCapture from '../components/CameraCapture.vue'
 import EditReceiptModal from '../components/EditReceiptModal.vue'
+import LocaleDatePicker from '../components/LocaleDatePicker.vue'
 import { IconCamera } from '@tabler/icons-vue'
 import { hawbsApi } from '../api/hawbs'
 import { mawbsApi } from '../api/mawbs'

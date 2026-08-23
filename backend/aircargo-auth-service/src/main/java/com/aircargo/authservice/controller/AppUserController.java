@@ -17,7 +17,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
-import java.security.SecureRandom;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -32,16 +31,25 @@ public class AppUserController {
     private final MfaService mfaService;
     private final AppUserRepository userRepository;
     private final BCryptPasswordEncoder passwordEncoder;
+    private final com.aircargo.authservice.service.PasswordResetService passwordResetService;
+    private final com.aircargo.authservice.service.TokenRevocationService tokenRevocationService;
+
+    @org.springframework.beans.factory.annotation.Value("${app.frontend.url:http://localhost:5173}")
+    private String frontendUrl;
 
     public AppUserController(AppUserService appUserService, AuditService auditService,
                              ActiveSessionTracker sessionTracker, MfaService mfaService,
-                             AppUserRepository userRepository) {
+                             AppUserRepository userRepository,
+                             com.aircargo.authservice.service.PasswordResetService passwordResetService,
+                             com.aircargo.authservice.service.TokenRevocationService tokenRevocationService) {
         this.appUserService = appUserService;
         this.auditService = auditService;
         this.sessionTracker = sessionTracker;
         this.mfaService = mfaService;
         this.userRepository = userRepository;
         this.passwordEncoder = new BCryptPasswordEncoder();
+        this.passwordResetService = passwordResetService;
+        this.tokenRevocationService = tokenRevocationService;
     }
 
     @GetMapping
@@ -112,6 +120,7 @@ public class AppUserController {
         AppUserDTO user = appUserService.getById(id).orElse(null);
         if (user == null) return ResponseEntity.notFound().build();
         appUserService.resetPassword(id);
+        tokenRevocationService.bump(id);  // la contraseña fue borrada → matar sesiones
         auditService.logPasswordReset(
                 principal.getUserIdAsUuid(), principal.email(), principal.fullName(),
                 id, user.getEmail(), request.getRemoteAddr());
@@ -154,6 +163,7 @@ public class AppUserController {
             return ResponseEntity.badRequest().body(Map.of("error", "Código TOTP inválido"));
         }
         mfaService.enableMfa(id, secret);
+        tokenRevocationService.bump(id);
         auditService.log(principal.getUserIdAsUuid(), principal.email(), principal.fullName(),
                 "MFA_ENABLED", "USER", id.toString(), null, request.getRemoteAddr());
         return ResponseEntity.ok(Map.of("message", "MFA habilitado correctamente"));
@@ -166,6 +176,7 @@ public class AppUserController {
         AppUserDTO user = appUserService.getById(id).orElse(null);
         if (user == null) return ResponseEntity.notFound().build();
         mfaService.disableMfa(id);
+        tokenRevocationService.bump(id);
         auditService.log(principal.getUserIdAsUuid(), principal.email(), principal.fullName(),
                 "MFA_DISABLED", "USER", id.toString(), null, request.getRemoteAddr());
         return ResponseEntity.ok(Map.of("message", "MFA deshabilitado"));
@@ -195,62 +206,27 @@ public class AppUserController {
         return ResponseEntity.ok(Map.of("message", "Cuenta desbloqueada"));
     }
 
-    @PostMapping("/{id}/generate-temp-password")
-    public ResponseEntity<?> generateTempPassword(@PathVariable UUID id,
-                                                   @AuthenticationPrincipal UserPrincipal principal,
-                                                   HttpServletRequest request) {
+    @PostMapping("/{id}/generate-reset-link")
+    public ResponseEntity<?> generateResetLink(@PathVariable UUID id,
+                                               @AuthenticationPrincipal UserPrincipal principal,
+                                               HttpServletRequest request) {
         AppUser user = userRepository.findById(id).orElse(null);
         if (user == null) return ResponseEntity.notFound().build();
 
-        // Generate a 12-character secure password: uppercase, lowercase, digits, symbols
-        String tempPassword = generateSecurePassword(12);
-
-        // Hash and save
-        user.setPasswordHash(passwordEncoder.encode(tempPassword));
-        user.setMustChangePassword(true);
-        userRepository.save(user);
+        String token = passwordResetService.create(user.getId());
+        String link = frontendUrl + "/set-password?token=" + token;
 
         auditService.log(principal.getUserIdAsUuid(), principal.email(), principal.fullName(),
-                "TEMP_PASSWORD_GENERATED", "USER", id.toString(),
+                com.aircargo.authservice.event.AuditEventType.PASSWORD_RESET, "USER", id.toString(),
                 "{\"email\":\"" + user.getEmail() + "\"}", request.getRemoteAddr());
 
-        // Return the plain text password ONCE — it cannot be recovered after this
-        return ResponseEntity.ok(Map.of(
-                "tempPassword", tempPassword,
-                "message", "Contraseña temporal generada. Compártela con el usuario una sola vez."
+        // El enlace se muestra UNA vez: da acceso a definir contraseña por 15 min y muere al usarse.
+        // Nadie conoce la contraseña excepto el usuario que la escribe.
+        return ResponseEntity.ok(java.util.Map.of(
+                "resetLink", link,
+                "expiresMinutes", 15,
+                "message", "Enlace de un solo uso válido por 15 minutos. Envíeselo al usuario; expira o muere al usarse."
         ));
     }
 
-    private String generateSecurePassword(int length) {
-        String upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        String lower = "abcdefghijklmnopqrstuvwxyz";
-        String digits = "0123456789";
-        String symbols = "!@#$%^&*";
-        String all = upper + lower + digits + symbols;
-
-        SecureRandom random = new SecureRandom();
-        StringBuilder password = new StringBuilder();
-
-        // Ensure at least one of each type
-        password.append(upper.charAt(random.nextInt(upper.length())));
-        password.append(lower.charAt(random.nextInt(lower.length())));
-        password.append(digits.charAt(random.nextInt(digits.length())));
-        password.append(symbols.charAt(random.nextInt(symbols.length())));
-
-        // Fill the rest randomly
-        for (int i = password.length(); i < length; i++) {
-            password.append(all.charAt(random.nextInt(all.length())));
-        }
-
-        // Shuffle the characters
-        char[] chars = password.toString().toCharArray();
-        for (int i = chars.length - 1; i > 0; i--) {
-            int j = random.nextInt(i + 1);
-            char tmp = chars[i];
-            chars[i] = chars[j];
-            chars[j] = tmp;
-        }
-
-        return new String(chars);
-    }
 }

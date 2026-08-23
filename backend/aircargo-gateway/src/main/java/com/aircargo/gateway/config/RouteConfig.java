@@ -96,7 +96,7 @@ public class RouteConfig {
 
                 .route("uld-service", r -> r
                         .path("/api/ulds/**", "/api/uld-awbs/**",
-                             "/api/uld-type-config/**", "/api/scan/**")
+                             "/api/uld-type-config/**", "/api/uld-type-catalog/**", "/api/scan/**")
                         .filters(f -> f
                                 .circuitBreaker(config -> config
                                         .setName("uld-service")

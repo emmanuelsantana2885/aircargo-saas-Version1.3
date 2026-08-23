@@ -534,9 +534,12 @@
             <option v-for="a in airlines" :key="a.id" :value="a.id">{{ a.code }} — {{ a.name }}</option>
           </select>
         </div>
-        <button @click="addTypeConfigRow" class="ds-btn-primary">
-          + {{ t('settings.uldConfig.addRow') }}
-        </button>
+        <div class="flex gap-2">
+          <button @click="openNewUldType" class="ds-btn-secondary">{{ t('settings.uldConfig.newType') }}</button>
+          <button @click="addTypeConfigRow" class="ds-btn-primary">
+            + {{ t('settings.uldConfig.addRow') }}
+          </button>
+        </div>
       </div>
 
       <div class="ds-table-section">
@@ -555,8 +558,8 @@
             <tr v-for="(cfg, idx) in typeConfigs" :key="idx"
               class="border-b border-slate-100">
               <td>
-                <select v-model="cfg.uldType" class="ds-input font-mono">
-                  <option v-for="tp in uldTypes" :key="tp" :value="tp">{{ tp }}</option>
+                <select v-model="cfg.uldType" class="ds-input font-mono" :title="typeOptionFor(cfg.uldType)?.description || ''">
+                  <option v-for="tp in typeOptions" :key="tp.code" :value="tp.code">{{ tp.code }}{{ tp.description ? ' — ' + tp.description : '' }}</option>
                 </select>
               </td>
               <td>
@@ -587,6 +590,74 @@
       <div class="flex items-center justify-end gap-2 mt-3">
         <button @click="loadTypeConfig" class="ds-btn-secondary">{{ t('settings.uldConfig.discard') }}</button>
         <button @click="saveTypeConfig" class="ds-btn-primary">{{ t('settings.uldConfig.bulkSave') }}</button>
+      </div>
+
+      <!-- IATA ULD type catalog management -->
+      <div class="ds-table-section mt-4">
+        <div class="px-4 py-2 bg-slate-100 border-b border-slate-200 flex items-center justify-between">
+          <span class="text-[12px] font-bold uppercase tracking-wider text-slate-600">{{ t('settings.uldConfig.catalog.title', { n: uldCatalog.length }) }}</span>
+          <span class="text-[11px] text-slate-400">{{ t('settings.uldConfig.catalog.hint') }}</span>
+        </div>
+        <div class="overflow-y-auto" style="max-height: 280px">
+          <table class="w-full text-[13px]">
+            <thead>
+              <tr class="bg-slate-50 text-[11px] uppercase text-slate-500 [&>th]:px-4 [&>th]:py-1.5 [&>th]:text-left [&>th]:font-semibold">
+                <th style="width: 90px">{{ t('settings.uldConfig.uldType') }}</th>
+                <th>{{ t('settings.uldConfig.newTypeDesc') }}</th>
+                <th style="width: 110px">{{ t('settings.uldConfig.catalog.state') }}</th>
+                <th class="text-right" style="width: 110px">{{ t('settings.uldConfig.actions') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="tp in uldCatalog" :key="tp.id || tp.code" class="border-b border-slate-100 hover:bg-slate-50">
+                <td class="px-4 py-1.5 font-mono font-bold">{{ tp.code }}</td>
+                <td class="px-4 py-1.5 text-slate-600">{{ tp.description || '—' }}</td>
+                <td class="px-4 py-1.5">
+                  <button v-if="tp.id" @click="toggleUldTypeActive(tp)"
+                    class="text-[11px] font-bold px-2 py-0.5 rounded-full border transition-colors"
+                    :class="tp.isActive ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'bg-slate-100 text-slate-400 border-slate-200'">
+                    {{ tp.isActive ? t('settings.uldConfig.catalog.active') : t('settings.uldConfig.catalog.inactive') }}
+                  </button>
+                  <span v-else class="text-[11px] text-slate-300">legacy</span>
+                </td>
+                <td class="px-4 py-1.5 text-right">
+                  <div class="flex gap-1 justify-end">
+                    <button @click="startEditUldType(tp)" class="ds-btn-secondary !px-2 !py-0.5 !text-[11px]" :disabled="!tp.id">✎</button>
+                    <button @click="removeCatalogEntry(tp)" class="ds-btn-secondary !px-2 !py-0.5 !text-[11px] hover:!bg-red-50 hover:!text-red-600" :disabled="!tp.id">✕</button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- New/edit ULD type modal (IATA catalog) -->
+      <div v-if="showNewUldType" class="ds-modal-backdrop">
+        <div class="ds-modal-panel max-w-md">
+          <div class="ds-modal-header">
+            <h2 class="ds-modal-title">{{ editingUldType ? t('settings.uldConfig.editTypeTitle') : t('settings.uldConfig.newTypeTitle') }}</h2>
+          </div>
+          <div class="p-6 space-y-3">
+            <p v-if="!editingUldType" class="text-[12px] text-slate-500 leading-relaxed">{{ t('settings.uldConfig.newTypeHelp') }}</p>
+            <div>
+              <label class="ds-label block mb-0.5">{{ t('settings.uldConfig.uldType') }}</label>
+              <input v-model="newUldTypeForm.code" maxlength="5" required
+                :disabled="!!editingUldType"
+                placeholder="PMC / AKE / RKN"
+                class="ds-input font-mono uppercase disabled:bg-slate-100 disabled:text-slate-400">
+            </div>
+            <div>
+              <label class="ds-label block mb-0.5">{{ t('settings.uldConfig.newTypeDesc') }}</label>
+              <input v-model="newUldTypeForm.description" maxlength="120"
+                :placeholder="t('settings.uldConfig.newTypeDescPlaceholder')" class="ds-input">
+            </div>
+            <div class="flex gap-2 pt-2">
+              <button @click="saveNewUldType" class="ds-btn-primary flex-1 justify-center">{{ t('common.save') }}</button>
+              <button @click="closeUldTypeModal" class="ds-btn-secondary flex-1 justify-center">{{ t('common.cancel') }}</button>
+            </div>
+          </div>
+        </div>
       </div>
     </template>
 
@@ -979,6 +1050,7 @@ const { t } = useI18n()
 import { sitesApi } from '../api/sites'
 import { airlinesApi } from '../api/airlines'
 import { uldTypeConfigApi } from '../api/uldTypeConfig'
+import { uldTypeCatalogApi } from '../api/uldTypeCatalog'
 import { commodityTypesApi } from '../api/commodityTypes'
 import { useAuthStore } from '../stores/auth'
 import { useToastStore } from '../stores/toast'
@@ -1004,9 +1076,108 @@ const showAirlineCreate = ref(false)
 const airlineForm = ref({ id: null, code: '', name: '', iataCode: '', country: '', isActive: true })
 const airlineCreateForm = ref({ code: '', name: '', iataCode: '', country: '', isActive: true })
 
-const uldTypes = ['PMC', 'PAH', 'PAG', 'PAJ', 'AAY', 'AAZ', 'AAD', 'PIP', 'BULK', 'AMP', 'AMJ']
+// Catálogo dinámico de tipos ULD (normas IATA) — fallback a la lista legacy si el catálogo no responde
+const LEGACY_ULD_TYPES = ['PMC', 'PAH', 'PAG', 'PAJ', 'AAY', 'AAZ', 'AAD', 'PIP', 'BULK', 'AMP', 'AMJ']
+const uldCatalog = ref(LEGACY_ULD_TYPES.map(c => ({ code: c, description: '' })))
+const showNewUldType = ref(false)
+const editingUldType = ref(null)
+const newUldTypeForm = ref({ code: '', description: '' })
 const typeConfigs = ref([])
 const configAirlineId = ref(null)
+
+async function loadUldCatalog() {
+  try {
+    const res = await uldTypeCatalogApi.getAll(false)
+    const items = res.data || []
+    if (items.length) {
+      uldCatalog.value = items.map(x => ({ id: x.id, code: x.code, description: x.description || '', isActive: x.isActive !== false }))
+    }
+  } catch {
+    // catálogo no disponible: se conserva el fallback legacy
+  }
+}
+
+const typeOptions = computed(() => {
+  const map = new Map(uldCatalog.value.map(x => [x.code, x]))
+  for (const cfg of typeConfigs.value) {
+    if (cfg.uldType && !map.has(cfg.uldType)) map.set(cfg.uldType, { code: cfg.uldType, description: t('settings.uldConfig.offCatalog') })
+  }
+  return [...map.values()]
+})
+
+function typeOptionFor(code) {
+  return typeOptions.value.find(tp => tp.code === code)
+}
+
+function openNewUldType() {
+  newUldTypeForm.value = { code: '', description: '' }
+  editingUldType.value = null
+  showNewUldType.value = true
+}
+
+function startEditUldType(tp) {
+  if (!tp.id) return
+  editingUldType.value = tp
+  newUldTypeForm.value = { code: tp.code, description: tp.description || '' }
+  showNewUldType.value = true
+}
+
+function closeUldTypeModal() {
+  showNewUldType.value = false
+  editingUldType.value = null
+}
+
+async function saveNewUldType() {
+  const f = newUldTypeForm.value
+  if (!f.code.trim()) { toast.warning(t('settings.uldConfig.newTypeRequired')); return }
+  try {
+    if (editingUldType.value) {
+      await uldTypeCatalogApi.update(editingUldType.value.id, {
+        code: editingUldType.value.code,
+        description: f.description?.trim() || null,
+        isActive: editingUldType.value.isActive,
+      })
+      toast.success(t('settings.uldConfig.catalog.updated', { code: editingUldType.value.code }))
+    } else {
+      await uldTypeCatalogApi.create({
+        code: f.code.trim().toUpperCase(),
+        description: f.description?.trim() || null,
+        isActive: true,
+      })
+      toast.success(t('settings.uldConfig.newTypeCreated', { code: f.code.trim().toUpperCase() }))
+    }
+    closeUldTypeModal()
+    await loadUldCatalog()
+  } catch (e) {
+    toast.error(extractError(e, t('settings.uldConfig.toast.error')))
+  }
+}
+
+async function toggleUldTypeActive(tp) {
+  if (!tp.id) return
+  try {
+    await uldTypeCatalogApi.update(tp.id, {
+      code: tp.code,
+      description: tp.description || null,
+      isActive: !tp.isActive,
+    })
+    await loadUldCatalog()
+  } catch (e) {
+    toast.error(extractError(e, t('settings.uldConfig.toast.error')))
+  }
+}
+
+async function removeCatalogEntry(tp) {
+  if (!tp.id) return
+  if (!confirm(t('settings.uldConfig.catalog.deleteConfirm', { code: tp.code }))) return
+  try {
+    await uldTypeCatalogApi.remove(tp.id)
+    toast.success(t('settings.uldConfig.catalog.deleted', { code: tp.code }))
+    await loadUldCatalog()
+  } catch (e) {
+    toast.error(extractError(e, t('settings.uldConfig.toast.error')))
+  }
+}
 
 const commodityList = ref([])
 const editingCommodity = ref(null)
@@ -1389,8 +1560,8 @@ async function removeSite(site) {
 async function genTempPassword(user) {
   if (!confirm(t('settings.users.confirmGenTemp'))) return
   try {
-    const res = await usersApi.generateTempPassword(user.id)
-    generatedPassword.value = res.data.tempPassword
+    const res = await usersApi.generateResetLink(user.id)
+    generatedPassword.value = res.data.resetLink
     showTempPassword.value = true
     await loadUsers()
   } catch (e) { toast.error(extractError(e)) }
@@ -1483,8 +1654,10 @@ onMounted(async () => {
   if (canManageSettings.value) {
     await loadAirlines()
     await loadCommodities()
+    await loadUldCatalog()
     if (airlines.value.length) {
       configAirlineId.value = airlines.value[0].id
+      await loadTypeConfig()
     }
   }
 })

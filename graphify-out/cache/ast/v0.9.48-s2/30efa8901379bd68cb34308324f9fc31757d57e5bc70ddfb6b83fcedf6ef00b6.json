@@ -1,0 +1,1 @@
+{"nodes": [{"id": "$graphify-root$_database_migrations_v41_seed_view_permissions_sql", "label": "V41__seed_view_permissions.sql", "file_type": "code", "source_file": "database/migrations/V41__seed_view_permissions.sql", "source_location": null}], "edges": []}

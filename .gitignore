@@ -17,3 +17,11 @@ yay/
 AnalyzeRef.java
 frontend/--force
 .bashrc
+
+# Kubernetes secrets viven fuera del repo (../aircargo-deploy-secrets/)
+k8s/secret.yml
+k8s/secret*.yml
+
+# Postgres nativo local (fallback sin Docker)
+.local-pg/
+.local-rabbitmq/

@@ -15,5 +15,5 @@ export const usersApi = {
   mfaDisable: (id) => api.post(`/users/${id}/mfa/disable`),
   mfaLock: (id) => api.post(`/users/${id}/mfa/lock`),
   mfaUnlock: (id) => api.post(`/users/${id}/mfa/unlock`),
-  generateTempPassword: (id) => api.post(`/users/${id}/generate-temp-password`),
+  generateResetLink: (id) => api.post(`/users/${id}/generate-reset-link`),
 }

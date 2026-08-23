@@ -17,15 +17,15 @@
     <!-- Date From -->
     <div v-if="showDateFrom" class="flex flex-col gap-0.5">
       <label class="ds-label">{{ t('filterBar.from') }}</label>
-      <input type="date" :value="dateFrom" @input="onDateFromInput"
-        class="ds-input w-[150px]" />
+      <LocaleDatePicker :model-value="dateFrom" @update:model-value="onDateFromValue"
+        class="w-[150px]" />
     </div>
 
     <!-- Date To -->
     <div v-if="showDateTo" class="flex flex-col gap-0.5">
       <label class="ds-label">{{ t('filterBar.to') }}</label>
-      <input type="date" :value="dateTo" @input="onDateToInput"
-        class="ds-input w-[150px]" />
+      <LocaleDatePicker :model-value="dateTo" @update:model-value="onDateToValue"
+        class="w-[150px]" />
     </div>
 
     <!-- Separator -->
@@ -143,6 +143,7 @@
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useCommodities } from '../composables/useCommodities'
+import LocaleDatePicker from './LocaleDatePicker.vue'
 
 const { t } = useI18n()
 
@@ -252,14 +253,14 @@ function onPeriodChange(period) {
   }
 }
 
-function onDateFromInput(e) {
+function onDateFromValue(v) {
   activePeriod.value = 'custom'
-  emit('update:dateFrom', e.target.value)
+  emit('update:dateFrom', v)
 }
 
-function onDateToInput(e) {
+function onDateToValue(v) {
   activePeriod.value = 'custom'
-  emit('update:dateTo', e.target.value)
+  emit('update:dateTo', v)
 }
 
 function onClear() {

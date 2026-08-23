@@ -58,6 +58,9 @@
             </a>
           </p>
         </form>
+        <p class="text-center text-[11px] mt-4" style="color: var(--muted)">
+          <router-link to="/privacy" class="hover:underline">{{ t('privacy.link') }}</router-link>
+        </p>
       </template>
 
       <template v-if="step === 'mfa'">

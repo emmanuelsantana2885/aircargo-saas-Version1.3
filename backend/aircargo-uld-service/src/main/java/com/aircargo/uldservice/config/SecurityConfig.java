@@ -30,12 +30,12 @@ public class SecurityConfig {
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/ulds/**", "/api/uld-awbs/**", "/api/uld-type-config/**", "/api/scan/**").hasAnyAuthority("READ_ONLY", "OPERATIONS", "TRAFFIC", "LOAD_PLANNER", "ADMIN", "SUPER_USER")
+                .requestMatchers(HttpMethod.GET, "/api/ulds/**", "/api/uld-awbs/**", "/api/uld-type-config/**", "/api/uld-type-catalog/**", "/api/scan/**").hasAnyAuthority("READ_ONLY", "OPERATIONS", "TRAFFIC", "LOAD_PLANNER", "ADMIN", "SUPER_USER")
                 .requestMatchers("/api/ulds/labels/**").hasAnyAuthority("OPERATIONS", "TRAFFIC", "LOAD_PLANNER", "ADMIN", "SUPER_USER")
-                .requestMatchers(HttpMethod.POST, "/api/uld-type-config/**").hasAnyAuthority("ADMIN", "SUPER_USER")
-                .requestMatchers(HttpMethod.PUT, "/api/uld-type-config/**").hasAnyAuthority("ADMIN", "SUPER_USER")
-                .requestMatchers(HttpMethod.DELETE, "/api/uld-type-config/**").hasAnyAuthority("ADMIN", "SUPER_USER")
-                .requestMatchers("/api/ulds/**", "/api/uld-awbs/**", "/api/uld-type-config/**", "/api/scan/**").hasAnyAuthority("OPERATIONS", "TRAFFIC", "LOAD_PLANNER", "ADMIN", "SUPER_USER")
+                .requestMatchers(HttpMethod.POST, "/api/uld-type-config/**", "/api/uld-type-catalog/**").hasAnyAuthority("ADMIN", "SUPER_USER")
+                .requestMatchers(HttpMethod.PUT, "/api/uld-type-config/**", "/api/uld-type-catalog/**").hasAnyAuthority("ADMIN", "SUPER_USER")
+                .requestMatchers(HttpMethod.DELETE, "/api/uld-type-config/**", "/api/uld-type-catalog/**").hasAnyAuthority("ADMIN", "SUPER_USER")
+                .requestMatchers("/api/ulds/**", "/api/uld-awbs/**", "/api/uld-type-config/**", "/api/uld-type-catalog/**", "/api/scan/**").hasAnyAuthority("OPERATIONS", "TRAFFIC", "LOAD_PLANNER", "ADMIN", "SUPER_USER")
                 .anyRequest().authenticated()
             )
             .addFilterBefore(new JwtAuthFilter(jwtUtil), UsernamePasswordAuthenticationFilter.class);

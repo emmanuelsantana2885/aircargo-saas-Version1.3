@@ -25,9 +25,8 @@ public class Uld {
     @Column(name = "uld_number", nullable = false, length = 30)
     private String uldNumber;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "uld_type", nullable = false)
-    private UldType uldType;
+    @Column(name = "uld_type", nullable = false, length = 10)
+    private String uldType;
 
     @Column(name = "position", length = 10)
     private String position;
@@ -90,8 +89,8 @@ public class Uld {
     public void setFlightId(UUID flightId) { this.flightId = flightId; }
     public String getUldNumber() { return uldNumber; }
     public void setUldNumber(String uldNumber) { this.uldNumber = uldNumber; }
-    public UldType getUldType() { return uldType; }
-    public void setUldType(UldType uldType) { this.uldType = uldType; }
+    public String getUldType() { return uldType; }
+    public void setUldType(String uldType) { this.uldType = uldType == null ? null : uldType.trim().toUpperCase(); }
     public String getPosition() { return position; }
     public void setPosition(String position) { this.position = position; }
     public String getConfig() { return config; }

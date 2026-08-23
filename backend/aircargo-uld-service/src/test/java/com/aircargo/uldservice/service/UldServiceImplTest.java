@@ -4,6 +4,8 @@ import com.aircargo.uldservice.dto.UldAwbDTO;
 import com.aircargo.uldservice.dto.UldDTO;
 import com.aircargo.uldservice.entity.Uld;
 import com.aircargo.uldservice.entity.UldAwb;
+import com.aircargo.feign.client.MawbClient;
+import com.aircargo.uldservice.entity.UldStatus;
 import com.aircargo.uldservice.repository.UldAwbRepository;
 import com.aircargo.uldservice.repository.UldRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,12 +31,14 @@ class UldServiceImplTest {
     private UldRepository uldRepository;
     @Mock
     private UldAwbRepository uldAwbRepository;
+    @Mock
+    private MawbClient mawbClient;
 
     private UldServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        service = new UldServiceImpl(uldRepository, uldAwbRepository);
+        service = new UldServiceImpl(uldRepository, uldAwbRepository, mawbClient);
     }
 
     private UldDTO sampleDto() {
@@ -43,6 +47,19 @@ class UldServiceImplTest {
         dto.setTareLbs(new BigDecimal("140"));
         dto.setGrossWeightLbs(new BigDecimal("1000"));
         return dto;
+    }
+
+    @Test
+    void create_defaultsStatusToOpen_whenStatusMissing() {
+        UldDTO dto = sampleDto();
+        dto.setStatus(null);
+        when(uldRepository.save(any(Uld.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.create(dto);
+
+        ArgumentCaptor<Uld> captor = ArgumentCaptor.forClass(Uld.class);
+        verify(uldRepository).save(captor.capture());
+        assertEquals(UldStatus.OPEN, captor.getValue().getStatus());
     }
 
     @Test

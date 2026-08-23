@@ -1,0 +1,1 @@
+{"nodes": [{"id": "$graphify-root$_database_migrations_v33_rename_uld_awb_mawblabel_to_mawb_label_sql", "label": "V33__rename_uld_awb_mawblabel_to_mawb_label.sql", "file_type": "code", "source_file": "database/migrations/V33__rename_uld_awb_mawblabel_to_mawb_label.sql", "source_location": null}], "edges": []}

@@ -20,9 +20,8 @@ public class UldTypeConfig {
     @Column(name = "airline_id", nullable = false)
     private UUID airlineId;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "uld_type", nullable = false)
-    private UldType uldType;
+    @Column(name = "uld_type", nullable = false, length = 10)
+    private String uldType;
 
     @Column(name = "default_tare_lbs", nullable = false, precision = 8, scale = 2)
     private BigDecimal defaultTareLbs;
@@ -47,8 +46,8 @@ public class UldTypeConfig {
     public void setId(UUID id) { this.id = id; }
     public UUID getAirlineId() { return airlineId; }
     public void setAirlineId(UUID airlineId) { this.airlineId = airlineId; }
-    public UldType getUldType() { return uldType; }
-    public void setUldType(UldType uldType) { this.uldType = uldType; }
+    public String getUldType() { return uldType; }
+    public void setUldType(String uldType) { this.uldType = uldType == null ? null : uldType.trim().toUpperCase(); }
     public BigDecimal getDefaultTareLbs() { return defaultTareLbs; }
     public void setDefaultTareLbs(BigDecimal defaultTareLbs) { this.defaultTareLbs = defaultTareLbs; }
     public BigDecimal getMaxGrossLbs() { return maxGrossLbs; }

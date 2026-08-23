@@ -40,6 +40,11 @@ const router = createRouter({
       component: () => import('../views/LoginView.vue'),
     },
     {
+      path: '/privacy',
+      name: 'privacy',
+      component: () => import('../views/PrivacyPolicyView.vue'),
+    },
+    {
       path: '/set-password',
       name: 'set-password',
       component: () => import('../views/SetPasswordView.vue'),
@@ -133,7 +138,7 @@ const router = createRouter({
   ]
 })
 
-const publicPaths = ['/login', '/set-password', '/change-password', '/mfa-setup']
+const publicPaths = ['/login', '/set-password', '/change-password', '/mfa-setup', '/privacy']
 
 router.beforeEach((to) => {
   const stored = localStorage.getItem('aircargo_auth')

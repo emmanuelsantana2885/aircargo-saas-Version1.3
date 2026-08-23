@@ -146,7 +146,7 @@
           </div>
           <div>
             <label class="ds-label">{{ t('flights.form.flightDate') }} *</label>
-            <input v-model="form.flightDate" type="date" class="ds-input" />
+            <LocaleDatePicker v-model="form.flightDate" class="w-full" />
           </div>
           <div>
             <label class="ds-label">{{ t('flights.form.origin') }}</label>
@@ -216,6 +216,7 @@ import { IconPlus, IconPencil, IconTrash, IconX, IconCheck, IconPlaneDeparture }
 import { useToastStore } from '../stores/toast'
 import { extractError } from '../utils/error'
 import FilterBar from '../components/FilterBar.vue'
+import LocaleDatePicker from '../components/LocaleDatePicker.vue'
 
 const { t } = useI18n()
 const store = useAppStore()

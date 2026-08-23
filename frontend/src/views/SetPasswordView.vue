@@ -10,7 +10,10 @@
       </div>
 
       <form @submit.prevent="handleSetPassword" class="space-y-4">
-        <div>
+        <div v-if="tokenValid === false" class="p-3 rounded-xl text-[13px] bg-red-50 border border-red-200 text-red-700">
+          {{ t('setPassword.error.badLink') }}
+        </div>
+        <div v-if="!tokenMode">
           <label class="block text-xs font-medium mb-1" style="color: var(--text)">{{ t('setPassword.email') }}</label>
           <input
             v-model="email"
@@ -22,7 +25,7 @@
           />
         </div>
 
-        <div v-if="hasCurrentPassword">
+        <div v-if="hasCurrentPassword && !tokenMode">
           <label class="block text-xs font-medium mb-1" style="color: var(--text)">{{ t('setPassword.currentPassword') }}</label>
           <input
             v-model="currentPassword"
@@ -124,11 +127,14 @@ const saving = ref(false)
 const errorMsg = ref('')
 const successMsg = ref('')
 const hasCurrentPassword = ref(false)
+const tokenMode = ref(false)
+const tokenValid = ref(null)
 
 const canSubmit = computed(() => {
-  if (!email.value || !isStrongPassword(newPassword.value)) return false
+  if (tokenMode.value && tokenValid.value === false) return false
+  if (!tokenMode.value && (!email.value || (hasCurrentPassword.value && !currentPassword.value))) return false
+  if (!isStrongPassword(newPassword.value)) return false
   if (newPassword.value !== confirmPassword.value) return false
-  if (hasCurrentPassword.value && !currentPassword.value) return false
   return true
 })
 
@@ -137,7 +143,19 @@ const passwordRules = computed(() => {
   return passwordRuleLabels.map(r => ({ key: r.key, label: r.label, met: strength[r.key] }))
 })
 
-onMounted(() => {
+onMounted(async () => {
+  const token = route.query.token
+  if (token) {
+    tokenMode.value = true
+    try {
+      await authApi.validateResetToken(String(token))
+      tokenValid.value = true
+    } catch {
+      tokenValid.value = false
+      errorMsg.value = t('setPassword.error.badLink')
+    }
+    return
+  }
   email.value = route.query.email || ''
   if (!email.value) {
     errorMsg.value = t('setPassword.error.noEmail')
@@ -160,6 +178,12 @@ async function handleSetPassword() {
 
   saving.value = true
   try {
+    if (tokenMode.value) {
+      await authApi.setPasswordWithToken(String(route.query.token), newPassword.value)
+      successMsg.value = t('setPassword.success')
+      setTimeout(() => { router.push('/login') }, 2000)
+      return
+    }
     await authApi.setPassword(email.value, newPassword.value, currentPassword.value || undefined)
     successMsg.value = t('setPassword.success')
     setTimeout(() => { router.push('/login') }, 2000)

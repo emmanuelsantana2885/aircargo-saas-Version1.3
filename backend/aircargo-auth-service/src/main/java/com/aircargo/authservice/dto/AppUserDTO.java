@@ -4,6 +4,8 @@ import com.aircargo.common.entity.Airline;
 import com.aircargo.authservice.entity.AppUser;
 import com.aircargo.authservice.entity.Site;
 import com.aircargo.authservice.entity.UserRole;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -22,7 +24,11 @@ public class AppUserDTO {
     private UUID id;
     private UUID airlineId;
     private UUID supabaseUid;
+
+    @NotBlank(message = "El email es obligatorio")
+    @Email(message = "Formato de email inválido")
     private String email;
+
     private String fullName;
     private UserRole role;
     private Boolean isActive;

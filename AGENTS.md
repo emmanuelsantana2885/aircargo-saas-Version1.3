@@ -21,7 +21,7 @@ Monorepo with three main directories + microservices scaffolding:
 | `backend/aircargo-notification-service/` | Spring Boot (port 9100) | Notifications + RabbitMQ event listeners + email |
 | `database/migrations/` | PostgreSQL Flyway migrations | Root copy — see "Migrations" below |
 | `docker/` | Docker Compose files | `docker-compose.infrastructure.yml` (Postgres+RabbitMQ), `docker-compose.services.yml` (9 services + gateway) |
-| `k8s/` | Kubernetes manifests | Full K8s deployment for all services |
+| `k8s/` | Kubernetes manifests | Full K8s deployment for all services. **`secret.yml` NO vive aquí** — está en `~/Desktop/Projects/Rannik/aircargo-deploy-secrets/secret.yml` (fuera del repo, gitignore lo bloquea). Para desplegar: `kubectl apply -f k8s/ -f ../aircargo-deploy-secrets/secret.yml` (el Secret se llama `aircargo-secrets` y los manifests lo referencian por nombre, no por ruta) |
 
 ## Commands
 
@@ -87,6 +87,173 @@ Flyway migrations live in **each microservice** at `backend/aircargo-*-service/s
 | Phase 12 | Delete Monolith | ✅ Complete — `backend/aircargo-api/` removed, DUA compliance migrated to mawb-service, gateway routes cleaned, Swagger/OpenAPI added to all services |
 
 Full plan: `Documents/MICROSERVICES-MIGRATION-PLAN.md`
+
+## Recent session changes (Aug 22, 2026 (3) — secret.yml fuera del repo)
+`k8s/secret.yml` (manifest K8s con placeholders `${POSTGRES_USER}/${POSTGRES_PASSWORD}/${JWT_SECRET}`, sin valores reales) movido a `~/Desktop/Projects/Rannik/aircargo-deploy-secrets/secret.yml` — carpeta hermana FUERA del proyecto. `.gitignore` ahora bloquea `k8s/secret*.yml` para evitar re-creación accidental. Los demás manifests de `k8s/` referencian el Secret por nombre (`aircargo-secrets`) así que no requieren cambios; al desplegar hay que aplicar la carpeta externa además de `k8s/`. Motivación: Graphify lo marcó como archivo potencialmente sensible durante el indexado del grafo.
+
+## Recent session changes (Aug 23, 2026 (14) — Debilidad #6 resuelta: Política de privacidad + DPA)
+- **`Documents/POLITICA-PRIVACIDAD.md`**: documento formal completo (responsable, datos tratados, finalidades, base legal Art.5 L172-13, conservación, seguridad implementada —BCrypt/AES/TLS/RBAC/MFA/backups—, derechos ARCO con habeas data, sin transferencias internacionales, cláusula de transparencia sobre desarrollo con IA). Campos `[CORCHETES]` por completar antes de publicar.
+- **`Documents/CONTRATO-ENCARGO-TRATAMIENTO-DPA.md`**: plantilla DPA (objeto, instrucciones documentadas, confidencialidad, seguridad mínima, notificación de brechas 48h, subencargados con divulgación de herramientas IA y no-transmisión de datos personales, PI del código entregado, certificado de borrado al término).
+- **In-app**: `PrivacyPolicyView.vue` pública en `/privacy` (bilingüe es/en vía locale, tablas de categorías de datos, lista de medidas reales), ruta en `publicPaths` del router, enlace "Política de Privacidad" bajo el formulario de login. Claves i18n `privacy.*`. Lint/build OK.
+- Pendiente relacionado: completar corchetes con razón social/contacto real del cliente; la anonimización de auditoría (retención) sigue pendiente como debilidad separada.
+
+## Recent session changes (Aug 23, 2026 (13) — Debilidad #5 resuelta: Revocación central de tokens)
+**Antes**: "revocación" = Set en memoria del JwtUtil (por instancia, perdida en restart, invisible para los demás servicios); access token TTL **24h**; bloquear/desactivar usuario no mataba sus sesiones; refresh no chequeaba `blocked`.
+**Ahora — revocación central vía `tokens_valid_from` (V21 ≡ raíz V47)**:
+- `AppUser.tokensValidFrom` (TIMESTAMPTZ, null = sin restricción). Todo token (access o refresh) con `iat` anterior deja de ser válido.
+- `TokenRevocationService.bump(userId)`: se invoca en **bloqueo**, resetPassword, enable/disable MFA, set-password-token, SetPassword y ChangePassword handlers. Lectura memoizada 30s (`TokenRevocationFilter` registrado tras JwtAuthFilter SOLO en auth-service → 401 `{"error":"Session revoked"}`).
+- `/api/auth/refresh`: ahora valida además `blocked` y staleness del refresh token.
+- `app.jwt.expiration-ms`: 24h → **1h** (ventana máxima de exposición residual en servicios stateless; el gateway sigue sin chequeo por-request al no tener BD).
+- E2E verificado: login víctima → admin bloquea → /me 401 Session revoked ✓ → refresh 401 User blocked ✓. Tests 22+6 OK.
+- Pendiente documentado: migrar token a httpOnly cookie (mitiga XSS de raíz); chequeo por-request en el resto de servicios requeriría Feign al auth o vista compartida.
+
+## Recent session changes (Aug 23, 2026 (12) — Debilidad #4 resuelta: Flyway explícito en auth-service)
+**Eliminado `ddl-auto=update`; esquema ahora 100% migraciones.**
+- **`V20__baseline_auth_schema.sql`** (≡ raíz `V46__baseline_auth_schema.sql`): baseline idempotente con el esquema REAL de auth (9 tablas: airline, app_user, site, user_sites, view_permission, role_permission, audit_log, audit_event, password_reset_token) — `CREATE TABLE IF NOT EXISTS` + `ALTER ADD COLUMN IF NOT EXISTS` para columnas que deployments legacy puedan carecer + constraint de roles en DO block. Funciona igual en BD existente (no-ops) y BD nueva (esquema completo).
+- V18/V19 endurecidos con guards de existencia de tabla (en BD vacía antes fallaban: ALTER sobre tabla inexistente / backfill desde audit_log inexistente). Seguro editarlos: Flyway jamás se había ejecutado para auth en ninguna BD.
+- **Config**: `spring.flyway.enabled=true`, `table=flyway_schema_history_auth`, `baseline-on-migrate=true`, `baseline-version=0`, y **`ddl-auto=validate`** — cualquier drift entidad↔esquema ahora FALLA el arranque en vez de mutar silenciosamente.
+- Verificado sobre la BD real: baseline v0 + V18+V19+V20 aplicadas (`flyway_schema_history_auth` con 4 filas success=true), boot en validate sin errores, login E2E OK.
+- Regla nueva para devs: TODO cambio de esquema de auth = nueva migración `V21__...sql` (sincronizar a `database/migrations/V47__...`); prohibido tocar entidades esperando que Hibernate "arregle" la BD.
+
+## Recent session changes (Aug 23, 2026 (11) — Debilidad #3 resuelta: Enlaces de reset de un solo uso)
+**Eliminadas las contraseñas temporales compartidas.**
+- **Antes**: admin generaba contraseña de 12 chars → el API la devolvía en la respuesta HTTP → se compartía por WhatsApp/chat y seguía válida si el usuario no la cambiaba.
+- **Ahora**: `POST /api/users/{id}/generate-reset-link` (ADMIN/SUPER_USER) genera token de 32 bytes aleatorios; en BD solo se guarda su SHA-256 (`password_reset_token`, expira 15 min, un solo uso — los tokens pendientes anteriores del usuario se invalidan). Devuelve el ENLACE `{frontend}/set-password?token=...` una única vez. Nadie conoce la contraseña excepto el usuario que la escribe.
+- Endpoints públicos nuevos (gateway `JwtGatewayFilter.PUBLIC_PATHS` + auth SecurityConfig): `POST /api/auth/reset-password/validate` (el frontend verifica el enlace antes de mostrar el form) y `POST /api/auth/set-password-token` (@StrongPassword aplicada; setea hash, limpia mustChangePassword/failedLoginAttempts/lockedUntil, marca usado, audita PASSWORD_SET, devuelve JWT).
+- Frontend: `SetPasswordView` con modo `?token=` (valida al montar, estado "enlace inválido/expirado", sin email ni contraseña actual); `SettingsView` muestra el enlace copiable en el modal (i18n actualizado es/en); `usersApi.generateResetLink` reemplaza a generateTempPassword.
+- SMTP notification-service: defaults ahora seguros y env-driven (`SMTP_AUTH:true`, `SMTP_STARTTLS:true`).
+- Tests: 22 en auth (nuevos: token inválido→400, flujo completo débil→400/strong→200+JWT/reuso→400/login final OK). E2E real por gateway: los 5 pasos verificados ✓.
+- Lecciones ops: (1) reconstruir jar SIEMPRE con el servicio detenido (jar corrupto = ClassNotFoundException al boot); (2) rutas públicas nuevas deben agregarse a `JwtGatewayFilter.PUBLIC_PATHS` del gateway además del SecurityConfig del servicio.
+
+## Recent session changes (Aug 23, 2026 (10) — Debilidad #2 resuelta: Cifrado en reposo)
+**AES-256-GCM transparente para datos sensibles.**
+- **`aircargo-common/crypto/`**: `Crypto` (estático, formato `enc:v1:` + Base64(iv‖ciphertext), IV aleatorio por operación), `CryptoAttributeConverter` (JPA `@Converter`: cifra al escribir / descifra al leer — PDFs y lógica intactos), `CryptoConfig` (@Configuration inicializa desde `app.crypto.key`, Base64 32 bytes; sin key = passthrough con WARN).
+- **Migración perezosa**: valores legacy en texto plano se leen tal cual (sin prefijo) y se cifran la próxima vez que se escriban.
+- **Campos anotados**: `AppUser.mfaSecret` + `WarehouseReceipt`: deliveredBy/receivedBy/broker `{IdNum,IdDocUrl,SigUrl}` (10 campos: cédulas, fotos de ID, firmas) + dockSignature.
+- **Key**: generada y agregada al `.env` real (`APP_ENCRYPTION_KEY`), placeholder en `.env.example`. En k8s agregar al Secret `aircargo-secrets` + env var en deployments.
+- **Verificación E2E REAL**: MFA habilitado vía API → BD guarda `enc:v1:...` → login con TOTP devuelve token (backend descifró el secret para validarlo). CryptoTest 6/6 (roundtrip, IV único, legacy passthrough, key inválida). Reactor auth+warehouse+common: 30 tests OK.
+- Lección ops: al reconstruir módulos dependientes, incluir `-pl aircargo-common -am` e `install` (un jar con common viejo falla boot con TypeNotPresentException); matar servicios ANTES de `mvn install` (jar corrupto si el proceso lo tiene abierto).
+
+## Recent session changes (Aug 23, 2026 (9) — Debilidad #1 resuelta: Backups de BD)
+**Respaldo automático diario + restore verificado.**
+- `scripts/db-backup.sh`: `pg_dump -Fc` (custom comprimido, no detiene la BD) vía TCP como `aircargo_user` (sin sudo), retención configurable (`BACKUP_KEEP_DAYS`, default 30), destino `BACKUP_DIR` (default `~/aircargo-backups` — FUERA del repo).
+- systemd **user timer**: `~/.config/systemd/user/{aircargo-backup.service,aircargo-backup.timer}` — diario 02:00, `Persistent=true` (recupera corridas perdidas). Estado: enabled. Limitación: los timers de usuario solo corren con sesión activa; para que corra siempre: `sudo loginctl enable-linger manolov`.
+- **Restore PROBADO** (23 ago): dump → `pg_restore` a BD temporal → conteos idénticos en app_user(20), mawb(24), booking(24), uld(6), flight(3), warehouse_receipt(2). Comando de restore documentado:
+  `pg_restore -h 127.0.0.1 -U aircargo_user -d <bd_nueva> ~/aircargo-backups/<archivo>.dump`
+- Pendiente recomendado: copia OFFSITE (USB/nube) — un backup en el mismo disco que la BD no protege contra fallo de disco.
+
+## Recent session changes (Aug 23, 2026 (8) — Fix meses vacíos en date picker)
+El dropdown de mes salía vacío: **`t()` de vue-i18n sobre arrays los interpreta como candidatos de pluralización y NO devuelve la lista** (`t('common.months')` → string, no array; por eso tampoco se veía el mes seleccionado). Fix definitivo en `LocaleDatePicker.vue`: meses completos/abreviados y días de semana se generan con **`Intl.DateTimeFormat`** según el locale activo (`es-DO`/`en-US`) — i18n nativo del navegador sin depender de claves array. Las claves `common.months/monthsShort/weekdaysShort` quedan solo como referencia (no usarlas con `t()`; para arrays de i18n usar `tm()` y normalizar AST). Lint/build OK.
+
+## Recent session changes (Aug 23, 2026 (7) — Date picker simplificado)
+Rediseño completo de `LocaleDatePicker.vue` (usado en FilterBar, Flights, WarehouseReceipts y LoadPlanning) por feedback "no es claro": **header de una sola fila** `[‹] [select Mes] [select Año] [›]` — saltos directos con dropdowns nativos (mes completo i18n, rango año −10…+2) en vez de los confusos botones dobles «‹ ›»; celdas 32px con hoy resaltado en azul, fines de semana atenuados, seleccionado en negro; footer con botones sólidos **Hoy** (ancho completo) y **Limpiar** (solo si hay fecha); cierra al elegir o clic-fuera. Mismo contrato: `modelValue` ISO `yyyy-mm-dd` + evento `change`.
+
+## Recent session changes (Aug 23, 2026 (6) — Scroll en SecurityView)
+La vista cargaba pero no se podía scrollear: su raíz usaba `.ds-page`, que es `h-screen max-h-screen overflow-hidden flex-col` — con 3 secciones `ds-table-section` (`flex-1 min-h-0`) cada una recibía ~⅓ de viewport y el contenido restante quedaba atrapado sin scroll alcanzable. Fix: raíz de SecurityView cambiada al patrón de página de altura natural (`min-h-screen` + padding, mismo de UsersView) para que el `<main class="flex-1 overflow-auto">` de App.vue sea el contenedor de scroll único. La tabla de auditoría conserva su `max-height:400px` interno. Nota design system: `.ds-page` solo sirve para vistas que dimensionan TODAS sus secciones dentro del viewport.
+
+## Recent session changes (Aug 23, 2026 (5) — Fix SecurityView en blanco)
+La vista de seguridad no renderizaba nada: `Uncaught TypeError: _ctx.filteredAuditLogs is undefined` — la plantilla (filas del log de auditoría + estado vacío) usa `filteredAuditLogs` pero la computed **nunca fue declarada** en el script (regresión de la sesión "Security view en vivo": se añadió el dropdown `auditFilter` sin su lógica de filtrado). Añadida: `filteredAuditLogs = computed(() => auditFilter ? auditLogs.filter(l => l.action === auditFilter) : auditLogs)`. Lección: lint/build no detectan referencias template→script faltantes; el error solo aparece en consola del navegador en runtime.
+
+## Recent session changes (Aug 23, 2026 (4) — Fix JDBC login sobre datadir histórico)
+Al conectar el stack al Postgres del sistema (`/var/lib/postgres/data`, BD real `aircargo_db` con los 20 usuarios), el login daba "JDBC exception execution error": **`column au1_0.blocked does not exist`**. Causa raíz: `ddl-auto=update` genera `ALTER TABLE app_user ADD COLUMN blocked boolean NOT NULL` **sin DEFAULT** → PostgreSQL lo rechaza sobre tablas con filas ("contains null values") y Hibernate lo traga como warning silencioso; cualquier SELECT que incluya la columna falla después.
+- **Fix inmediato**: `ALTER TABLE app_user ADD COLUMN IF NOT EXISTS blocked BOOLEAN NOT NULL DEFAULT false` (verificadas también `audit_event`, `uld_type_catalog`, `notification.audit_log` — todas presentes en el datadir histórico ✓).
+- **Fix preventivo**: `AppUser.java` — los 6 booleanos/int NOT NULL (`blocked, mfa_enabled, mfa_locked, must_change_password, is_active, failed_login_attempts`) ahora llevan `columnDefinition = "... default false/true/0"` para que futuros ALTERs generados por hbm2ddl incluyan DEFAULT y no vuelvan a fallar sobre tablas pobladas.
+Verificación: reinicio completo del stack → login vía gateway responde 401 genérico (sin excepción), 0 errores JDBC tras arranque, 20 usuarios intactos. Nota operativa: reconstruir un jar mientras su proceso está corriendo puede dejarlo corrupto (ClassNotFoundException en boot) — matar el servicio antes de `mvn install`.
+
+## Recent session changes (Aug 23, 2026 (3) — Claves i18n faltantes)
+Varias vistas mostraban la ruta cruda (`loadPlanning.lblGross`, etc.) porque usaban claves inexistentes. **Añadidas 25+ claves faltantes a es.js/en.js**: `loadPlanning.{positions,lblTotalUlds,lblGross,lblPayload,lblAvailable,dispatchFlight,dragFloatingHint,emptySelectFlight,emptyUld}`, `bookings.{importXlsx,exportCsv,saveChanges,create,selectFlightFirst}`, `bookings.form.{consigneeLabel,mawbNumber,reservedKg,units,priority,notesPlaceholder}`, `bookings.import.{previewTitle,cnee,unitsShort,commodityShort,importing}`, `common.refresh`, `settings.airlines.validation`, `settings.uldConfig.selectAirline`, `warehouse.evidence.{title,mawbEvidence}` (es las tenía incompletas; en ya traía evidence). **Guard de regresión**: script node ad-hoc que aplana es.js/en.js y cruza contra todos los `t('...')` literales de `src/views/*` — resultado actual: ✓ cero claves faltantes en ambos idiomas (falsos positivos conocidos: matches sobre `createElement('input'/'canvas')`). Nota: `loadPlanning.status.*` es dinámico con fallback `te()` — OK por diseño.
+
+## Recent session changes (Aug 23, 2026 (2) — UX: % ULD y date picker)
+- **`UldsView.vue`**: input de `% Volumen` ampliado w-14→w-20 y `piecesPct` w-10→w-14 (`inputmode=decimal`). Spinners nativos ocultos en TODOS los navegadores: el CSS scoped solo tenía la regla WebKit; añadida `input[type="number"] { -moz-appearance: textfield; appearance: textfield }` (Firefox mostraba flechas ↑↓ — por eso el usuario las veía). Ingreso queda 100% manual.
+- **`LocaleDatePicker.vue` rediseñado** (más grande e intuitivo): panel 236→272px, header con **nombre completo del mes** ("Agosto 2026" / "August 2026") centrado y agrupado [«‹] título [›»], celdas h-6→h-8 texto 11→13px, weekdays con separador, footer muestra la fecha seleccionada junto al ✕ limpiar, botones de navegación más grandes (26px) con tooltips es/en. Nueva clave i18n `common.months` (12 meses completos es/en).
+
+## Recent session changes (Aug 23, 2026 — Rutas de BD limpias + config lista para servidor)
+- **Eliminados** los paths erróneos generados por el fallback: `proyecto/.local-pg/` y `~/.local-rabbitmq/`. La BD real del usuario siempre fue el Postgres del SISTEMA (`/var/lib/postgres/data`, datadir Arch con los datos históricos) — arrancar con `sudo systemctl enable --now postgresql`; si falla por "database files are incompatible" → `pg_upgrade`/`postgresql-old-upgrade` (pacman actualizó major).
+- **Config de BD 100% por variables de entorno** (verificado: los 7 servicios con DB usan `${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:aircargo}`; gateway y load-planning no tienen DB por diseño). En servidor no hay que tocar código ni properties: solo variables.
+- **Estructura de despliegue**: local = localhost; Docker Compose = contenedor `aircargo-db`; k8s = ConfigMap `POSTGRES_HOST: postgres` apuntando al Service interno + PVC persistente (`k8s/postgres.yml`) + Secret externo `aircargo-secrets` (USER/PASSWORD/JWT_SECRET). Para RDS/host externo basta poner `POSTGRES_HOST` en el ConfigMap.
+- **Alineación de defaults** (eliminada trampa `aircargo_db` vs `aircargo`): `.env.example` ahora usa `POSTGRES_DB=aircargo`, compose default ídem, y documenta `POSTGRES_HOST` comentado.
+
+## Recent session changes (Aug 22, 2026 (5) — start-all.sh arranca sin Docker)
+`./start-all.sh` ahora degrada gracefully cuando el daemon de Docker está caído (estado actual de esta máquina):
+- **Postgres NATIVO como fallback**: si :5432 no responde y Docker no está disponible, usa `initdb/pg_ctl` del sistema con datadir local `.local-pg/` (gitignored, se reutiliza entre arranques), auth trust en localhost, socket en `/tmp` (`unix_socket_directories=/tmp`, el default `/run/postgresql` no existe sin root), `max_connections=150` igual que compose, y crea la BD compartida `${POSTGRES_DB:-aircargo}` si falta (idempotente).
+- **RabbitMQ NATIVO** con home propio (`RABBITMQ_BASE=~/.local-rabbitmq` + `CONF_ENV_FILE` para redirigir mnesia/logs fuera de `/var/lib/rabbitmq`) y alta de usuario `${RABBITMQ_USER}` idempotente vía rabbitmqctl. **En esta máquina el Rabbit nativo NO puede correr** (Erlang del sistema incompatible: boot falla con `horus/extraction_denied/unknown_instruction`) → tras ~40s sigue sin broker y notification-service arranca SIN listeners AMQP (comportamiento ya contemplado). Cuando Docker vuelva, tiene prioridad automáticamente.
+- Build ahora offline (`mvn -o install -DskipTests`) para evitar stalls de red.
+Verificación E2E real: Gateway UP en 25s; los 10 servicios escuchando (9092–9100 + 8080), Vite 5173 HTTP 200, login por gateway devuelve el mensaje genérico del handler CQRS ("Email y/o contraseña incorrectos") probando gateway→auth→Postgres-nativo. Nota: los checks ad-hoc con `/dev/tcp` desde zsh dan FALSOS NEGATIVOS (zsh no lo emula); usar `ss -tlnp` o curl.
+
+## Recent session changes (Aug 22, 2026 (4) — Revisión privacidad y legal RD/EE.UU.)
+Auditoría de datos personales + comparación legal en `Documents/REVISION-PRIVACIDAD-LEGAL.md` (análisis técnico, NO asesoría legal).
+Hallazgos: sin política de privacidad (0 menciones); contraseña temporal viaja en claro por SMTP sin TLS; `mfaSecret` plano en BD; cédulas (`deliveredByIdNum/brokerIdNum`) y firmas manuscritas (`dockSignature` base64) sin protección especial; auditoría con PII (email/nombre/IP) retención indefinida; JWT_SECRET con default inseguro embebido. Positivos: BCrypt centralizado, lockout 5 intentos, msg genérico, MFA, secret.yml fuera del repo, sin terceros/tracking.
+Legal: RD = Ley 172-13 (consentimiento Art. 5, información Art. 6, seguridad Arts. 14-15, ARCO ≤10 días, habeas data; autoridad no operativa aún, reforma en agenda). EE.UU. = sin ley federal; state laws (~20) fuera de umbral salvo CPRA employee/B2B en CA; FTC §5 exige seguridad razonable; leyes de brechas en los 50 estados. **IA**: ninguna ley obliga a revelar código escrito con IA (solo sistemas de IA en runtime); app no incrusta IA → fuera de alcance Colorado/Texas/Utah/CA AI acts. Riesgos dev-con-IA: confidencialidad de prompts (planes sin training), Graphify mantener --code-only, cláusula PI en contrato.
+
+## Recent session changes (Aug 22, 2026 (3) — CQRS + Event Sourcing en auth-service)
+Refactor de autenticación y auditoría solicitado por el usuario ("usa cqrs, event sourcing para auditorías, valida inputs, límite 5 intentos, hashing, msg genérico").
+
+**CQRS**: la lógica que vivía inline en `AuthController` (568 líneas) se extrajo al lado command. El controller ahora es un adaptador HTTP delgado (switch sobre `LoginOutcome.Status` / `PasswordOutcome.Status`).
+**Event sourcing**: nueva entidad append-only `audit_event` (`event/AuditEvent.java`, tabla con `event_type`+`payload`; sin update/delete). `AuditEventStore` es la única vía de escritura; `AuditService` se volvió fachada delegante → los ~28 puntos de llamada existentes quedaron event-sourced sin tocarlos. Acciones normalizadas: `CREATE→USER_CREATED`, `LOGIN→LOGIN_SUCCEEDED`, etc. **Lado query**: `query/AuditQueryService` sirve TODAS las lecturas desde eventos y hace merge con `audit_log` legacy (histórico previo sigue visible); `GET /api/audit-logs?entityType=` ahora SÍ filtra (bug: param ignorado).
+
+| File | Change |
+|------|--------|
+| `command/LoginCommand(+Handler)`, `LoginOutcome` | **NEW** — login completo: checks estado, límite 5 intentos (`MAX_LOGIN_ATTEMPTS=5`) + lockout 30min, BCrypt match, MFA, JWT. Eventos: `LOGIN_FAILED` (con attemptCount/reason, también para UNKNOWN_USER sin revelar existencia), `ACCOUNT_LOCKED` (lockedUntil), `LOGIN_SUCCEEDED`. Email trim en command. Mensaje genérico único para email inexistente Y contraseña incorrecta: **"Email y/o contraseña incorrectos"** (401) |
+| `command/SetPasswordCommand(+Handler)`, `ChangePasswordCommand(+Handler)`, `PasswordOutcome` | **NEW** — hashing BCrypt en handler, resetea contador al cambiar password, eventos `PASSWORD_SET`/`PASSWORD_CHANGED` |
+| `event/{AuditEventType,AuditEvent,AuditEventRepository,AuditEventStore}.java` | **NEW** — store append-only + catálogo de tipos + lista SECURITY_ACTIONS |
+| `service/AuditService.java` | Reescrita como fachada → delega en AuditEventStore; helpers nuevos `logLoginFailed/logAccountLocked`; acciones estandarizadas |
+| `query/AuditQueryService.java` | **NEW** — lecturas CQRS: por usuario/acción/entidad/todos/security, merge evento+legacy ordenado por createdAt |
+| `controller/{AuthController,AuditLogController}.java` | Adelgazados; audit-logs ahora 100% query-side |
+| `config/PasswordEncoderConfig.java` | **NEW** — bean compartido `PasswordEncoder` (antes `new BCryptPasswordEncoder()` inline en 2 controllers; sin perfil → disponible en tests) |
+| `AuthServiceApplication` | `@EnableScheduling` añadido (**fix**: el purge de sesiones de ActiveSessionTracker nunca corría) |
+| `dto/AppUserDTO` | `@NotBlank @Email` en email (validación al crear/editar usuario; antes el @Valid no validaba nada) |
+| `entity/AuditEvent` escaneo | `@EntityScan` ampliado con `authservice.event` |
+| Migraciones | módulo `V19__create_audit_event.sql` ≡ raíz `V45__create_audit_event.sql` (DDL + backfill idempotente audit_log→audit_event con mapeo de nombres) |
+| `frontend/src/views/SecurityView.vue` | Filtro `auditActions` y colores actualizados a nombres nuevos (LOGIN_SUCCEEDED azul, LOGIN_FAILED naranja, ACCOUNT_LOCKED rojo...) |
+
+Validación requerida vs implementada: email ✓ (@Email en login/set-password/create-user), política de contraseña ✓ (@StrongPassword común: 12+ chars, mayús/minús/dígito/especial — ya existía), límite 5 ✓ (+eventos), hashing ✓ (BCrypt centralizado en bean), mensaje genérico ✓, autenticación ✓ (JWT intacto).
+Tests: auth-service 14→**20** (nuevos: generic-msg igual para wrong-password y unknown-user, lockout tras 5 intentos con 6º rechazado incluso con password correcta, email inválido→400, password débil→400, eventos LOGIN_SUCCEEDED/FAILED servidos por el query side, create-user email inválido→400). Reactor completo BUILD SUCCESS (gateway 3 + auth 20 + flight 11 + booking 7 + mawb 11 + warehouse 4 + uld 11 = **67 tests**). Frontend lint/build OK. Contratos API intactos (mismos códigos HTTP y shapes; solo cambió el texto del error 401 de login).
+
+## Recent session changes (Aug 22, 2026 (2) — Date picker con i18n)
+**Problema**: el popup del `<input type="date">` nativo usa el idioma del NAVEGADOR (no de la app), por lo que mostraba meses en español aunque la app estuviera en inglés.
+**Solución**: componente propio `frontend/src/components/LocaleDatePicker.vue` — calendario grid 6×7 totalmente i18n: navegación ±mes/±año, días de semana desde nueva clave `common.weekdaysShort` (Lu-Do / Mo-Su, lunes primero), meses de `common.monthsShort`, botón Hoy (`filterBar.periods.today`) y limpiar; formato mostrado según locale ("15 Ago 2026" / "Aug 15, 2026"); cierra al hacer click fuera; emite ISO `yyyy-mm-dd` vía `update:modelValue` + `change`.
+**Reemplazos** (5 inputs nativos): FilterBar From/To (nuevos handlers `onDateFromValue/onDateToValue` que resetean `activePeriod='custom'`), FlightsView `form.flightDate`, WarehouseReceiptsView `filterDate` (sin @change: filtra por computada en cliente), LoadPlanningView `selectedDate` (@change="onDateChange" preservado).
+**Verificación**: lint limpio, build OK.
+
+## Recent session changes (Aug 22, 2026 — Security view en vivo + iconos de rol)
+
+La vista de seguridad no reflejaba cambios al iniciar sesión con otro perfil (poll de 30s + heartbeat de 60s + sin feedback visual). Ahora es en vivo: poll de 10s (pausado si la pestaña está oculta; refresco inmediato al volver/recuperar foco), heartbeat global bajado a 30s, tiempos relativos que avanzan ("hace 12 s", tick cada 5s), indicador "En vivo · actualizado hace Xs" en el header, flash azul en las filas que cambian o son nuevas (diff por firma ignorando `lastHeartbeat` para sesiones), punto de estado real (verde pulsante si latido <2 min, ámbar si no) y filtro de eventos alineado con lo que realmente emite el backend (`LOGOUT`, `MFA_LOCKED`, `MFA_UNLOCKED`). Iconos de roles del sidebar mejorados y representativos del área.
+
+| File | Change |
+|------|--------|
+| `frontend/src/views/SecurityView.vue` | **LIVE** — poll 30s→10s con pausa en `visibilitychange` + refresh en foco; reloj interno (`now`) cada 5s; `formatRel()` (ahora/hace Ns/min/h) con tooltip absoluto; `markFlash()` diff de sesiones (sin lastHeartbeat), audit logs (ids nuevos) y usuarios (fullName/role/email/blocked/isActive); clase `.row-flash` animada; estado de sesión dinámico (<2min verde pulse, sino ámbar); label `updatedAgo`; `toggleBlock` recarga datos tras bloquear |
+| `frontend/src/App.vue` | Heartbeat global 60s→30s (presencia más fresca en `/audit-logs/connected`) |
+| `frontend/src/i18n/es.js` + `en.js` | Nuevas claves `security.updatedAgo/justNow/secondsAgo/minutesAgo/hoursAgo` |
+| `frontend/src/components/layout/Sidebar.vue` | Iconos de rol: SUPER_USER `IconCrownFilled`, ADMIN `IconShieldLock`, OPERATIONS `IconAirTrafficControl` (antes un camión), TRAFFIC `IconArrowsExchange`, LOAD_PLANNER `IconScale` (peso/balance), WAREHOUSE_ASSISTANT `IconForklift`, READ_ONLY `IconEye`; imports obsoletos (`IconShield/Crown/Tool/Truck/Clipboard`) removidos |
+
+Notas: `npm run lint` y `npm run build` OK. Sin cambios de backend. Pendiente de aprobación: catálogo dinámico de tipos ULD según IATA (ver sección propuesta — el enum Java `UldType` es la única restricción; la columna DB ya es `VARCHAR(10)` sin CHECK).
+
+## Recent session changes (Aug 22, 2026 — Catálogo dinámico de tipos ULD según IATA)
+
+El tab "Config ULD" solo ofrecía los 11 tipos del enum Java `UldType` (PMC/PAH/PAG/PAJ/AAY/AAZ/AAD/PIP/BULK/AMP/AMJ) hardcodeados en el frontend y fijados por un enum en uld-service. Ahora los tipos viven en un catálogo dinámico en DB (`uld_type_catalog`, normas IATA): se siembra con los 11 tipos actuales + tipos estándar IATA adicionales (AKE, AKC, AKN, AKW, AMF, AQF, DPE, DQF, PLA, PLB, PAL, PNE, PQG, RKN, RMP, VKE, VRA, HME), ADMIN/SUPER_USER pueden registrar nuevos tipos desde Settings sin redeploy, y todo el sistema (formularios, escáner, config por aerolínea) lee del catálogo. El enum Java `UldType` fue ELIMINADO — `uld_type` es String validado por regex `^[A-Z0-9]{3,5}$` (la columna DB ya era `VARCHAR(10)` sin CHECK; `ddl-auto=validate` calza con la migración).
+
+| File | Change |
+|------|--------|
+| `backend/aircargo-uld-service/src/main/resources/db/migration/V2__create_uld_type_catalog.sql` | **NEW** — tabla `uld_type_catalog` (code VARCHAR(5) UNIQUE, description VARCHAR(120), is_active, sort_order, timestamps) + seed idempotente (`ON CONFLICT DO NOTHING`) de 29 tipos: 11 legacy + estándares IATA (containers LD3/LD-11/AAU/plats/pallets racks/horses) |
+| `database/migrations/V44__create_uld_type_catalog.sql` | Sincronizado desde uld-service |
+| `backend/.../uldservice/entity/UldTypeCatalog.java` | **NEW** — entidad JPA |
+| `backend/.../uldservice/repository/UldTypeCatalogRepository.java` | **NEW** — findAllByOrderBySortOrderAscCodeAsc, findByIsActiveTrue…, findByCodeIgnoreCase, existsByCodeIgnoreCase |
+| `backend/.../uldservice/dto/UldTypeCatalogDTO.java` | **NEW** — DTO + fromEntity/toEntity |
+| `backend/.../uldservice/service/UldTypeCatalogService(+Impl).java` | **NEW** — CRUD con validación (regex `^[A-Z0-9]{3,5}$`, duplicados), @Cacheable("uld-type-catalog") key 'active'/'all' + @CacheEvict(allEntries) en mutaciones |
+| `backend/.../uldservice/controller/UldTypeCatalogController.java` | **NEW** — `/api/uld-type-catalog`: GET (?activeOnly=), GET/{id}, POST, PUT/{id}, DELETE/{id} |
+| `backend/.../uldservice/util/UldTypes.java` | **NEW** — normalize() (trim+uppercase) e isValid() compartidos |
+| `backend/.../uldservice/entity/UldType.java` | **DELETED** — enum eliminado; `entity/Uld.java` y `entity/UldTypeConfig.java` ahora usan String (setters normalizan); DTOs ídem |
+| `backend/.../uldservice/{controller/UldController,service/UldServiceImpl,service/ScanService,service/PalletLabelService}.java` | Adaptados a String (quitado `UldType.valueOf()`/`.name()`); `UldServiceImpl.validateUldType()` valida en create/update; `UldTypeConfigServiceImpl` valida en create y bulk replaceForAirline. **FIX robustez** — `create()` ahora defaultea `status=OPEN` cuando el DTO no lo trae (la columna es NOT NULL y `toEntity` sobrescribía el default de la entidad con null → 500; la UI siempre lo enviaba pero cualquier consumidor directo del API explotaba) + test `create_defaultsStatusToOpen_whenStatusMissing` |
+| `backend/.../uldservice/config/SecurityConfig.java` | GET `/api/uld-type-catalog/**` → todos los roles (incl. READ_ONLY); POST/PUT/DELETE → solo ADMIN/SUPER_USER |
+| `backend/aircargo-gateway/.../config/RouteConfig.java` | Ruta uld-service ampliada con `/api/uld-type-catalog/**` |
+| `frontend/src/api/uldTypeCatalog.js` | **NEW** — getAll/getById/create/update/remove |
+| `frontend/src/views/SettingsView.vue` | Tab Config ULD: dropdown alimentado por catálogo (con descripción IATA en option/title), botón "+ Nuevo tipo ULD" con modal (código 3-5 chars + descripción) que crea vía API y recarga; **gestión completa del catálogo** en la misma pestaña: tabla con los 29 tipos (código, descripción, estado Activo/Inactivo toggle, editar descripción en el mismo modal con código fijo **preservando el estado activo actual**, eliminar con confirm), tipos inactivos desaparecen de formularios/escáner (`activeOnly=true`); incluye tipos fuera de catálogo ya configurados marcados "(fuera de catálogo)"; fallback a lista legacy si el catálogo no responde. **FIX latente**: `onMounted` asignaba `configAirlineId` programáticamente sin disparar el `@change` → las configs de la primera aerolínea nunca cargaban hasta cambiar el selector manualmente; ahora llama `loadTypeConfig()` tras asignar |
+| `frontend/src/views/UldsView.vue` | Lista de tipos ahora ref cargada del catálogo (activos; fallback a lista legacy SOLO si el catálogo no responde — una respuesta exitosa se respeta tal cual para que los tipos desactivados no reaparezcan); autodetección de tipo al escanear usa el catálogo |
+| `frontend/src/components/ScanPanel.vue` | Regex de detección de código ULD construida dinámicamente desde códigos del catálogo (fallback al patrón legacy solo si falla el fetch; respuesta exitosa se usa sin unión legacy) |
+| `frontend/src/i18n/es.js` + `en.js` | Claves `settings.uldConfig.newType/newTypeTitle/newTypeHelp/newTypeDesc/newTypeDescPlaceholder/newTypeRequired/newTypeCreated/offCatalog/editTypeTitle` + subobjeto `catalog` (title/hint/state/active/inactive/deleteConfirm/updated/deleted) |
+| `backend/.../uldservice/src/test/.../UldServiceImplTest.java` | FIX (preexistente): setUp pasaba 2 args al constructor (MawbClient añadido en sesión Aug 8) → NoSuchMethodError; ahora mockea MawbClient |
+
+Verificación: `mvn -o test` reactor COMPLETO BUILD SUCCESS (auth 14 + flight 11 + booking 7 + mawb 11 + warehouse 4 + uld 10 + gateway 3 = 60 tests), `npm run lint`/`build` OK. **E2E real (Postgres nativo efímero :5433 + auth:9092 + uld:9097 + gateway:8080)**: Flyway aplicó V1+V2 y `ddl-auto=validate` pasó al arranque; login real vía gateway (`esantana@rannik.com`, DataSeeder) y con el token — GET `/api/uld-type-catalog` 29 tipos, POST `kma`→201 normalizado a `KMA`, duplicado→400, PUT→200, `?activeOnly=true` OK, DELETE→204, código inválido `K-M1`→400 (regex), sin token→403 (gateway y servicio). **Flujo integrador con tipo nuevo**: catálogo POST `TST`→201 → bulk config por aerolínea con `TST`→200 (antes imposible por enum) → GET config muestra TST → crear ULD `TST12345UP` sin status→201 default OPEN + netLbs 915 → persistido → tipo inválido en ULD→400. Detectado y corregido el 500 de status null en plena verificación. Nota: los códigos existentes en `uld_type_config`/`uld` siguen funcionando tal cual (String); el catálogo es aditivo. `stores/app.js inferUldType` y mapas de FlightDetail.vue quedan como fallback de inferencia local (no consultan catálogo).
 
 ## Recent session changes (Aug 14, 2026 — Eliminación de debilidades D1–D10 del análisis Bolt vs aircargo)
 

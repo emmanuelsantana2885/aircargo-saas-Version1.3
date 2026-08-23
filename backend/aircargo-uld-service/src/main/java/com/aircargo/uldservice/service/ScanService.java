@@ -188,7 +188,7 @@ public class ScanService {
         dto.setType("ULD");
         dto.setUldId(uld.getId().toString());
         dto.setUldNumber(uld.getUldNumber());
-        dto.setUldType(uld.getUldType() != null ? uld.getUldType().name() : "UNK");
+        dto.setUldType(uld.getUldType() != null ? uld.getUldType() : "UNK");
         dto.setFlightId(uld.getFlightId() != null ? uld.getFlightId().toString() : null);
         dto.setStatus(uld.getStatus() != null ? uld.getStatus().name() : "OPEN");
 

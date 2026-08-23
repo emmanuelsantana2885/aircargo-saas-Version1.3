@@ -6,8 +6,10 @@ import com.aircargo.uldservice.dto.UldAwbDTO;
 import com.aircargo.uldservice.dto.UldDTO;
 import com.aircargo.uldservice.entity.Uld;
 import com.aircargo.uldservice.entity.UldAwb;
+import com.aircargo.uldservice.entity.UldStatus;
 import com.aircargo.uldservice.repository.UldAwbRepository;
 import com.aircargo.uldservice.repository.UldRepository;
+import com.aircargo.uldservice.util.UldTypes;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
@@ -123,10 +125,18 @@ public class UldServiceImpl implements UldService {
     @Transactional
     @CacheEvict(value = {"ulds", "uld-awbs"}, allEntries = true)
     public UldDTO create(UldDTO dto) {
+        if (dto.getUldType() != null) validateUldType(dto.getUldType());
         Uld e = UldDTO.toEntity(dto);
+        if (e.getStatus() == null) e.setStatus(UldStatus.OPEN);
         computeMetricWeights(e);
         Uld saved = uldRepository.save(e);
         return enrichWithAwbs(UldDTO.fromEntity(saved));
+    }
+
+    private void validateUldType(String uldType) {
+        if (!UldTypes.isValid(uldType)) {
+            throw new IllegalArgumentException("uldType inválido: use 3-5 caracteres alfanuméricos (ej. PMC, AKE). Regístrelo primero en el catálogo de tipos ULD");
+        }
     }
 
     @Override
@@ -138,7 +148,10 @@ public class UldServiceImpl implements UldService {
                     if (dto.getAirlineId() != null) existing.setAirlineId(dto.getAirlineId());
                     if (dto.getFlightId() != null) existing.setFlightId(dto.getFlightId());
                     if (dto.getUldNumber() != null) existing.setUldNumber(dto.getUldNumber());
-                    if (dto.getUldType() != null) existing.setUldType(dto.getUldType());
+                    if (dto.getUldType() != null) {
+                        validateUldType(dto.getUldType());
+                        existing.setUldType(dto.getUldType());
+                    }
                     if (dto.getPosition() != null) existing.setPosition(dto.getPosition());
                     if (dto.getConfig() != null) existing.setConfig(dto.getConfig());
                     if (dto.getSealNumber() != null) existing.setSealNumber(dto.getSealNumber());

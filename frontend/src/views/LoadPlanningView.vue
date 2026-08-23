@@ -5,8 +5,7 @@
       <div class="flex items-center gap-6">
         <div class="flex flex-col gap-0.5">
            <span class="ds-label">{{ t('common.date') }}</span>
-          <input v-model="selectedDate" type="date" @change="onDateChange"
-            class="ds-input w-[140px] cursor-pointer" />
+          <LocaleDatePicker v-model="selectedDate" class="w-[140px] cursor-pointer" @change="onDateChange" />
         </div>
         <div class="h-8 w-[1px] bg-slate-200"></div>
         <div class="flex flex-col gap-0.5">
@@ -308,6 +307,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import LocaleDatePicker from '../components/LocaleDatePicker.vue'
 import { useUldsStore } from '../stores/ulds'
 import { useAppStore } from '../stores/app'
 import api from '../api/client'

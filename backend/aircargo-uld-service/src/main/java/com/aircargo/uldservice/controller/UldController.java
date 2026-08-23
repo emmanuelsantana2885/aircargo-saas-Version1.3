@@ -5,7 +5,6 @@ import com.aircargo.common.dto.PageResponse;
 import com.aircargo.uldservice.dto.TransferRequest;
 import com.aircargo.uldservice.dto.UldDTO;
 import com.aircargo.uldservice.entity.UldStatus;
-import com.aircargo.uldservice.entity.UldType;
 import com.aircargo.uldservice.service.UldService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -78,7 +77,7 @@ public class UldController {
                     UldDTO dto = new UldDTO();
                     if (fields.containsKey("position")) dto.setPosition((String) fields.get("position"));
                     if (fields.containsKey("uldNumber")) dto.setUldNumber((String) fields.get("uldNumber"));
-                    if (fields.containsKey("uldType")) dto.setUldType(UldType.valueOf((String) fields.get("uldType")));
+                    if (fields.containsKey("uldType")) dto.setUldType((String) fields.get("uldType"));
                     if (fields.containsKey("sealNumber")) dto.setSealNumber((String) fields.get("sealNumber"));
                     if (fields.containsKey("status")) dto.setStatus(UldStatus.valueOf((String) fields.get("status")));
                     if (fields.containsKey("config")) dto.setConfig((String) fields.get("config"));

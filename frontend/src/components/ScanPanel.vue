@@ -98,6 +98,7 @@
 <script setup>
 import { ref, nextTick, watch, computed, onBeforeUnmount } from 'vue'
 import { scanApi } from '@/api/scan.js'
+import { uldTypeCatalogApi } from '@/api/uldTypeCatalog'
 
 const props = defineProps({
   active: { type: Boolean, default: false },
@@ -119,6 +120,17 @@ const cameraVideo = ref(null)
 const cameraReady = ref(false)
 const lastDetect = ref(false)
 const canUndo = computed(() => history.value.length > 0 && history.value[0].success)
+
+// Tipos ULD desde el catálogo dinámico (normas IATA); fallback a lista legacy
+const LEGACY_ULD_TYPES = ['PMC', 'PAH', 'PAG', 'PAJ', 'AAY', 'AAZ', 'AAD', 'PIP', 'AMP', 'AMJ', 'PMH']
+const uldCodes = ref([...LEGACY_ULD_TYPES])
+const uldCodeRe = computed(() => new RegExp(`^(${uldCodes.value.join('|')})[-\\s]?[A-Z0-9]{4,}`, 'i'))
+uldTypeCatalogApi.getAll(true)
+  .then(res => {
+    const codes = (res.data || []).map(x => x.code).filter(Boolean)
+    if (codes.length) uldCodes.value = codes
+  })
+  .catch(() => {})
 
 let cameraStream = null
 let detectTimer = null
@@ -147,7 +159,7 @@ async function processScan(codeOverride) {
   scanning.value = true
 
   try {
-    const isUld = /^(PMC|PAH|PAG|PAJ|AAY|AAZ|AAD|PIP|AMP|AMJ|PMH)[-\s]?[A-Z0-9]{4,}/i.test(code)
+    const isUld = uldCodeRe.value.test(code)
 
     if (isUld && !props.uldId) {
       lastResult.value = { success: true, message: `ULD ${code} asignado`, awbNumber: code }

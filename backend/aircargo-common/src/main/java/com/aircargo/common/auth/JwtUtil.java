@@ -124,6 +124,16 @@ public class JwtUtil {
 
     // ── Token Revocation ──────────────────────────────────────
 
+    /** Fecha de emisión (iat) del token; null si es inválido o no trae iat. */
+    public java.time.OffsetDateTime getIssuedAt(String token) {
+        try {
+            java.util.Date iat = parseToken(token).getIssuedAt();
+            return iat != null ? java.time.OffsetDateTime.ofInstant(iat.toInstant(), java.time.ZoneOffset.UTC) : null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     public void revokeToken(String token) {
         revokedTokens.add(token);
         maybeCleanup();

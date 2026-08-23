@@ -5,6 +5,9 @@ export const authApi = {
   refresh: (refreshToken) => api.post('/auth/refresh', { refreshToken }),
   setPassword: (email, newPassword, currentPassword) =>
     api.post('/auth/set-password', { email, newPassword, currentPassword }),
+  validateResetToken: (token) => api.post('/auth/reset-password/validate', { token }),
+  setPasswordWithToken: (token, newPassword) =>
+    api.post('/auth/set-password-token', { token, newPassword }),
   changePassword: (newPassword, currentPassword, totpCode) =>
     api.post('/auth/change-password', { newPassword, currentPassword, totpCode }),
   logout: (refreshToken) => api.post('/auth/logout', { refreshToken }),

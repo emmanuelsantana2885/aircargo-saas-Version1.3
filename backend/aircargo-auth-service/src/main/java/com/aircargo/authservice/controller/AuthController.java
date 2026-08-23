@@ -1,12 +1,18 @@
 package com.aircargo.authservice.controller;
 
+import com.aircargo.authservice.command.ChangePasswordCommand;
+import com.aircargo.authservice.command.LoginCommand;
+import com.aircargo.authservice.command.LoginCommandHandler;
+import com.aircargo.authservice.command.LoginOutcome;
+import com.aircargo.authservice.command.PasswordOutcome;
+import com.aircargo.authservice.command.SetPasswordCommand;
+import com.aircargo.authservice.command.SetPasswordCommandHandler;
 import com.aircargo.common.auth.JwtUtil;
 import com.aircargo.common.auth.UserPrincipal;
 import com.aircargo.authservice.dto.ChangePasswordRequest;
 import com.aircargo.authservice.dto.LoginRequest;
 import com.aircargo.authservice.dto.LoginResponse;
 import com.aircargo.authservice.dto.SetPasswordRequest;
-import com.aircargo.authservice.dto.SiteDTO;
 import com.aircargo.authservice.entity.AppUser;
 import com.aircargo.authservice.entity.UserRole;
 import com.aircargo.authservice.repository.AppUserRepository;
@@ -14,6 +20,8 @@ import com.aircargo.authservice.repository.SiteRepository;
 import com.aircargo.authservice.service.ActiveSessionTracker;
 import com.aircargo.authservice.service.AuditService;
 import com.aircargo.authservice.service.MfaService;
+import com.aircargo.authservice.service.PasswordResetService;
+import com.aircargo.authservice.service.TokenRevocationService;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -24,7 +32,6 @@ import org.springframework.cache.CacheManager;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.OffsetDateTime;
@@ -33,152 +40,70 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+/**
+ * Thin HTTP adapter (CQRS): maps requests to command handlers / queries and
+ * translates outcomes to HTTP responses. No business logic lives here.
+ */
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
 
     private static final Logger log = LoggerFactory.getLogger(AuthController.class);
-    private static final int MAX_LOGIN_ATTEMPTS = 5;
-    private static final long LOCKOUT_MINUTES = 30;
 
+    private final LoginCommandHandler loginHandler;
+    private final SetPasswordCommandHandler setPasswordHandler;
+    private final com.aircargo.authservice.command.ChangePasswordCommandHandler changePasswordHandler;
     private final AppUserRepository userRepository;
     private final JwtUtil jwtUtil;
-    private final BCryptPasswordEncoder passwordEncoder;
     private final AuditService auditService;
     private final ActiveSessionTracker sessionTracker;
     private final SiteRepository siteRepository;
     private final MfaService mfaService;
     private final CacheManager cacheManager;
+    private final PasswordResetService passwordResetService;
+    private final TokenRevocationService tokenRevocationService;
+    private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
-    public AuthController(AppUserRepository userRepository, JwtUtil jwtUtil,
+    public AuthController(LoginCommandHandler loginHandler,
+                          SetPasswordCommandHandler setPasswordHandler,
+                          com.aircargo.authservice.command.ChangePasswordCommandHandler changePasswordHandler,
+                          AppUserRepository userRepository, JwtUtil jwtUtil,
                           AuditService auditService, ActiveSessionTracker sessionTracker,
                           SiteRepository siteRepository, MfaService mfaService,
-                          CacheManager cacheManager) {
+                          CacheManager cacheManager,
+                          PasswordResetService passwordResetService,
+                          TokenRevocationService tokenRevocationService,
+                          org.springframework.security.crypto.password.PasswordEncoder passwordEncoder) {
+        this.loginHandler = loginHandler;
+        this.setPasswordHandler = setPasswordHandler;
+        this.changePasswordHandler = changePasswordHandler;
         this.userRepository = userRepository;
         this.jwtUtil = jwtUtil;
         this.auditService = auditService;
         this.sessionTracker = sessionTracker;
         this.siteRepository = siteRepository;
-        this.passwordEncoder = new BCryptPasswordEncoder();
         this.mfaService = mfaService;
         this.cacheManager = cacheManager;
+        this.passwordResetService = passwordResetService;
+        this.tokenRevocationService = tokenRevocationService;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request,
                                    HttpServletRequest servletRequest) {
-        AppUser user = userRepository.findByEmail(request.email())
-                .orElse(null);
-        if (user == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "Credenciales inválidas"));
-        }
-        if (!Boolean.TRUE.equals(user.getIsActive())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("error", "Usuario inactivo"));
-        }
-
-        // Account lockout check
-        if (user.getLockedUntil() != null && user.getLockedUntil().isAfter(OffsetDateTime.now())) {
-            long minutesRemaining = java.time.Duration.between(OffsetDateTime.now(), user.getLockedUntil()).toMinutes();
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("error", "Cuenta bloqueada. Intente de nuevo en " + minutesRemaining + " minutos."));
-        }
-
-        // Blocked check
-        if (Boolean.TRUE.equals(user.getBlocked())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("error", "Account blocked. Contact your administrator."));
-        }
-
-        String passwordHash = user.getPasswordHash();
-        boolean hasPasswordSet = passwordHash != null && !passwordHash.isBlank();
-
-        if (hasPasswordSet) {
-            if (request.password() == null || request.password().isBlank()) {
-                return ResponseEntity.status(HttpStatus.PRECONDITION_REQUIRED)
-                        .body(Map.of("error", "Contraseña requerida"));
-            }
-            if (!passwordEncoder.matches(request.password(), passwordHash)) {
-                // Increment failed attempts
-                int attempts = (user.getFailedLoginAttempts() != null ? user.getFailedLoginAttempts() : 0) + 1;
-                user.setFailedLoginAttempts(attempts);
-                if (attempts >= MAX_LOGIN_ATTEMPTS) {
-                    user.setLockedUntil(OffsetDateTime.now().plusMinutes(LOCKOUT_MINUTES));
-                    log.warn("Account locked for {} after {} failed attempts", user.getEmail(), attempts);
-                }
-                userRepository.save(user);
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .body(Map.of("error", "Credenciales inválidas"));
-            }
-            // Reset failed attempts on success
-            user.setFailedLoginAttempts(0);
-            user.setLockedUntil(null);
-        }
-
-        // MFA check — all roles with MFA enabled must verify (no role bypass)
-        if (mfaService.isMfaRequired(user)) {
-            if (Boolean.TRUE.equals(user.getMfaLocked())) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body(Map.of("error", "Cuenta bloqueada por intentos fallidos de MFA. Contacte al administrador."));
-            }
-            if (request.totpCode() == null || request.totpCode().isBlank()) {
-                return ResponseEntity.status(HttpStatus.PRECONDITION_REQUIRED)
-                        .body(Map.of(
-                                "mfaRequired", true,
-                                "message", "Se requiere código de autenticación de dos factores"
-                        ));
-            }
-            if (!mfaService.verifyCode(user.getMfaSecret(), request.totpCode())) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .body(Map.of("error", "Código de autenticación inválido"));
-            }
-        }
-
-        user.setLastLogin(OffsetDateTime.now());
-        userRepository.save(user);
-
-        String airlineIdStr = user.getAirline() != null && user.getAirline().getId() != null
-                ? user.getAirline().getId().toString() : "";
-
-        String token = jwtUtil.generateToken(
-                user.getId().toString(),
-                user.getRole().name(),
-                airlineIdStr,
-                user.getEmail(),
-                user.getFullName()
-        );
-        String refreshToken = jwtUtil.generateRefreshToken(user.getId().toString());
-
-        auditService.logLogin(user.getId(), user.getEmail(), user.getFullName(), servletRequest.getRemoteAddr());
-
-        sessionTracker.recordHeartbeat(user.getId(), user.getEmail(), user.getFullName(),
-                user.getRole().name(), user.getLastLogin());
-
-        List<SiteDTO> userSites;
-        if (user.getRole() == UserRole.SUPER_USER && user.getSites().isEmpty()) {
-            userSites = siteRepository.findByIsActiveTrue().stream()
-                    .map(SiteDTO::fromEntity)
-                    .collect(Collectors.toList());
-        } else {
-            userSites = user.getSites().stream()
-                    .map(SiteDTO::fromEntity)
-                    .collect(Collectors.toList());
-        }
-
-        return ResponseEntity.ok(new LoginResponse(
-                token,
-                refreshToken,
-                user.getId(),
-                user.getEmail(),
-                user.getFullName(),
-                user.getRole(),
-                user.getAirline() != null ? user.getAirline().getId() : null,
-                hasPasswordSet,
-                userSites,
-                Boolean.TRUE.equals(user.getMustChangePassword()),
-                Boolean.TRUE.equals(user.getMfaEnabled())
-        ));
+        LoginOutcome outcome = loginHandler.handle(
+                new LoginCommand(request.email(), request.password(), request.totpCode(),
+                        servletRequest.getRemoteAddr()));
+        return switch (outcome.status()) {
+            case SUCCESS -> ResponseEntity.ok(outcome.body());
+            case INVALID_CREDENTIALS -> ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(outcome.errorBody());
+            case INACTIVE, LOCKED, BLOCKED, MFA_LOCKED -> ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(outcome.errorBody());
+            case PASSWORD_REQUIRED, MFA_REQUIRED -> ResponseEntity.status(HttpStatus.PRECONDITION_REQUIRED)
+                    .body(outcome.errorBody());
+            case MFA_INVALID -> ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(outcome.errorBody());
+        };
     }
 
     @PostMapping("/refresh")
@@ -202,10 +127,20 @@ public class AuthController {
             }
 
             String userId = claims.getSubject();
-            AppUser user = userRepository.findById(java.util.UUID.fromString(userId)).orElse(null);
+            AppUser user = userRepository.findById(UUID.fromString(userId)).orElse(null);
             if (user == null || !Boolean.TRUE.equals(user.getIsActive())) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(Map.of("error", "User not found or inactive"));
+            }
+            if (Boolean.TRUE.equals(user.getBlocked())) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("error", "User blocked"));
+            }
+            // Revocación central: refresh tokens emitidos antes de tokens_valid_from mueren aquí
+            java.time.OffsetDateTime iat = jwtUtil.getIssuedAt(refreshToken);
+            if (iat != null && tokenRevocationService.isStale(user.getId(), iat)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("error", "Session revoked"));
             }
 
             String airlineIdStr = user.getAirline() != null && user.getAirline().getId() != null
@@ -232,53 +167,78 @@ public class AuthController {
         }
     }
 
-    @PostMapping("/set-password")
-    public ResponseEntity<?> setPassword(@Valid @RequestBody SetPasswordRequest request,
-                                          HttpServletRequest servletRequest) {
-        AppUser user = userRepository.findByEmail(request.email())
-                .orElse(null);
+    /**
+     * Valida un token de enlace de restablecimiento (un solo uso, 15 min).
+     * Público: el frontend lo consulta antes de mostrar el formulario.
+     */
+    @PostMapping("/reset-password/validate")
+    public ResponseEntity<?> validateResetToken(@jakarta.validation.Valid @RequestBody ResetTokenValidateRequest req) {
+        if (passwordResetService.validate(req.token()).isPresent()) {
+            return ResponseEntity.ok(java.util.Map.of("valid", true));
+        }
+        return ResponseEntity.badRequest().body(java.util.Map.of("error", "Enlace inválido o expirado"));
+    }
+
+    /**
+     * Establece contraseña mediante token de enlace de un solo uso.
+     * Reemplaza el flujo de contraseñas temporales compartidas: nadie
+     * conoce la contraseña excepto el usuario que la define aquí.
+     */
+    @PostMapping("/set-password-token")
+    public ResponseEntity<?> setPasswordByToken(@jakarta.validation.Valid @RequestBody SetPasswordByTokenRequest req,
+                                                HttpServletRequest request) {
+        var tokenOpt = passwordResetService.validate(req.token());
+        if (tokenOpt.isEmpty()) {
+            return ResponseEntity.badRequest().body(java.util.Map.of("error", "Enlace inválido o expirado"));
+        }
+        var token = tokenOpt.get();
+        AppUser user = userRepository.findById(token.getUserId()).orElse(null);
         if (user == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "Usuario no encontrado"));
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(java.util.Map.of("error", "Usuario no encontrado"));
         }
         if (!Boolean.TRUE.equals(user.getIsActive())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("error", "Usuario inactivo"));
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(java.util.Map.of("error", "Usuario inactivo"));
         }
-
-        String currentHash = user.getPasswordHash();
-        if (currentHash != null && !currentHash.isBlank()) {
-            if (request.currentPassword() == null || !passwordEncoder.matches(request.currentPassword(), currentHash)) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .body(Map.of("error", "Contraseña actual incorrecta"));
-            }
-        } else {
-            if (request.currentPassword() != null && !request.currentPassword().isBlank()) {
-                return ResponseEntity.badRequest()
-                        .body(Map.of("error", "Este usuario no tiene contraseña previa. No envíe contraseña actual."));
-            }
-        }
-
-        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        user.setPasswordHash(passwordEncoder.encode(req.newPassword()));
+        user.setMustChangePassword(false);
+        user.setFailedLoginAttempts(0);
+        user.setLockedUntil(null);
+        user.setTokensValidFrom(java.time.OffsetDateTime.now());  // revoca tokens previos
         userRepository.save(user);
+        tokenRevocationService.evict(user.getId());
+        passwordResetService.markUsed(token);
 
-        auditService.log(user.getId(), user.getEmail(), user.getFullName(), "PASSWORD_SET",
-                "USER", user.getId().toString(), null, servletRequest.getRemoteAddr());
+        auditService.log(user.getId(), user.getEmail(), user.getFullName(),
+                com.aircargo.authservice.event.AuditEventType.PASSWORD_SET, "USER",
+                user.getId().toString(), null, request.getRemoteAddr());
 
-        String airlineIdStr = user.getAirline() != null && user.getAirline().getId() != null
-                ? user.getAirline().getId().toString() : "";
-
-        String token = jwtUtil.generateToken(
+        String jwt = jwtUtil.generateToken(
                 user.getId().toString(),
                 user.getRole().name(),
-                airlineIdStr,
+                user.getAirline() != null && user.getAirline().getId() != null
+                        ? user.getAirline().getId().toString() : "",
                 user.getEmail(),
                 user.getFullName()
         );
-        return ResponseEntity.ok(Map.of(
+        return ResponseEntity.ok(java.util.Map.of(
                 "message", "Contraseña establecida correctamente",
-                "token", token
+                "token", jwt
         ));
+    }
+
+    public record ResetTokenValidateRequest(@jakarta.validation.constraints.NotBlank String token) {}
+
+    public record SetPasswordByTokenRequest(
+            @jakarta.validation.constraints.NotBlank String token,
+            @jakarta.validation.constraints.NotBlank @com.aircargo.common.validation.StrongPassword String newPassword) {}
+
+    @PostMapping("/set-password")
+    public ResponseEntity<?> setPassword(@Valid @RequestBody SetPasswordRequest request,
+                                          HttpServletRequest servletRequest) {
+        PasswordOutcome outcome = setPasswordHandler.handle(
+                new SetPasswordCommand(request.email(), request.newPassword(), request.currentPassword(),
+                        servletRequest.getRemoteAddr()));
+        return mapPasswordOutcome(outcome);
     }
 
     @PostMapping("/change-password")
@@ -288,72 +248,24 @@ public class AuthController {
         if (principal == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
+        PasswordOutcome outcome = changePasswordHandler.handle(new ChangePasswordCommand(
+                principal.getUserIdAsUuid(), request.newPassword(), request.currentPassword(),
+                request.totpCode(), servletRequest.getRemoteAddr()));
+        return mapPasswordOutcome(outcome);
+    }
 
-        AppUser user = userRepository.findById(principal.getUserIdAsUuid()).orElse(null);
-        if (user == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-        }
-
-        // MFA verification — mandatory for non-SuperUser; SuperUser verifies only if MFA is enabled
-        boolean mfaEnabled = Boolean.TRUE.equals(user.getMfaEnabled());
-        if (user.getRole() != UserRole.SUPER_USER) {
-            if (!mfaEnabled || user.getMfaSecret() == null) {
-                return ResponseEntity.badRequest().body(Map.of(
-                        "error", "Debes configurar autenticación de dos factores antes de cambiar tu contraseña"
-                ));
-            }
-        }
-        if (mfaEnabled) {
-            if (Boolean.TRUE.equals(user.getMfaLocked())) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body(Map.of("error", "Cuenta bloqueada por intentos fallidos de MFA"));
-            }
-            if (!mfaService.verifyCode(user.getMfaSecret(), request.totpCode())) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .body(Map.of("error", "Código TOTP inválido"));
-            }
-        }
-
-        // If not forced change, validate current password
-        if (!Boolean.TRUE.equals(user.getMustChangePassword())) {
-            if (request.currentPassword() == null || request.currentPassword().isBlank()) {
-                return ResponseEntity.badRequest().body(Map.of(
-                        "error", "Se requiere la contraseña actual"
-                ));
-            }
-            if (user.getPasswordHash() == null ||
-                !passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .body(Map.of("error", "Contraseña actual incorrecta"));
-            }
-        }
-
-        // Save new password
-        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
-        user.setMustChangePassword(false);
-        user.setFailedLoginAttempts(0);
-        user.setLockedUntil(null);
-        userRepository.save(user);
-
-        auditService.log(user.getId(), user.getEmail(), user.getFullName(), "PASSWORD_CHANGED",
-                "USER", user.getId().toString(), null, servletRequest.getRemoteAddr());
-
-        // Generate new token
-        String airlineIdStr = user.getAirline() != null && user.getAirline().getId() != null
-                ? user.getAirline().getId().toString() : "";
-
-        String token = jwtUtil.generateToken(
-                user.getId().toString(),
-                user.getRole().name(),
-                airlineIdStr,
-                user.getEmail(),
-                user.getFullName()
-        );
-
-        return ResponseEntity.ok(Map.of(
-                "message", "Contraseña cambiada correctamente",
-                "token", token
-        ));
+    private ResponseEntity<?> mapPasswordOutcome(PasswordOutcome outcome) {
+        return switch (outcome.status()) {
+            case SUCCESS -> ResponseEntity.ok(outcome.body());
+            case USER_NOT_FOUND -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(outcome.body());
+            case USER_GONE -> ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            case INACTIVE, MFA_NOT_CONFIGURED, MFA_ACCOUNT_LOCKED -> ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(outcome.body());
+            case CURRENT_PASSWORD_INCORRECT, TOTP_INVALID -> ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(outcome.body());
+            case CURRENT_PASSWORD_REQUIRED, UNEXPECTED_CURRENT_PASSWORD -> ResponseEntity.badRequest()
+                    .body(outcome.body());
+        };
     }
 
     @PostMapping("/mfa/setup")
@@ -378,8 +290,8 @@ public class AuthController {
 
     @PostMapping("/mfa/enable")
     public ResponseEntity<?> enableMfa(@AuthenticationPrincipal UserPrincipal principal,
-                                       @RequestBody Map<String, String> body,
-                                       HttpServletRequest servletRequest) {
+                                        @RequestBody Map<String, String> body,
+                                        HttpServletRequest servletRequest) {
         if (principal == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
@@ -432,14 +344,14 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         boolean hasPasswordSet = user.getPasswordHash() != null && !user.getPasswordHash().isBlank();
-        List<SiteDTO> userSites;
+        List<com.aircargo.authservice.dto.SiteDTO> userSites;
         if (user.getRole() == UserRole.SUPER_USER && user.getSites().isEmpty()) {
             userSites = siteRepository.findByIsActiveTrue().stream()
-                    .map(SiteDTO::fromEntity)
+                    .map(com.aircargo.authservice.dto.SiteDTO::fromEntity)
                     .collect(Collectors.toList());
         } else {
             userSites = user.getSites().stream()
-                    .map(SiteDTO::fromEntity)
+                    .map(com.aircargo.authservice.dto.SiteDTO::fromEntity)
                     .collect(Collectors.toList());
         }
         return ResponseEntity.ok(new LoginResponse(
@@ -528,7 +440,9 @@ public class AuthController {
         AppUser user = userRepository.findById(userId).orElse(null);
         if (user == null) return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         user.setBlocked(true);
+        user.setTokensValidFrom(java.time.OffsetDateTime.now());  // mata sesiones activas del bloqueado
         userRepository.save(user);
+        tokenRevocationService.evict(userId);
         evictUsersCache();
         auditService.log(principal.getUserIdAsUuid(), principal.email(), principal.fullName(),
                 "USER_BLOCKED", "USER", userId.toString(),

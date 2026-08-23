@@ -6,7 +6,7 @@ services:
     container_name: aircargo-db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-aircargo_db}
+      POSTGRES_DB: ${POSTGRES_DB:-aircargo}
       POSTGRES_USER: ${POSTGRES_USER:-aircargo_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     command: postgres -c max_connections=150

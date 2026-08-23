@@ -83,7 +83,7 @@ public class PalletLabelService {
             if (uld == null) continue;
             Map<String, String> data = new HashMap<>();
             data.put("ULD_NUMBER", nvl(uld.getUldNumber()));
-            data.put("ULD_TYPE", uld.getUldType() != null ? uld.getUldType().name() : "");
+            data.put("ULD_TYPE", uld.getUldType() != null ? uld.getUldType() : "");
             data.put("POSITION", nvl(uld.getPosition()));
             data.put("CONFIG", nvl(uld.getConfig()));
             data.put("SEAL", nvl(uld.getSealNumber()));

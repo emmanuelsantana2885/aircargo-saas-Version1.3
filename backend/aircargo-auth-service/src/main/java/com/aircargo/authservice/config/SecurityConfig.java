@@ -23,7 +23,8 @@ import static org.springframework.security.config.Customizer.withDefaults;
 public class SecurityConfig {
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, JwtUtil jwtUtil) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, JwtUtil jwtUtil,
+                                           com.aircargo.authservice.service.TokenRevocationService tokenRevocationService) throws Exception {
         http
             .cors(withDefaults())
             .csrf(AbstractHttpConfigurer::disable)
@@ -40,7 +41,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/commodity-types/**").hasAnyAuthority("ADMIN", "SUPER_USER")
                 .anyRequest().authenticated()
             )
-            .addFilterBefore(new JwtAuthFilter(jwtUtil), UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(new JwtAuthFilter(jwtUtil), UsernamePasswordAuthenticationFilter.class)
+            .addFilterAfter(new TokenRevocationFilter(jwtUtil, tokenRevocationService), JwtAuthFilter.class);
         return http.build();
     }
 }

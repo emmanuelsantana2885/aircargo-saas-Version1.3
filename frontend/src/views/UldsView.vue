@@ -100,7 +100,7 @@
                   </div>
                   <div class="flex items-center gap-2">
                     <span class="text-[13px] font-bold text-slate-400 uppercase">Volumen:</span>
-                    <input v-model.number="uld.volumePct" type="number" min="0" max="100" class="w-14 text-center bg-slate-100 border border-slate-300 rounded font-bold text-slate-950 focus:outline-none text-[14px]" />
+                    <input v-model.number="uld.volumePct" type="number" min="0" max="100" inputmode="decimal" class="w-20 text-center bg-slate-100 border border-slate-300 rounded font-bold text-slate-950 focus:outline-none text-[14px] pct-input" />
                     <span class="text-[14px] font-bold text-slate-950">%</span>
                   </div>
                 </div>
@@ -203,8 +203,8 @@
                         <span v-else>&mdash;</span>
                       </div>
                       <div class="col-span-1 text-center flex items-center justify-center gap-1">
-                        <input v-model.number="mawb.piecesPct" type="number" min="0" max="100"
-                          class="w-10 border-b border-slate-200 focus:outline-none focus:border-slate-950 py-1 text-center bg-transparent font-bold text-slate-600 text-[13px]" />
+                        <input v-model.number="mawb.piecesPct" type="number" min="0" max="100" inputmode="decimal"
+                          class="w-14 border-b border-slate-200 focus:outline-none focus:border-slate-950 py-1 text-center bg-transparent font-bold text-slate-600 text-[13px] pct-input" />
                         <span class="text-[13px] text-slate-400">%</span>
                       </div>
                       <div class="col-span-1 text-right">
@@ -387,6 +387,7 @@ import { useAppStore } from '../stores/app'
 import { uldsApi } from '../api/ulds'
 import { uldAwbsApi } from '../api/uldAwbs'
 import { uldTypeConfigApi } from '../api/uldTypeConfig'
+import { uldTypeCatalogApi } from '../api/uldTypeCatalog'
 import { useToastStore } from '../stores/toast'
 import { extractError } from '../utils/error'
 import { useI18n } from 'vue-i18n'
@@ -414,7 +415,19 @@ function airlineCodeById(airlineId) {
   return a?.code || 'AIR'
 }
 
-const uldTypes = ['PMC','PAH','PAG','PAJ','AAY','AAZ','AAD','PIP','BULK','AMP','AMJ']
+// Tipos ULD desde el catálogo dinámico (normas IATA); fallback a lista legacy
+const LEGACY_ULD_TYPES = ['PMC','PAH','PAG','PAJ','AAY','AAZ','AAD','PIP','BULK','AMP','AMJ']
+const uldTypes = ref([...LEGACY_ULD_TYPES])
+
+async function loadUldCatalog() {
+  try {
+    const res = await uldTypeCatalogApi.getAll(true)
+    const codes = (res.data || []).map(x => x.code)
+    if (codes.length) uldTypes.value = codes
+  } catch {
+    // se conserva el fallback legacy
+  }
+}
 
 const specialItems = [
   { id: 'spc-sdq-sdf', awbNumber: 'SDQ/SDF', shipperName: 'Ruta Doméstica SDQ→SDF', consigneeName: 'Ruta Doméstica SDQ→SDF', commodityType: 'SDQ_SDF', pieces: 0, destination: 'SDF', isSpecial: true },
@@ -630,7 +643,7 @@ async function onUldNumberScanned(code) {
   const upper = code.toUpperCase()
   uld.uldNumber = upper
   const prefix = upper.slice(0, 3)
-  if (uldTypes.includes(prefix)) {
+  if (uldTypes.value.includes(prefix)) {
     uld.uldType = prefix
   }
 
@@ -1127,6 +1140,7 @@ onMounted(async () => {
     loadCommodities(),
   ])
   loadTypeConfig()
+  loadUldCatalog()
   rebuildLocalList()
 })
 
@@ -1136,5 +1150,6 @@ watch(() => appStore.ulds, () => rebuildLocalList(), { deep: true })
 <style scoped>
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .row-selected { background: #f8fafc; }
 </style>

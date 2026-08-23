@@ -1,6 +1,5 @@
 package com.aircargo.uldservice.dto;
 
-import com.aircargo.uldservice.entity.UldType;
 import com.aircargo.uldservice.entity.UldTypeConfig;
 
 import java.math.BigDecimal;
@@ -11,7 +10,7 @@ public class UldTypeConfigDTO {
 
     private UUID id;
     private UUID airlineId;
-    private UldType uldType;
+    private String uldType;
     private BigDecimal defaultTareLbs;
     private BigDecimal maxGrossLbs;
     private String notes;
@@ -48,8 +47,8 @@ public class UldTypeConfigDTO {
     public void setId(UUID id) { this.id = id; }
     public UUID getAirlineId() { return airlineId; }
     public void setAirlineId(UUID airlineId) { this.airlineId = airlineId; }
-    public UldType getUldType() { return uldType; }
-    public void setUldType(UldType uldType) { this.uldType = uldType; }
+    public String getUldType() { return uldType; }
+    public void setUldType(String uldType) { this.uldType = uldType == null ? null : uldType.trim().toUpperCase(); }
     public BigDecimal getDefaultTareLbs() { return defaultTareLbs; }
     public void setDefaultTareLbs(BigDecimal defaultTareLbs) { this.defaultTareLbs = defaultTareLbs; }
     public BigDecimal getMaxGrossLbs() { return maxGrossLbs; }

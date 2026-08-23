@@ -3,6 +3,7 @@ package com.aircargo.uldservice.service;
 import com.aircargo.uldservice.dto.UldTypeConfigDTO;
 import com.aircargo.uldservice.entity.UldTypeConfig;
 import com.aircargo.uldservice.repository.UldTypeConfigRepository;
+import com.aircargo.uldservice.util.UldTypes;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
@@ -47,6 +48,9 @@ public class UldTypeConfigServiceImpl implements UldTypeConfigService {
         if (dto.getUldType() == null) {
             throw new IllegalArgumentException("uldType es obligatorio");
         }
+        if (!UldTypes.isValid(dto.getUldType())) {
+            throw new IllegalArgumentException("uldType inválido: use 3-5 caracteres alfanuméricos (ej. PMC, AKE). Regístrelo primero en el catálogo de tipos ULD");
+        }
         UldTypeConfig entity = UldTypeConfigDTO.toEntity(dto);
         entity.setId(UUID.randomUUID());
         return UldTypeConfigDTO.fromEntity(repository.save(entity));
@@ -83,6 +87,9 @@ public class UldTypeConfigServiceImpl implements UldTypeConfigService {
         repository.deleteByAirlineId(airlineId);
         return dtos.stream()
                 .map(dto -> {
+                    if (!UldTypes.isValid(dto.getUldType())) {
+                        throw new IllegalArgumentException("uldType inválido: " + dto.getUldType());
+                    }
                     dto.setId(UUID.randomUUID());
                     dto.setAirlineId(airlineId);
                     return UldTypeConfigDTO.fromEntity(repository.save(UldTypeConfigDTO.toEntity(dto)));

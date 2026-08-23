@@ -78,7 +78,7 @@ onMounted(() => {
     heartbeatInterval = setInterval(() => {
       usersApi.heartbeat().catch(() => {})
       checkNewReceipts()
-    }, 60000)
+    }, 30000)
   }
 })
 

@@ -1,5 +1,6 @@
 package com.aircargo.authservice.entity;
 
+import com.aircargo.common.crypto.CryptoAttributeConverter;
 import com.aircargo.common.entity.Airline;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
@@ -49,30 +50,31 @@ public class AppUser {
     private String passwordHash;
 
     @Column(name = "mfa_secret", length = 255)
+    @Convert(converter = CryptoAttributeConverter.class)
     private String mfaSecret;
 
     @Builder.Default
-    @Column(name = "mfa_enabled", nullable = false)
+    @Column(name = "mfa_enabled", nullable = false, columnDefinition = "boolean default false")
     private Boolean mfaEnabled = false;
 
     @Builder.Default
-    @Column(name = "mfa_locked", nullable = false)
+    @Column(name = "mfa_locked", nullable = false, columnDefinition = "boolean default false")
     private Boolean mfaLocked = false;
 
     @Builder.Default
-    @Column(name = "must_change_password", nullable = false)
+    @Column(name = "must_change_password", nullable = false, columnDefinition = "boolean default false")
     private Boolean mustChangePassword = true;
 
     @Builder.Default
-    @Column(name = "is_active", nullable = false)
+    @Column(name = "is_active", nullable = false, columnDefinition = "boolean default true")
     private Boolean isActive = true;
 
     @Builder.Default
-    @Column(name = "blocked", nullable = false)
+    @Column(name = "blocked", nullable = false, columnDefinition = "boolean default false")
     private Boolean blocked = false;
 
     @Builder.Default
-    @Column(name = "failed_login_attempts", nullable = false)
+    @Column(name = "failed_login_attempts", nullable = false, columnDefinition = "integer default 0")
     private Integer failedLoginAttempts = 0;
 
     @Column(name = "locked_until")
@@ -89,6 +91,10 @@ public class AppUser {
 
     @Column(name = "last_login")
     private OffsetDateTime lastLogin;
+
+    /** Revocación central: tokens con iat anterior a esta fecha son inválidos (null = sin restricción). */
+    @Column(name = "tokens_valid_from")
+    private OffsetDateTime tokensValidFrom;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false, nullable = false)

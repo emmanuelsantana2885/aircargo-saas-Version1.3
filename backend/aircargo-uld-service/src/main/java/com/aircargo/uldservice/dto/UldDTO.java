@@ -2,7 +2,6 @@ package com.aircargo.uldservice.dto;
 
 import com.aircargo.uldservice.entity.Uld;
 import com.aircargo.uldservice.entity.UldStatus;
-import com.aircargo.uldservice.entity.UldType;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -15,7 +14,7 @@ public class UldDTO {
     private UUID airlineId;
     private UUID flightId;
     private String uldNumber;
-    private UldType uldType;
+    private String uldType;
     private String position;
     private String config;
     private String sealNumber;
@@ -93,8 +92,8 @@ public class UldDTO {
     public void setFlightId(UUID flightId) { this.flightId = flightId; }
     public String getUldNumber() { return uldNumber; }
     public void setUldNumber(String uldNumber) { this.uldNumber = uldNumber; }
-    public UldType getUldType() { return uldType; }
-    public void setUldType(UldType uldType) { this.uldType = uldType; }
+    public String getUldType() { return uldType; }
+    public void setUldType(String uldType) { this.uldType = uldType == null ? null : uldType.trim().toUpperCase(); }
     public String getPosition() { return position; }
     public void setPosition(String position) { this.position = position; }
     public String getConfig() { return config; }

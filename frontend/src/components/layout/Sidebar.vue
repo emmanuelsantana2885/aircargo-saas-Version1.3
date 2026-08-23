@@ -102,7 +102,8 @@ import {
   IconUsers, IconSettings, IconApi,
   IconPlaneDeparture as IconLogo,
   IconLayoutSidebarFilled, IconLogout,
-  IconShield, IconCrown, IconTool, IconTruck, IconClipboard, IconUser, IconEye, IconKey,
+  IconCrownFilled, IconShieldLock, IconAirTrafficControl, IconArrowsExchange, IconScale, IconForklift,
+  IconUser, IconEye, IconKey,
 } from '@tabler/icons-vue'
 
 const route = useRoute()
@@ -116,13 +117,13 @@ const isTablet = ref(false)
 const showPasswordChange = ref(false)
 
 const roleConfig = {
-  SUPER_USER:        { icon: IconCrown,    bg: 'rgba(234,179,8,.15)',  fg: '#b45309' },
-  ADMIN:             { icon: IconShield,    bg: 'rgba(37,99,235,.12)',  fg: '#2563eb' },
-  OPERATIONS:        { icon: IconTruck,     bg: 'rgba(22,163,74,.12)',  fg: '#16a34a' },
-  TRAFFIC:           { icon: IconClipboard, bg: 'rgba(124,58,237,.12)', fg: '#7c3aed' },
-  LOAD_PLANNER:      { icon: IconRoute,     bg: 'rgba(7,148,148,.12)',  fg: '#0891b2' },
-  WAREHOUSE_ASSISTANT:{ icon: IconTool,     bg: 'rgba(217,119,6,.12)',  fg: '#d97706' },
-  READ_ONLY:         { icon: IconEye,       bg: 'rgba(100,116,139,.12)',fg: '#64748b' },
+  SUPER_USER:        { icon: IconCrownFilled,        bg: 'rgba(234,179,8,.15)',  fg: '#b45309' },
+  ADMIN:             { icon: IconShieldLock,         bg: 'rgba(37,99,235,.12)',  fg: '#2563eb' },
+  OPERATIONS:        { icon: IconAirTrafficControl,  bg: 'rgba(22,163,74,.12)',  fg: '#16a34a' },
+  TRAFFIC:           { icon: IconArrowsExchange,     bg: 'rgba(124,58,237,.12)', fg: '#7c3aed' },
+  LOAD_PLANNER:      { icon: IconScale,              bg: 'rgba(7,148,148,.12)',  fg: '#0891b2' },
+  WAREHOUSE_ASSISTANT:{ icon: IconForklift,          bg: 'rgba(217,119,6,.12)',  fg: '#d97706' },
+  READ_ONLY:         { icon: IconEye,                bg: 'rgba(100,116,139,.12)',fg: '#64748b' },
 }
 const roleIcon = computed(() => roleConfig[auth.role] || { icon: IconUser, bg: 'rgba(100,116,139,.12)', fg: '#64748b' })
 const roleLabel = computed(() => t(`users.roles.${auth.role}`) || auth.role?.replace('_', ' ') || '')

@@ -1,0 +1,1 @@
+{"nodes": [{"id": "$graphify-root$_database_migrations_v17_rename_supervisor_to_super_user_sql", "label": "V17__rename_supervisor_to_super_user.sql", "file_type": "code", "source_file": "database/migrations/V17__rename_supervisor_to_super_user.sql", "source_location": null}], "edges": []}

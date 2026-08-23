@@ -1,5 +1,6 @@
 package com.aircargo.warehouseservice.entity;
 
+import com.aircargo.common.crypto.CryptoAttributeConverter;
 import com.aircargo.common.entity.CommodityType;
 import jakarta.persistence.*;
 
@@ -120,42 +121,52 @@ public class WarehouseReceipt {
     private String deliveredByName;
 
     @Column(name = "delivered_by_id_num", length = 50)
+    @Convert(converter = CryptoAttributeConverter.class)
     private String deliveredByIdNum;
 
     @Column(name = "delivered_by_id_doc_url", columnDefinition = "TEXT")
+    @Convert(converter = CryptoAttributeConverter.class)
     private String deliveredByIdDocUrl;
 
     @Column(name = "delivered_by_sig_url", columnDefinition = "TEXT")
+    @Convert(converter = CryptoAttributeConverter.class)
     private String deliveredBySigUrl;
 
     @Column(name = "received_by_name", length = 150)
     private String receivedByName;
 
     @Column(name = "received_by_id_num", length = 50)
+    @Convert(converter = CryptoAttributeConverter.class)
     private String receivedByIdNum;
 
     @Column(name = "received_by_id_doc_url", columnDefinition = "TEXT")
+    @Convert(converter = CryptoAttributeConverter.class)
     private String receivedByIdDocUrl;
 
     @Column(name = "received_by_sig_url", columnDefinition = "TEXT")
+    @Convert(converter = CryptoAttributeConverter.class)
     private String receivedBySigUrl;
 
     @Column(name = "broker_name", length = 150)
     private String brokerName;
 
     @Column(name = "broker_id_num", length = 50)
+    @Convert(converter = CryptoAttributeConverter.class)
     private String brokerIdNum;
 
     @Column(name = "broker_id_doc_url", columnDefinition = "TEXT")
+    @Convert(converter = CryptoAttributeConverter.class)
     private String brokerIdDocUrl;
 
     @Column(name = "broker_sig_url", columnDefinition = "TEXT")
+    @Convert(converter = CryptoAttributeConverter.class)
     private String brokerSigUrl;
 
     @Column(name = "receipt_doc_url", columnDefinition = "TEXT")
     private String receiptDocUrl;
 
     @Column(name = "dock_signature", columnDefinition = "TEXT")
+    @Convert(converter = CryptoAttributeConverter.class)
     private String dockSignature;
 
     @Column(name = "supporting_docs", columnDefinition = "TEXT")

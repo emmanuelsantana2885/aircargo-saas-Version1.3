@@ -1,0 +1,1 @@
+{"nodes": [{"id": "$graphify-root$_backend_aircargo_export_service_src_main_resources_db_migration_v1_create_export_bi_schema_sql", "label": "V1__create_export_bi_schema.sql", "file_type": "code", "source_file": "backend/aircargo-export-service/src/main/resources/db/migration/V1__create_export_bi_schema.sql", "source_location": null}], "edges": []}
