@@ -36,7 +36,7 @@ public class AuditEventStore {
                     .entityType(entityType)
                     .entityId(entityId)
                     .payload(payload)
-                    .ipAddress(ipAddress)
+                    .ipAddress(com.aircargo.common.util.IpAnonymizer.truncate(ipAddress))
                     .build());
         } catch (Exception e) {
             log.error("Failed to append audit event {} for user {}: {}", eventType, email, e.getMessage());

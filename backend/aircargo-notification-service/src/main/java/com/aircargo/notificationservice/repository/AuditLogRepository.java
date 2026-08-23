@@ -8,4 +8,6 @@ import java.util.UUID;
 
 @Repository
 public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
+
+    long deleteByCreatedAtBefore(java.time.OffsetDateTime cutoff);
 }

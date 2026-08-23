@@ -264,4 +264,25 @@ class AuthControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").exists());
     }
+
+    @Test
+    void auditRetention_purgeEliminaEventosAnterioresAlCorte(@Autowired com.aircargo.authservice.config.AuditRetentionJob job) {
+        java.util.UUID userId = java.util.UUID.randomUUID();
+        // evento reciente (debe sobrevivir) y evento de hace 25 meses (debe eliminarse)
+        entityManager.createNativeQuery(
+            "INSERT INTO audit_event (id, event_type, created_at) VALUES (:id, 'TEST', now())")
+            .setParameter("id", java.util.UUID.randomUUID()).executeUpdate();
+        entityManager.createNativeQuery(
+            "INSERT INTO audit_event (id, event_type, created_at) VALUES (:id, 'TEST', DATEADD(MONTH, -25, now()))")
+            .setParameter("id", userId).executeUpdate();
+        entityManager.flush();
+        entityManager.clear();
+
+        job.purgeExpiredAudit();
+
+        Object recent = entityManager.createNativeQuery(
+            "SELECT count(*) FROM audit_event WHERE event_type='TEST'")
+            .getSingleResult();
+        org.junit.jupiter.api.Assertions.assertEquals(1L, ((Number) recent).longValue());
+    }
 }

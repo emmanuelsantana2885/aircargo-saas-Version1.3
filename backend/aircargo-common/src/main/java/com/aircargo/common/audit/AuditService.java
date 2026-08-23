@@ -43,11 +43,12 @@ public class AuditService {
 
     public void log(UUID userId, String email, String fullName, String action,
                     String entityType, String entityId, String details, String ipAddress) {
+        String safeIp = com.aircargo.common.util.IpAnonymizer.truncate(ipAddress);
         rabbitTemplate.ifPresent(rt -> {
             try {
                 rt.convertAndSend(exchange, AUDIT_ROUTING_KEY,
                         new AuditLogEvent(userId, email, fullName, action, entityType,
-                                entityId, TextUtil.safe(details), ipAddress));
+                                entityId, TextUtil.safe(details), safeIp));
             } catch (Exception e) {
                 log.warn("Audit publish failed (non-blocking): {}", e.getMessage());
             }

@@ -16,4 +16,6 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
 
     @Query("SELECT a FROM AuditLog a WHERE a.action IN :actions OR a.entityType = :entityType ORDER BY a.createdAt DESC")
     List<AuditLog> findSecurityEvents(@Param("actions") List<String> actions, @Param("entityType") String entityType);
+
+    long deleteByCreatedAtBefore(java.time.OffsetDateTime cutoff);
 }

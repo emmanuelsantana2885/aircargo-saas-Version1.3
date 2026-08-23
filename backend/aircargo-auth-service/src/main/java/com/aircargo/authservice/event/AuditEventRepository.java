@@ -23,4 +23,6 @@ public interface AuditEventRepository extends JpaRepository<AuditEvent, UUID> {
 
     @Query("SELECT e FROM AuditEvent e WHERE e.eventType IN :types OR e.entityType = :entityType ORDER BY e.createdAt DESC")
     List<AuditEvent> findSecurityEvents(@Param("types") List<String> types, @Param("entityType") String entityType);
+
+    long deleteByCreatedAtBefore(java.time.OffsetDateTime cutoff);
 }
