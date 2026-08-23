@@ -148,7 +148,7 @@ router.beforeEach((to) => {
   if (publicPaths.includes(to.path)) {
     if (stored) {
       const parsed = JSON.parse(stored)
-      if (parsed.token && parsed.selectedSiteId) {
+      if (parsed.userId && parsed.selectedSiteId) {
         return '/'
       }
     }
@@ -156,8 +156,8 @@ router.beforeEach((to) => {
   }
   if (to.path !== '/login' && stored) {
     try {
-      const { role, selectedSiteId, token } = JSON.parse(stored)
-      if (token && !selectedSiteId) {
+      const { role, selectedSiteId, userId } = JSON.parse(stored)
+      if (userId && !selectedSiteId) {
         return '/login'
       }
       if (role && to.meta?.view && !hasPermission(role, to.path)) {

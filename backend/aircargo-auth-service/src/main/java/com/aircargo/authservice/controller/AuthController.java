@@ -7,6 +7,7 @@ import com.aircargo.authservice.command.LoginOutcome;
 import com.aircargo.authservice.command.PasswordOutcome;
 import com.aircargo.authservice.command.SetPasswordCommand;
 import com.aircargo.authservice.command.SetPasswordCommandHandler;
+import com.aircargo.common.auth.CookieAuthSupport;
 import com.aircargo.common.auth.JwtUtil;
 import com.aircargo.common.auth.UserPrincipal;
 import com.aircargo.authservice.dto.ChangePasswordRequest;
@@ -24,6 +25,7 @@ import com.aircargo.authservice.service.PasswordResetService;
 import com.aircargo.authservice.service.TokenRevocationService;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -62,6 +64,9 @@ public class AuthController {
     private final CacheManager cacheManager;
     private final PasswordResetService passwordResetService;
     private final TokenRevocationService tokenRevocationService;
+
+    @org.springframework.beans.factory.annotation.Value("${app.jwt.cookie-secure:false}")
+    private boolean cookieSecure;
     private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
     public AuthController(LoginCommandHandler loginHandler,
@@ -96,7 +101,7 @@ public class AuthController {
                 new LoginCommand(request.email(), request.password(), request.totpCode(),
                         servletRequest.getRemoteAddr()));
         return switch (outcome.status()) {
-            case SUCCESS -> ResponseEntity.ok(outcome.body());
+            case SUCCESS -> withCookies(outcome.body(), 200);
             case INVALID_CREDENTIALS -> ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(outcome.errorBody());
             case INACTIVE, LOCKED, BLOCKED, MFA_LOCKED -> ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(outcome.errorBody());
@@ -107,8 +112,13 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<?> refresh(@RequestBody Map<String, String> body) {
-        String refreshToken = body.get("refreshToken");
+    public ResponseEntity<?> refresh(@RequestBody(required = false) Map<String, String> body,
+                                     HttpServletRequest servletRequest) {
+        // El refresh token llega por cookie httpOnly (o body por compatibilidad)
+        String refreshToken = CookieAuthSupport.extractToken(servletRequest, CookieAuthSupport.REFRESH_COOKIE);
+        if (refreshToken == null || refreshToken.isBlank()) {
+            refreshToken = body != null ? body.get("refreshToken") : null;
+        }
         if (refreshToken == null || refreshToken.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "Refresh token required"));
         }
@@ -155,10 +165,10 @@ public class AuthController {
             );
             String newRefreshToken = jwtUtil.generateRefreshToken(user.getId().toString());
 
-            return ResponseEntity.ok(Map.of(
+            return withCookies(Map.of(
                     "token", newAccessToken,
                     "refreshToken", newRefreshToken
-            ));
+            ), 200);
 
         } catch (Exception e) {
             log.warn("Refresh token validation failed: {}", e.getMessage());
@@ -220,10 +230,10 @@ public class AuthController {
                 user.getEmail(),
                 user.getFullName()
         );
-        return ResponseEntity.ok(java.util.Map.of(
+        return withCookies(java.util.Map.of(
                 "message", "Contraseña establecida correctamente",
                 "token", jwt
-        ));
+        ), 200);
     }
 
     public record ResetTokenValidateRequest(@jakarta.validation.constraints.NotBlank String token) {}
@@ -231,6 +241,32 @@ public class AuthController {
     public record SetPasswordByTokenRequest(
             @jakarta.validation.constraints.NotBlank String token,
             @jakarta.validation.constraints.NotBlank @com.aircargo.common.validation.StrongPassword String newPassword) {}
+
+
+    private ResponseEntity<?> withCookies(Object body, int status) {
+        ResponseEntity.BodyBuilder builder = ResponseEntity.status(status);
+        String access = null;
+        String refresh = null;
+        if (body instanceof java.util.Map<?, ?> map) {
+            Object a = map.get("token");
+            Object r = map.get("refreshToken");
+            if (a instanceof String s) access = s;
+            if (r instanceof String s) refresh = s;
+        } else if (body instanceof LoginResponse lr) {
+            access = lr.token();
+            refresh = lr.refreshToken();
+        }
+        if (access != null && !access.isBlank()) {
+            builder.header("Set-Cookie", CookieAuthSupport.build(
+                    CookieAuthSupport.ACCESS_COOKIE, access, "/", cookieSecure, 3600));
+        }
+        if (refresh != null && !refresh.isBlank()) {
+            builder.header("Set-Cookie", CookieAuthSupport.build(
+                    CookieAuthSupport.REFRESH_COOKIE, refresh,
+                    CookieAuthSupport.REFRESH_PATH, cookieSecure, 604800));
+        }
+        return builder.body(body);
+    }
 
     @PostMapping("/set-password")
     public ResponseEntity<?> setPassword(@Valid @RequestBody SetPasswordRequest request,
@@ -256,7 +292,7 @@ public class AuthController {
 
     private ResponseEntity<?> mapPasswordOutcome(PasswordOutcome outcome) {
         return switch (outcome.status()) {
-            case SUCCESS -> ResponseEntity.ok(outcome.body());
+            case SUCCESS -> withCookies(outcome.body(), 200);
             case USER_NOT_FOUND -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(outcome.body());
             case USER_GONE -> ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             case INACTIVE, MFA_NOT_CONFIGURED, MFA_ACCOUNT_LOCKED -> ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -316,7 +352,8 @@ public class AuthController {
     @PostMapping("/logout")
     public ResponseEntity<?> logout(@AuthenticationPrincipal UserPrincipal principal,
                                     @RequestBody(required = false) Map<String, String> body,
-                                    HttpServletRequest servletRequest) {
+                                    HttpServletRequest servletRequest,
+                                    HttpServletResponse servletResponse) {
         String authHeader = servletRequest.getHeader("Authorization");
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             jwtUtil.revokeToken(authHeader.substring(7));
@@ -331,6 +368,7 @@ public class AuthController {
                     "LOGOUT", "USER", principal.getUserIdAsUuid().toString(), null,
                     servletRequest.getRemoteAddr());
         }
+        CookieAuthSupport.clear(servletResponse, cookieSecure);
         return ResponseEntity.ok(Map.of("message", "Sesión cerrada correctamente"));
     }
 

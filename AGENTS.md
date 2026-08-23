@@ -91,6 +91,12 @@ Full plan: `Documents/MICROSERVICES-MIGRATION-PLAN.md`
 ## Recent session changes (Aug 22, 2026 (3) — secret.yml fuera del repo)
 `k8s/secret.yml` (manifest K8s con placeholders `${POSTGRES_USER}/${POSTGRES_PASSWORD}/${JWT_SECRET}`, sin valores reales) movido a `~/Desktop/Projects/Rannik/aircargo-deploy-secrets/secret.yml` — carpeta hermana FUERA del proyecto. `.gitignore` ahora bloquea `k8s/secret*.yml` para evitar re-creación accidental. Los demás manifests de `k8s/` referencian el Secret por nombre (`aircargo-secrets`) así que no requieren cambios; al desplegar hay que aplicar la carpeta externa además de `k8s/`. Motivación: Graphify lo marcó como archivo potencialmente sensible durante el indexado del grafo.
 
+## Recent session changes (Aug 23, 2026 (18) — Mayor D resuelta: Logging con rotación)
+- Los 10 servicios ahora escriben a `~/aircargo-logs/<nombre>.log` vía política nativa Logback de Spring Boot (sin XML): **10 MB/archivo, 14 días de histórico, cap total 200 MB**, rotados comprimidos `.gz`. Redirigible con `LOG_DIR` en despliegue.
+- `start-all.sh` ya no acumula stdout en `/tmp` (`> /dev/null`); los hints de tail-logs apuntan a la nueva ruta. El fallback de diagnóstico del gateway mantiene lectura de /tmp como segunda opción.
+- Centralización mínima en single-host = un solo directorio con todos los logs; para multi-instancia se recomienda Loki/ELK (fuera de alcance actual).
+- Verificado: stack completo relanzado, 10 archivos creados y escribiendo, login E2E OK.
+
 ## Recent session changes (Aug 23, 2026 (17) — Mayor C resuelta: Frontend resiliente + tests)
 - **`components/ErrorBoundary.vue`**: captura errores de render de las vistas (`onErrorCaptured` → fallback con título/mensaje/Reintentar/Inicio; navegar limpia el estado). Envuelve ambos `router-view` en App.vue. `main.js`: `app.config.errorHandler` global como última red.
 - **Infra de tests (antes cero)**: vitest + @vue/test-utils + happy-dom; script `npm test`; bloque `test:` en vite.config.js. Tests en `frontend/tests/*.spec.js`.

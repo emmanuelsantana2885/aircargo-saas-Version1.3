@@ -105,7 +105,7 @@ async function submit() {
       form.value.totpCode || undefined
     )
     if (res.data.token) {
-      auth.token = res.data.token
+      // el nuevo token se recibe como cookie httpOnly; nada que guardar en JS
       auth.persist()
     }
     auth.mustChangePassword = false

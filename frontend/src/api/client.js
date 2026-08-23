@@ -2,72 +2,49 @@ import axios from 'axios'
 import { useToastStore } from '../stores/toast'
 import { handleApiError } from '../utils/error'
 
+// Los tokens viajan en cookies httpOnly: el navegador los envía solo.
+// Este cliente solo gestiona el refresh transparente ante un 401.
 const api = axios.create({
   baseURL: '/api',
-  headers: { 'Content-Type': 'application/json' }
+  headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
 })
 
 let isRefreshing = false
 let failedQueue = []
 
-function processQueue(error, token) {
-  failedQueue.forEach(p => {
-    if (error) p.reject(error)
-    else p.resolve(token)
-  })
+function processQueue(error) {
+  failedQueue.forEach(p => (error ? p.reject(error) : p.resolve()))
   failedQueue = []
 }
 
-api.interceptors.request.use(config => {
-  const stored = localStorage.getItem('aircargo_auth')
-  if (stored) {
-    try {
-      const { token } = JSON.parse(stored)
-      if (token) config.headers.Authorization = `Bearer ${token}`
-    } catch {}
-  }
-  return config
-})
+function clearLocalSession() {
+  localStorage.removeItem('aircargo_auth')
+  window.location.href = '/login'
+}
 
 api.interceptors.response.use(
   res => res,
   async err => {
     const originalRequest = err.config
-    if (err.response?.status === 401 && !originalRequest._retry) {
+    if (err.response?.status === 401 && !originalRequest._retry
+        && !originalRequest.url?.includes('/auth/refresh')) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject })
-        }).then(token => {
-          originalRequest.headers.Authorization = `Bearer ${token}`
-          return api(originalRequest)
-        })
+        }).then(() => api(originalRequest))
       }
       originalRequest._retry = true
       isRefreshing = true
 
       try {
-        const stored = localStorage.getItem('aircargo_auth')
-        if (stored) {
-          const { refreshToken } = JSON.parse(stored)
-          if (refreshToken) {
-            const res = await axios.post('/api/auth/refresh', { refreshToken })
-            const newToken = res.data.accessToken || res.data.token
-            const newRefresh = res.data.refreshToken || refreshToken
-
-            const authData = JSON.parse(stored)
-            authData.token = newToken
-            authData.refreshToken = newRefresh
-            localStorage.setItem('aircargo_auth', JSON.stringify(authData))
-
-            processQueue(null, newToken)
-            originalRequest.headers.Authorization = `Bearer ${newToken}`
-            return api(originalRequest)
-          }
-        }
+        // el refresh token viaja en su cookie httpOnly; no se envía nada en el body
+        await axios.post('/api/auth/refresh', {}, { withCredentials: true })
+        processQueue(null)
+        return api(originalRequest)
       } catch (refreshErr) {
-        processQueue(refreshErr, null)
-        localStorage.removeItem('aircargo_auth')
-        window.location.href = '/login'
+        processQueue(refreshErr)
+        clearLocalSession()
         return Promise.reject(refreshErr)
       } finally {
         isRefreshing = false

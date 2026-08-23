@@ -207,7 +207,7 @@ async function handleChangePassword() {
 
     // Update token if returned
     if (res.data.token) {
-      auth.token = res.data.token
+      // el nuevo token se recibe como cookie httpOnly; nada que guardar en JS
       auth.mustChangePassword = false
       auth.persist()
     }

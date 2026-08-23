@@ -14,9 +14,9 @@ function loadStored() {
 }
 
 export const useAuthStore = defineStore('auth', () => {
+  // Los tokens viven en cookies httpOnly (no accesibles por JS).
+  // Aquí solo se persiste el perfil no sensible para la UI.
   const stored = loadStored()
-  const token = ref(stored?.token || '')
-  const refreshToken = ref(stored?.refreshToken || '')
   const userId = ref(stored?.userId || null)
   const email = ref(stored?.email || '')
   const fullName = ref(stored?.fullName || '')
@@ -28,8 +28,8 @@ export const useAuthStore = defineStore('auth', () => {
   const mfaEnabled = ref(stored?.mfaEnabled ?? false)
   const mustChangePassword = ref(stored?.mustChangePassword ?? false)
 
-  const isAuthenticated = computed(() => !!token.value && !!selectedSiteId.value)
-  const hasToken = computed(() => !!token.value)
+  const isAuthenticated = computed(() => !!userId.value && !!selectedSiteId.value)
+  const hasSession = computed(() => !!userId.value)
   const initials = computed(() => {
     if (!fullName.value) return '??'
     return fullName.value.split(' ').map(s => s[0]).join('').toUpperCase().slice(0, 2)
@@ -41,8 +41,6 @@ export const useAuthStore = defineStore('auth', () => {
 
   function persist() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      token: token.value,
-      refreshToken: refreshToken.value,
       userId: userId.value,
       email: email.value,
       fullName: fullName.value,
@@ -56,27 +54,9 @@ export const useAuthStore = defineStore('auth', () => {
     }))
   }
 
-  async function doRefreshToken() {
-    if (!refreshToken.value) return false
-    try {
-      const res = await authApi.refresh(refreshToken.value)
-      const data = res.data
-      token.value = data.accessToken || data.token
-      refreshToken.value = data.refreshToken || refreshToken.value
-      persist()
-      return true
-    } catch (e) {
-      console.warn('Refresh token failed, logging out:', e)
-      logout()
-      return false
-    }
-  }
-
   async function login(loginEmail, password, totpCode) {
     const res = await authApi.login(loginEmail, password, totpCode)
     const data = res.data
-    token.value = data.token
-    refreshToken.value = data.refreshToken || ''
     userId.value = data.userId
     email.value = data.email
     fullName.value = data.fullName
@@ -87,7 +67,7 @@ export const useAuthStore = defineStore('auth', () => {
     selectedSiteId.value = null
     mfaEnabled.value = data.mfaEnabled ?? false
     mustChangePassword.value = data.mustChangePassword ?? false
-    persist()
+    persist()   // los tokens ya fueron emitidos como cookies httpOnly
     return data
   }
 
@@ -113,14 +93,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  function logout() {
-    const tk = token.value
-    const rt = refreshToken.value
-    if (tk) {
-      authApi.logout(rt).catch(() => {})
-    }
-    token.value = ''
-    refreshToken.value = ''
+  function clearProfile() {
     userId.value = null
     email.value = ''
     fullName.value = ''
@@ -132,6 +105,11 @@ export const useAuthStore = defineStore('auth', () => {
     mfaEnabled.value = false
     mustChangePassword.value = false
     localStorage.removeItem(STORAGE_KEY)
+  }
+
+  async function logout() {
+    authApi.logout().catch(() => {})   // el backend limpia las cookies y revoca
+    clearProfile()
   }
 
   function canView(viewName) {
@@ -150,10 +128,10 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   return {
-    token, refreshToken, userId, email, fullName, role, airlineId, hasPasswordSet,
+    userId, email, fullName, role, airlineId, hasPasswordSet,
     sites, selectedSiteId, selectedSite, mfaEnabled, mustChangePassword,
-    isAuthenticated, hasToken, initials,
+    isAuthenticated, hasSession, initials,
     login, confirmSite, logout, canView,
-    refreshProfile, persist, doRefreshToken,
+    refreshProfile, persist, clearProfile,
   }
 })

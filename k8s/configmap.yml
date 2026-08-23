@@ -13,5 +13,6 @@ data:
   FRONTEND_URL: https://aircargo.[TU-DOMINIO]
   # Orígenes permitidos para CORS (coma-separados)
   CORS_ORIGINS: https://aircargo.[TU-DOMINIO]
+  COOKIE_SECURE: "true"
   SMTP_AUTH: "true"
   SMTP_STARTTLS: "true"

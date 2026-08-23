@@ -54,6 +54,12 @@ public class JwtGatewayFilter implements GlobalFilter, Ordered {
             token = apiKey;
         } else if (authHeader != null && authHeader.startsWith("Bearer ")) {
             token = authHeader.substring(7);
+        } else {
+            // Fallback a cookie httpOnly (autenticación por cookies)
+            var cookies = request.getCookies();
+            if (cookies != null && cookies.containsKey("aircargo_at")) {
+                token = cookies.getFirst("aircargo_at").getValue();
+            }
         }
 
         if (token == null || token.isBlank()) {
