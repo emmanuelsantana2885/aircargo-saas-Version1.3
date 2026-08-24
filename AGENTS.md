@@ -98,6 +98,12 @@ Causas (ambas frontend, el backend ya soportaba null): (1) la sección `floating
 - **Caso borde cubierto**: si el ULD desasignado queda en estado OPEN no aparece en la franja flotante (filtro existente excluye OPEN) → se hace PATCH a IN_RAMP para mantenerlo visible.
 - E2E: PATCH flightId=null → flight_id NULL en BD ✓ y restauración del vuelo OK. Lint/build OK.
 
+## Recent session changes (Aug 24, 2026 (24) — Logout automático por inactividad 10 min)
+- **`composables/useIdleLogout.js`**: eventos de actividad (pointer/key/wheel/touch/scroll) reinician el timer; aviso a los **8 min** (`components/IdleWarningModal.vue` con cuenta regresiva + "Seguir trabajando" que re-anuncia heartbeat); a los **10 min** → snapshot de formularios → `auth.logout()` (revoca cookies/sesión) → `/login?idle=1`.
+- **Preservación de datos**: `utils/formDraft.js` captura TODOS los input/textarea/select visibles con firma estructural a sessionStorage; tras re-login, LoginView ofrece restauración (re-dispatch de input/change actualiza los v-model) y retorna a la vista original. `sessionStorage`: draft + return_to.
+- Integrado en App.vue (`watch isAuthenticated` start/stop + modal). i18n `idle.*` es/en. Backend: access token TTL 1h→**15 min** defense-in-depth (el límite UX lo fija el cliente en 10).
+- Nota: snapshot estructural — campos con firma distinta al restaurar se omiten (seguro).
+
 ## Recent session changes (Aug 24, 2026 (23) — Fix 500 en descargas de recibos)
 **Causa**: el cifrado AES de la debilidad #2 expande las cédulas (~1.8x) y ya no cabían en `delivered/received/broker_id_num VARCHAR(50)` → cualquier guardado del recibo (incluida la regeneración de artefactos al exportar) fallaba con "value too long".
 - **`V3__widen_id_num_columns_for_encryption.sql`** (warehouse, ≡ raíz V48): las 3 columnas → **VARCHAR(200)**; entidad actualizada a length=200 para `ddl-auto=validate`.
