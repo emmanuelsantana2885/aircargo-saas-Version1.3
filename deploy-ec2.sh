@@ -32,7 +32,7 @@ fi
 
 # ── 2. Clone repo ──────────────────────────────
 APP_DIR="$HOME/aircargo-saas"
-REPO_URL="https://github.com/emmanuelsantana2885/aircargo-saas-Version1.2.git"
+REPO_URL="https://github.com/emmanuelsantana2885/aircargo-saas-Version1.3.git"
 
 if [ -d "$APP_DIR/.git" ]; then
   echo "▸ Pulling latest changes..."
@@ -54,6 +54,7 @@ if [ ! -f "$APP_DIR/.env" ] || grep -q "CHANGE_ME" "$APP_DIR/.env" 2>/dev/null; 
   DB_PASS=$(openssl rand -hex 16)
   JWT_SECRET=$(openssl rand -hex 32)
   RMQ_PASS=$(openssl rand -hex 16)
+  ENC_KEY=$(openssl rand -base64 32)
 
   cat > "$APP_DIR/.env" <<EOF
 # ── PostgreSQL ─────────────────────────────────────
@@ -68,6 +69,17 @@ RABBITMQ_PASSWORD=${RMQ_PASS}
 
 # ── JWT (min 32 chars) ────────────────────────────
 JWT_SECRET=${JWT_SECRET}
+
+# ── Cifrado en reposo (mfaSecret/cédulas/firmas) ──
+APP_ENCRYPTION_KEY=${ENC_KEY}
+
+# ── Reset de contraseñas / cookies ────────────────
+FRONTEND_URL=http://${PUBLIC_IP}
+COOKIE_SECURE=false
+
+# ── SMTP (mail del cliente) ───────────────────────
+SMTP_AUTH=true
+SMTP_STARTTLS=true
 
 # ── Ports (host) ──────────────────────────────────
 FRONTEND_PORT=80
