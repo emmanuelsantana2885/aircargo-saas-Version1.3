@@ -38,6 +38,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/ulds/**", "/api/uld-awbs/**", "/api/uld-type-config/**", "/api/uld-type-catalog/**", "/api/scan/**").hasAnyAuthority("OPERATIONS", "TRAFFIC", "LOAD_PLANNER", "ADMIN", "SUPER_USER")
                 .anyRequest().authenticated()
             )
+            .exceptionHandling(eh -> eh.authenticationEntryPoint(
+                new org.springframework.security.web.authentication.HttpStatusEntryPoint(org.springframework.http.HttpStatus.UNAUTHORIZED)))
             .addFilterBefore(new JwtAuthFilter(jwtUtil, jdbcTemplate), UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

@@ -33,6 +33,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/notifications/**").hasAnyAuthority("ADMIN", "SUPER_USER")
                 .anyRequest().authenticated()
             )
+            .exceptionHandling(eh -> eh.authenticationEntryPoint(
+                new org.springframework.security.web.authentication.HttpStatusEntryPoint(org.springframework.http.HttpStatus.UNAUTHORIZED)))
             .addFilterBefore(new JwtAuthFilter(jwtUtil, jdbcTemplate), UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

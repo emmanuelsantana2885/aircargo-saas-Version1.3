@@ -34,6 +34,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/load-planning/**").hasAnyAuthority("OPERATIONS", "TRAFFIC", "LOAD_PLANNER", "ADMIN", "SUPER_USER")
                 .anyRequest().authenticated()
             )
+            .exceptionHandling(eh -> eh.authenticationEntryPoint(
+                new org.springframework.security.web.authentication.HttpStatusEntryPoint(org.springframework.http.HttpStatus.UNAUTHORIZED)))
             .addFilterBefore(new JwtAuthFilter(jwtUtil), UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
