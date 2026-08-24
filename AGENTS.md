@@ -91,6 +91,13 @@ Full plan: `Documents/MICROSERVICES-MIGRATION-PLAN.md`
 ## Recent session changes (Aug 22, 2026 (3) — secret.yml fuera del repo)
 `k8s/secret.yml` (manifest K8s con placeholders `${POSTGRES_USER}/${POSTGRES_PASSWORD}/${JWT_SECRET}`, sin valores reales) movido a `~/Desktop/Projects/Rannik/aircargo-deploy-secrets/secret.yml` — carpeta hermana FUERA del proyecto. `.gitignore` ahora bloquea `k8s/secret*.yml` para evitar re-creación accidental. Los demás manifests de `k8s/` referencian el Secret por nombre (`aircargo-secrets`) así que no requieren cambios; al desplegar hay que aplicar la carpeta externa además de `k8s/`. Motivación: Graphify lo marcó como archivo potencialmente sensible durante el indexado del grafo.
 
+## Recent session changes (Aug 23, 2026 (20) — Corrección definitiva de la clase 403/401 + guard de entrega)
+**Causa raíz de los 403 masivos**: solo booking-service tenía `HttpStatusEntryPoint(UNAUTHORIZED)`; los demás servicios devolvían **403** a peticiones anónimas (entry point por defecto de Spring Security), así que el refresh transparente del frontend (que se dispara con 401) nunca actuaba al expirar la cookie.
+- **Fix aplicado en los 9 SecurityConfigs**: `.exceptionHandling(eh -> eh.authenticationEntryPoint(new HttpStatusEntryPoint(UNAUTHORIZED)))` — anónimo = 401 siempre; verificado: /api/users, /flights/list, /ulds, /mawbs, load-planning → 401 ✓.
+- **`SecurityConfigConsistencyTest`** (common): guard que escanea el SecurityConfig de cada módulo y falla el build si falta el entry point 401, si un servicio con BD no pasa jdbcTemplate al JwtAuthFilter (revocación por-request), o si reaparece @CrossOrigin. Load-planning (sin BD) validado con filtro de un argumento. Acepta import FQN o estático. Este tipo de desalineación ya no puede llegar a producción sin romper el build.
+- **`scripts/smoke-e2e.sh`**: batería de entrega con 22 comprobaciones (infra, health×9, login inválido→401 genérico, anónimo→401 en endpoints clave, login real→cookies httpOnly→acceso autorizado, Vite). Uso: `ADMIN_EMAIL=… ADMIN_PASS=… ./scripts/smoke-e2e.sh`. Exit 0 = entregable.
+- Regresión final: reactor **86 tests** BUILD SUCCESS (common 16 incl. guard, auth 23, flight 11, booking 7, mawb 11, warehouse 4, uld 11, gateway 3); frontend lint 0 errores, build OK, vitest 8/8; SMOKE E2E 22/22.
+
 ## Recent session changes (Aug 23, 2026 (19) — Residuales R1+R2: Cookies httpOnly + revocación en todos los servicios)
 **R1 — Tokens fuera de localStorage (mitiga XSS):**
 - `common/auth/CookieAuthSupport`: `aircargo_at` (Path=/, 1h) y `aircargo_rt` (Path=/api/auth, 7d), httpOnly + SameSite=Lax + Secure configurable (`app.jwt.cookie-secure` / env `COOKIE_SECURE`, true en k8s configmap).
