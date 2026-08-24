@@ -1,13 +1,6 @@
 FROM maven:3.9.9-eclipse-temurin-21-alpine AS builder
 WORKDIR /build
-COPY pom.xml .
-COPY aircargo-common/pom.xml aircargo-common/
-COPY aircargo-common/src aircargo-common/src
-COPY aircargo-feign-clients/pom.xml aircargo-feign-clients/
-COPY aircargo-feign-clients/src aircargo-feign-clients/src
-COPY aircargo-warehouse-service/pom.xml aircargo-warehouse-service/
-RUN mvn dependency:go-offline -B -pl aircargo-warehouse-service -am
-COPY aircargo-warehouse-service/src aircargo-warehouse-service/src
+COPY . .
 RUN mvn package -B -pl aircargo-warehouse-service -am -DskipTests
 
 FROM eclipse-temurin:21-jre-alpine
