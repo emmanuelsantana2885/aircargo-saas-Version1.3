@@ -56,6 +56,16 @@ export default {
   },
 
   privacy: { title: 'Privacy Policy', version: 'Version', link: 'Privacy Policy' },
+  idle: {
+    title: 'Session about to expire',
+    message: 'We detected no activity. Your session will close in:',
+    preserve: 'Your unsaved work will be preserved and available after signing back in.',
+    continue: 'Keep working',
+    logoutNow: 'Sign out now',
+    expired: 'Your session was closed due to inactivity. Sign back in to continue where you left off.',
+    restored: 'Draft restored ({n} fields)',
+  },
+
   filterBar: {
     period: 'Period',
     from: 'From',

@@ -56,6 +56,16 @@ export default {
   },
 
   privacy: { title: 'Política de Privacidad', version: 'Versión', link: 'Política de Privacidad' },
+  idle: {
+    title: 'Sesión por cerrar',
+    message: 'No detectamos actividad. Tu sesión se cerrará en:',
+    preserve: 'Tu trabajo sin guardar se conservará y podrás continuarlo al volver a entrar.',
+    continue: 'Seguir trabajando',
+    logoutNow: 'Cerrar sesión ahora',
+    expired: 'Tu sesión se cerró por inactividad. Vuelve a iniciar sesión para continuar donde quedaste.',
+    restored: 'Borrador restaurado ({n} campos)',
+  },
+
   filterBar: {
     period: 'Periodo',
     from: 'Desde',

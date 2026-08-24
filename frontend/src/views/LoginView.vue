@@ -1,7 +1,10 @@
 <template>
   <div class="min-h-screen flex items-center justify-center p-3 md:p-8" style="background: var(--bg)">
     <div class="w-full max-w-sm p-6 md:p-8 rounded-lg shadow-md" style="background: var(--surface); border: 1px solid var(--border)">
-      <template v-if="step === 'credentials'">
+      <div v-if="route.query.idle === '1'" class="mb-4 p-3 rounded-xl text-[12.5px]" style="background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn)">
+          {{ t('idle.expired') }}
+        </div>
+        <template v-if="step === 'credentials'">
         <div class="text-center mb-6">
           <div class="w-12 h-12 rounded-lg flex items-center justify-center mx-auto mb-3" style="background: var(--accent)">
             <IconPlaneDeparture :size="28" color="white" :stroke-width="2" />
@@ -277,17 +280,33 @@ function proceedAfterLogin() {
   if (auth.sites.length === 1) {
     selectedSite.value = auth.sites[0].id
     auth.confirmSite(selectedSite.value)
-    router.push('/')
+    navigateAfterSiteConfirm()
     return
   }
   selectedSite.value = auth.sites[0].id
   step.value = 'site-select'
 }
 
+import { popReturnTo, loadDraft, restoreForms } from '@/utils/formDraft'
+
+function navigateAfterSiteConfirm() {
+  const draft = loadDraft()
+  if (draft && draft.route && draft.forms?.length) {
+    router.push(draft.route)
+    setTimeout(() => {
+      const n = restoreForms(draft.forms)
+      clearDraft()
+      if (n > 0) toast.success(t('idle.restored', { n }))
+    }, 600)
+    return
+  }
+  router.push(popReturnTo() || '/')
+}
+
 function handleSiteConfirm() {
   if (!selectedSite.value) return
   auth.confirmSite(selectedSite.value)
-  router.push('/')
+  navigateAfterSiteConfirm()
 }
 
 function handleBackToLogin() {

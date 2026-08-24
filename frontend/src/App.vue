@@ -11,6 +11,12 @@
     </div>
   </div>
   <router-view v-else />
+  <IdleWarningModal
+    v-if="idleWarningSeconds !== null && idleWarningSeconds >= 0"
+    :seconds-left="idleWarningSeconds ?? 0"
+    @continue="continueWorkingSafe"
+    @logout-now="expireIdleSession"
+  />
   <ToastNotifications />
 </template>
 
@@ -23,6 +29,8 @@ import ErrorBoundary from './components/ErrorBoundary.vue'
 import Sidebar from './components/layout/Sidebar.vue'
 import Header from './components/layout/Header.vue'
 import ToastNotifications from './components/ToastNotifications.vue'
+import IdleWarningModal from './components/IdleWarningModal.vue'
+import { useIdleLogout } from './composables/useIdleLogout'
 import { usersApi } from './api/users'
 import api from './api/client'
 import { initTheme } from './utils/theme'
@@ -37,6 +45,29 @@ const sidebarRef = ref(null)
 let heartbeatInterval
 const prevReceiptCount = ref(0)
 const NOTIFY_ROLES = ['TRAFFIC', 'OPERATIONS', 'SUPER_USER', 'ADMIN']
+
+async function expireIdleSession() {
+  auth.logout()
+  window.location.href = '/login?idle=1'   // recarga limpia: garantiza estado fresco
+}
+
+const {
+  start: startIdleLogout,
+  stop: stopIdleLogout,
+  continueWorking: continueWorkingRaw,
+  warningSeconds: idleWarningSeconds,
+} = useIdleLogout(expireIdleSession)
+
+function continueWorkingSafe() {
+  continueWorkingRaw()
+}
+
+import { watch } from 'vue'
+watch(() => auth.isAuthenticated, (authed) => {
+  if (authed) startIdleLogout(); else stopIdleLogout()
+}, { immediate: true })
+
+
 
 function toggleSidebar() {
   if (sidebarRef.value) {
