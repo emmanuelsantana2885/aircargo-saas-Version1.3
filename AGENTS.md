@@ -91,6 +91,13 @@ Full plan: `Documents/MICROSERVICES-MIGRATION-PLAN.md`
 ## Recent session changes (Aug 22, 2026 (3) — secret.yml fuera del repo)
 `k8s/secret.yml` (manifest K8s con placeholders `${POSTGRES_USER}/${POSTGRES_PASSWORD}/${JWT_SECRET}`, sin valores reales) movido a `~/Desktop/Projects/Rannik/aircargo-deploy-secrets/secret.yml` — carpeta hermana FUERA del proyecto. `.gitignore` ahora bloquea `k8s/secret*.yml` para evitar re-creación accidental. Los demás manifests de `k8s/` referencian el Secret por nombre (`aircargo-secrets`) así que no requieren cambios; al desplegar hay que aplicar la carpeta externa además de `k8s/`. Motivación: Graphify lo marcó como archivo potencialmente sensible durante el indexado del grafo.
 
+## Recent session changes (Aug 23, 2026 (22) — Fix drag & drop de ULD a franja flotante)
+**Bug**: arrastrar un ULD asignado del load plan hacia la franja de ULDs flotantes no hacía nada — el ULD seguía en el manifiesto.
+Causas (ambas frontend, el backend ya soportaba null): (1) la sección `floating-drop-zone` no tenía `@dragover/@drop`; (2) `reassignFlight` hacía `return` silencioso si `flightId` era null.
+- **Fix**: handlers de drop en la franja (`onDropFloating` con feedback visual ring+bg), guard relajado para aceptar `flightId: null`, lectura del id arrastrado desde ambos orígenes (`draggedUldId` de tarjetas y `rowDragging` de filas).
+- **Caso borde cubierto**: si el ULD desasignado queda en estado OPEN no aparece en la franja flotante (filtro existente excluye OPEN) → se hace PATCH a IN_RAMP para mantenerlo visible.
+- E2E: PATCH flightId=null → flight_id NULL en BD ✓ y restauración del vuelo OK. Lint/build OK.
+
 ## Recent session changes (Aug 23, 2026 (21) — Fix i18n linked-format + 428 silencioso)
 - **`@` literal en mensajes i18n rompe la compilación** (vue-i18n lo interpreta como linked message `@:key`): `emailPlaceholder` ('usuario@aircargo.com') y regla de contraseña '(!@#$...)' escapados con `{'@'}`. Era el spam "Invalid linked format" de consola.
 - Clave faltante `ulds.pcsProgress` ({assigned}/{received}) añadida es/en; escaneo global de claves: 0 faltantes.
