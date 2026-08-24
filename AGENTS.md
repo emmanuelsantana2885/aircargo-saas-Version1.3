@@ -98,6 +98,12 @@ Causas (ambas frontend, el backend ya soportaba null): (1) la sección `floating
 - **Caso borde cubierto**: si el ULD desasignado queda en estado OPEN no aparece en la franja flotante (filtro existente excluye OPEN) → se hace PATCH a IN_RAMP para mantenerlo visible.
 - E2E: PATCH flightId=null → flight_id NULL en BD ✓ y restauración del vuelo OK. Lint/build OK.
 
+## Recent session changes (Aug 24, 2026 (23) — Fix 500 en descargas de recibos)
+**Causa**: el cifrado AES de la debilidad #2 expande las cédulas (~1.8x) y ya no cabían en `delivered/received/broker_id_num VARCHAR(50)` → cualquier guardado del recibo (incluida la regeneración de artefactos al exportar) fallaba con "value too long".
+- **`V3__widen_id_num_columns_for_encryption.sql`** (warehouse, ≡ raíz V48): las 3 columnas → **VARCHAR(200)**; entidad actualizada a length=200 para `ddl-auto=validate`.
+- Verificado E2E: export del recibo que fallaba → HTTP 200 Excel 53 KB. Flyway V3 registrada (history success=true). Barrido de ERROR-level en los 10 logs: sin errores nuevos tras los boots actuales.
+- Lección ops: al cifrar columnas con @Convert, auditar longitudes — Base64+prefijo crece ~1.8x; TEXT para firmas ya era suficiente.
+
 ## Recent session changes (Aug 23, 2026 (21) — Fix i18n linked-format + 428 silencioso)
 - **`@` literal en mensajes i18n rompe la compilación** (vue-i18n lo interpreta como linked message `@:key`): `emailPlaceholder` ('usuario@aircargo.com') y regla de contraseña '(!@#$...)' escapados con `{'@'}`. Era el spam "Invalid linked format" de consola.
 - Clave faltante `ulds.pcsProgress` ({assigned}/{received}) añadida es/en; escaneo global de claves: 0 faltantes.
