@@ -91,6 +91,12 @@ Full plan: `Documents/MICROSERVICES-MIGRATION-PLAN.md`
 ## Recent session changes (Aug 22, 2026 (3) — secret.yml fuera del repo)
 `k8s/secret.yml` (manifest K8s con placeholders `${POSTGRES_USER}/${POSTGRES_PASSWORD}/${JWT_SECRET}`, sin valores reales) movido a `~/Desktop/Projects/Rannik/aircargo-deploy-secrets/secret.yml` — carpeta hermana FUERA del proyecto. `.gitignore` ahora bloquea `k8s/secret*.yml` para evitar re-creación accidental. Los demás manifests de `k8s/` referencian el Secret por nombre (`aircargo-secrets`) así que no requieren cambios; al desplegar hay que aplicar la carpeta externa además de `k8s/`. Motivación: Graphify lo marcó como archivo potencialmente sensible durante el indexado del grafo.
 
+## Recent session changes (Aug 23, 2026 (21) — Fix i18n linked-format + 428 silencioso)
+- **`@` literal en mensajes i18n rompe la compilación** (vue-i18n lo interpreta como linked message `@:key`): `emailPlaceholder` ('usuario@aircargo.com') y regla de contraseña '(!@#$...)' escapados con `{'@'}`. Era el spam "Invalid linked format" de consola.
+- Clave faltante `ulds.pcsProgress` ({assigned}/{received}) añadida es/en; escaneo global de claves: 0 faltantes.
+- `client.js`: 428 no dispara toast global (LoginView maneja MFA/contraseña inline) — eliminaba toasts duplicados en el login de dos pasos.
+- Refresh por cookie verificado E2E (login→refresh→nuevo access→200). El 401 tras inactividad >1h es esperado: el interceptor refresca automáticamente; si el refresh falla (sesión revocada/rt ausente) redirige a /login.
+
 ## Recent session changes (Aug 23, 2026 (20) — Corrección definitiva de la clase 403/401 + guard de entrega)
 **Causa raíz de los 403 masivos**: solo booking-service tenía `HttpStatusEntryPoint(UNAUTHORIZED)`; los demás servicios devolvían **403** a peticiones anónimas (entry point por defecto de Spring Security), así que el refresh transparente del frontend (que se dispara con 401) nunca actuaba al expirar la cookie.
 - **Fix aplicado en los 9 SecurityConfigs**: `.exceptionHandling(eh -> eh.authenticationEntryPoint(new HttpStatusEntryPoint(UNAUTHORIZED)))` — anónimo = 401 siempre; verificado: /api/users, /flights/list, /ulds, /mawbs, load-planning → 401 ✓.

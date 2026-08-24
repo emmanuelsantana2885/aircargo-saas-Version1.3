@@ -77,7 +77,10 @@
     <!-- Flight ULD Cards -->
     <section v-if="activeFlightMeta.id && (activeManifest.length > 0 || floatingUlds.length > 0)"
       class="floating-drop-zone flex gap-2 py-2 overflow-x-auto shrink-0 lp-scroll-x"
-      :class="dragOverFloating ? 'ring-2 ring-slate-400 ring-offset-2 rounded-lg' : ''">
+      @dragover.prevent="dragOverFloating = true"
+      @dragleave="onDragLeaveFloating"
+      @drop.prevent="onDropFloating"
+      :class="dragOverFloating ? 'ring-2 ring-slate-400 ring-offset-2 rounded-lg bg-slate-100' : ''">
       <div v-for="(uldGroup, uIdx) in activeManifest" :key="uIdx"
         draggable="true"
         @dragstart="onDragStart(uldGroup.uldId, $event)"
@@ -628,7 +631,8 @@ function syncFlightMetadata() {
 }
 
 async function reassignFlight(uldGroup, silent = false) {
-  if (!uldGroup.uldId || !uldGroup.flightId) return
+  // flightId === null es válido: desasigna el ULD y lo regresa a la franja flotante
+  if (!uldGroup.uldId) return
   const fromFlightId = allUlds.value.find(u => u.id === uldGroup.uldId)?.flightId || null
   const uldNumber = allUlds.value.find(u => u.id === uldGroup.uldId)?.uldNumber || uldGroup.uldId
   try {
@@ -821,6 +825,33 @@ async function onDrop(e) {
   draggedUldId.value = null
   if (!uldId || !selectedFlightId.value) return
   await reassignFlight({ uldId, flightId: selectedFlightId.value })
+}
+
+function onDragLeaveFloating(e) {
+  const section = e.currentTarget
+  if (!section.contains(e.relatedTarget)) dragOverFloating.value = false
+}
+
+/** Soltar un ULD asignado sobre la franja flotante = desasignarlo del vuelo */
+async function onDropFloating(e) {
+  dragOverFloating.value = false
+  const uldId = draggedUldId.value || rowDragging.value || (e.dataTransfer?.getData('text/plain'))
+  draggedUldId.value = null
+  rowDragging.value = null
+  rowDropIndex.value = -1
+  if (!uldId) return
+  const uld = allUlds.value.find(u => u.id === uldId)
+  if (!uld?.flightId) return  // ya está flotando
+  await reassignFlight({ uldId, flightId: null })
+  // Un ULD en estado OPEN sin vuelo no aparece en la franja flotante
+  // (filtro existente): devolverlo a IN_RAMP para que siga visible.
+  if ((uld.status || '').toUpperCase() === 'OPEN') {
+    try { await uldsApi.patch(uldId, { status: 'IN_RAMP' }) } catch {}
+    if (selectedFlightId.value) {
+      await uldsStore.loadUldsForFlight(selectedFlightId.value)
+    }
+    loadAllUlds()
+  }
 }
 
 // Row drag-and-drop reorder
