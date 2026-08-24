@@ -456,6 +456,7 @@ export default {
   },
 
   ulds: {
+    pcsProgress: '{assigned} of {received} pcs received',
     title: 'ULD Management Hub',
     subtitle: 'SDQ Build-Up Area // ULD control and scanning',
     createUld: 'Create ULD',
@@ -1095,7 +1096,7 @@ export default {
     brand: 'AirCargo',
     tagline: 'SDQ Operations',
     email: 'Email',
-    emailPlaceholder: 'user@aircargo.com',
+    emailPlaceholder: 'user{\'@\'}aircargo.com',
     password: 'Password',
     passwordPlaceholder: 'Your password',
     loginBtn: 'Sign in',
@@ -1141,7 +1142,7 @@ export default {
       uppercase: 'One uppercase letter',
       lowercase: 'One lowercase letter',
       number: 'One number',
-      special: 'One special character (!@#$...)',
+      special: 'One special character (!{\'@\'}#$...)',
     },
     mismatch: 'Passwords do not match',
     submit: 'Set Password',

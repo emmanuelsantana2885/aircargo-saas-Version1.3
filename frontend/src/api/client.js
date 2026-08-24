@@ -50,6 +50,8 @@ api.interceptors.response.use(
         isRefreshing = false
       }
     }
+    // 428 = flujo esperado del login (falta contraseña / MFA): lo maneja LoginView
+    if (err.response?.status === 428) return Promise.reject(err)
     if (err.response?.status === 403) {
       const url = err.config?.url || ''
       console.warn('[API 403] Sin permiso para:', err.config?.method?.toUpperCase(), url)
