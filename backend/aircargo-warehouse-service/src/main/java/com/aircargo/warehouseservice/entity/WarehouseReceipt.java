@@ -120,7 +120,7 @@ public class WarehouseReceipt {
     @Column(name = "delivered_by_name", length = 150)
     private String deliveredByName;
 
-    @Column(name = "delivered_by_id_num", length = 50)
+    @Column(name = "delivered_by_id_num", length = 200)
     @Convert(converter = CryptoAttributeConverter.class)
     private String deliveredByIdNum;
 
@@ -135,7 +135,7 @@ public class WarehouseReceipt {
     @Column(name = "received_by_name", length = 150)
     private String receivedByName;
 
-    @Column(name = "received_by_id_num", length = 50)
+    @Column(name = "received_by_id_num", length = 200)
     @Convert(converter = CryptoAttributeConverter.class)
     private String receivedByIdNum;
 
@@ -150,7 +150,7 @@ public class WarehouseReceipt {
     @Column(name = "broker_name", length = 150)
     private String brokerName;
 
-    @Column(name = "broker_id_num", length = 50)
+    @Column(name = "broker_id_num", length = 200)
     @Convert(converter = CryptoAttributeConverter.class)
     private String brokerIdNum;
 
