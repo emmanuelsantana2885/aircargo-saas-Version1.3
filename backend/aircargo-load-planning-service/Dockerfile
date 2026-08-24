@@ -1,5 +1,5 @@
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
-COPY docker-jars/load-planning-service.jar app.jar
-EXPOSE 9098
-ENTRYPOINT ["java", "-Xmx512m", "-jar", "app.jar"]
+COPY target/aircargo-load-planning-service-*.jar app.jar
+EXPOSE 8080
+ENTRYPOINT ["sh", "-c", "java -Xms256m -Xmx512m -Dserver.port=$PORT -jar app.jar"]
