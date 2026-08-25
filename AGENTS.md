@@ -21,7 +21,24 @@ Monorepo with three main directories + microservices scaffolding:
 | `backend/aircargo-notification-service/` | Spring Boot (port 9100) | Notifications + RabbitMQ event listeners + email |
 | `database/migrations/` | PostgreSQL Flyway migrations | Root copy — see "Migrations" below |
 | `docker/` | Docker Compose files | `docker-compose.infrastructure.yml` (Postgres+RabbitMQ), `docker-compose.services.yml` (9 services + gateway) |
-| `k8s/` | Kubernetes manifests | Full K8s deployment for all services. **`secret.yml` NO vive aquí** — está en `~/Desktop/Projects/Rannik/aircargo-deploy-secrets/secret.yml` (fuera del repo, gitignore lo bloquea). Para desplegar: `kubectl apply -f k8s/ -f ../aircargo-deploy-secrets/secret.yml` (el Secret se llama `aircargo-secrets` y los manifests lo referencian por nombre, no por ruta) |
+| `k8s/` | Kubernetes manifests (legacy) | Full K8s deployment for all services. **`secret.yml` NO vive aquí** — está en `~/Desktop/Projects/Rannik/aircargo-deploy-secrets/secret.yml` (fuera del repo, gitignore lo bloquea). Para desplegar: `kubectl apply -f k8s/ -f ../aircargo-deploy-secrets/secret.yml` (el Secret se llama `aircargo-secrets` y los manifests lo referencian por nombre, no por ruta) |
+| `deploy/` | **Production K8s (kustomize)** | `deploy/k8s/base/` — base manifests (namespace, configmap, secrets template, postgres, rabbitmq, 11 services, frontend, ingress, networkpolicies). `deploy/k8s/overlays/{staging,production}/` — environment-specific overrides. `deploy/deploy.sh` — deployment script. `deploy/generate-secrets.sh` — secret generator. `deploy/PRODUCTION_DEPLOYMENT.md` — full guide. |
+
+## Production Deployment
+
+```sh
+# Generate secrets (review before applying!)
+./deploy/generate-secrets.sh | kubectl apply -f -
+
+# Deploy to staging
+./deploy/deploy.sh staging
+
+# Deploy to production (requires confirmation)
+./deploy/deploy.sh production
+
+# CI/CD: GitHub Actions workflow at .github/workflows/ci-cd.yml
+# Triggers: push to develop → staging; push tag v* → production
+```
 
 ## Commands
 

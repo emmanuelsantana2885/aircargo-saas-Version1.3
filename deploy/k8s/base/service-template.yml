@@ -1,0 +1,160 @@
+# Base deployment template for all aircargo backend services
+# This is a template - create individual files for each service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aircargo-{{SERVICE_NAME}}
+  namespace: aircargo
+  labels:
+    app: aircargo-{{SERVICE_NAME}}
+    version: "{{VERSION}}"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: aircargo-{{SERVICE_NAME}}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: aircargo-{{SERVICE_NAME}}
+        version: "{{VERSION}}"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{PORT}}"
+        prometheus.io/path: "/actuator/prometheus"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      serviceAccountName: aircargo-sa
+      containers:
+        - name: aircargo-{{SERVICE_NAME}}
+          image: "{{REGISTRY}}/aircargo-{{SERVICE_NAME}}:{{VERSION}}"
+          imagePullPolicy: Always
+          ports:
+            - containerPort: {{PORT}}
+              name: http
+          envFrom:
+            - configMapRef:
+                name: aircargo-config
+            - secretRef:
+                name: aircargo-secrets
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "production"
+            - name: JAVA_OPTS
+              value: "-Xms256m -Xmx512m -XX:+UseContainerSupport -XX:MaxRAMPercentage=75"
+          resources:
+            requests:
+              memory: "384Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: {{PORT}}
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+            successThreshold: 1
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: {{PORT}}
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: {{PORT}}
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 10"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aircargo-{{SERVICE_NAME}}
+  namespace: aircargo
+  labels:
+    app: aircargo-{{SERVICE_NAME}}
+spec:
+  selector:
+    app: aircargo-{{SERVICE_NAME}}
+  ports:
+    - port: {{PORT}}
+      targetPort: {{PORT}}
+      name: http
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: aircargo-{{SERVICE_NAME}}-hpa
+  namespace: aircargo
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: aircargo-{{SERVICE_NAME}}
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 10
+          periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 15
+        - type: Pods
+          value: 2
+          periodSeconds: 15
+      selectPolicy: Max
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: aircargo-{{SERVICE_NAME}}-pdb
+  namespace: aircargo
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: aircargo-{{SERVICE_NAME}}

@@ -62,6 +62,7 @@ function continueWorkingSafe() {
   continueWorkingRaw()
 }
 
+// IDLE LOGOUT — cierre por inactividad 10 min (seguridad)
 import { watch } from 'vue'
 watch(() => auth.isAuthenticated, (authed) => {
   if (authed) startIdleLogout(); else stopIdleLogout()

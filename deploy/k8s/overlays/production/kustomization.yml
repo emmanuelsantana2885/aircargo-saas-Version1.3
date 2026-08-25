@@ -1,0 +1,162 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: aircargo
+
+resources:
+  - ../../base/00-namespace.yml
+  - ../../base/01-configmap.yml
+  - ../../base/02-secrets.yml
+  - ../../base/03-postgres.yml
+  - ../../base/04-rabbitmq.yml
+  - ../../base/05-auth-service.yml
+  - ../../base/05-flight-service.yml
+  - ../../base/05-booking-service.yml
+  - ../../base/05-mawb-service.yml
+  - ../../base/05-warehouse-service.yml
+  - ../../base/05-uld-service.yml
+  - ../../base/05-load-planning-service.yml
+  - ../../base/05-export-service.yml
+  - ../../base/05-notification-service.yml
+  - ../../base/05-gateway.yml
+  - ../../base/06-serviceaccount.yml
+  - ../../base/07-frontend.yml
+  - ../../base/08-ingress.yml
+  - ../../base/09-networkpolicies.yml
+
+# Production images (tags set by CI/CD)
+images:
+  - name: ghcr.io/your-org/aircargo-saas-version1-2/aircargo-auth-service
+    newTag: production-latest
+  - name: ghcr.io/your-org/aircargo-saas-version1-2/aircargo-flight-service
+    newTag: production-latest
+  - name: ghcr.io/your-org/aircargo-saas-version1-2/aircargo-booking-service
+    newTag: production-latest
+  - name: ghcr.io/your-org/aircargo-saas-version1-2/aircargo-mawb-service
+    newTag: production-latest
+  - name: ghcr.io/your-org/aircargo-saas-version1-2/aircargo-warehouse-service
+    newTag: production-latest
+  - name: ghcr.io/your-org/aircargo-saas-version1-2/aircargo-uld-service
+    newTag: production-latest
+  - name: ghcr.io/your-org/aircargo-saas-version1-2/aircargo-load-planning-service
+    newTag: production-latest
+  - name: ghcr.io/your-org/aircargo-saas-version1-2/aircargo-export-service
+    newTag: production-latest
+  - name: ghcr.io/your-org/aircargo-saas-version1-2/aircargo-notification-service
+    newTag: production-latest
+  - name: ghcr.io/your-org/aircargo-saas-version1-2/aircargo-gateway
+    newTag: production-latest
+  - name: ghcr.io/your-org/aircargo-saas-version1-2/aircargo-frontend
+    newTag: production-latest
+
+# Production config
+configMapGenerator:
+  - name: aircargo-config
+    behavior: merge
+    literals:
+      - FRONTEND_URL=https://aircargo.example.com
+      - CORS_ORIGINS=https://aircargo.example.com
+      - SPRING_PROFILES_ACTIVE=production
+      - LOG_LEVEL_ROOT=INFO
+      - LOG_LEVEL_COM_AIRCARGO=WARN
+      - GATEWAY_RATE_LIMIT_ENABLED=true
+      - GATEWAY_RATE_LIMIT_PER_MINUTE=200
+      - GATEWAY_RATE_LIMIT_TIMEOUT_MS=50
+
+# Production replica counts (higher)
+patches:
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: aircargo-gateway
+      spec:
+        replicas: 3
+    target:
+      kind: Deployment
+      labelSelector: app=aircargo-gateway
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: aircargo-frontend
+      spec:
+        replicas: 3
+    target:
+      kind: Deployment
+      labelSelector: app=aircargo-frontend
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: aircargo-auth-service
+      spec:
+        replicas: 3
+    target:
+      kind: Deployment
+      labelSelector: app=aircargo-auth-service
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: postgres
+      spec:
+        replicas: 1
+    target:
+      kind: Deployment
+      labelSelector: app=postgres
+    # Enable read replicas via Cloud SQL / RDS in real production
+
+# Production ingress hosts
+patchesJson6902:
+  - target:
+      group: networking.k8s.io
+      version: v1
+      kind: Ingress
+      name: aircargo-gateway-ingress
+    patch: |
+      - op: replace
+        path: /spec/rules/0/host
+        value: api.aircargo.example.com
+      - op: replace
+        path: /spec/tls/0/hosts/0
+        value: api.aircargo.example.com
+  - target:
+      group: networking.k8s.io
+      version: v1
+      kind: Ingress
+      name: aircargo-frontend-ingress
+    patch: |
+      - op: replace
+        path: /spec/rules/0/host
+        value: aircargo.example.com
+      - op: replace
+        path: /spec/tls/0/hosts/0
+        value: aircargo.example.com
+
+# HPA production tuning
+patchesJson6902:
+  - target:
+      group: autoscaling
+      version: v2
+      kind: HorizontalPodAutoscaler
+      name: aircargo-gateway-hpa
+    patch: |
+      - op: replace
+        path: /spec/minReplicas
+        value: 3
+      - op: replace
+        path: /spec/maxReplicas
+        value: 20
+  - target:
+      group: autoscaling
+      version: v2
+      kind: HorizontalPodAutoscaler
+      name: aircargo-frontend-hpa
+    patch: |
+      - op: replace
+        path: /spec/minReplicas
+        value: 3
+      - op: replace
+        path: /spec/maxReplicas
+        value: 30

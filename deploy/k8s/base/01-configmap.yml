@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aircargo-config
+  namespace: aircargo
+  labels:
+    app: aircargo
+data:
+  # Database
+  POSTGRES_HOST: "postgres"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "aircargo_db"
+  
+  # RabbitMQ
+  RABBITMQ_HOST: "rabbitmq"
+  RABBITMQ_PORT: "5672"
+  
+  # Frontend URL (for password reset links)
+  FRONTEND_URL: "https://aircargo.example.com"
+  
+  # CORS
+  CORS_ORIGINS: "https://aircargo.example.com"
+  
+  # Security
+  COOKIE_SECURE: "true"
+  SMTP_AUTH: "true"
+  SMTP_STARTTLS: "true"
+  
+  # Spring profiles
+  SPRING_PROFILES_ACTIVE: "production"
+  
+  # Logging
+  LOG_LEVEL_ROOT: "INFO"
+  LOG_LEVEL_COM_AIRCARGO: "DEBUG"
+  
+  # Cache
+  SPRING_CACHE_CAFFEINE_SPEC: "maximumSize=500,expireAfterWrite=300s"
+  
+  # Gateway rate limiting
+  GATEWAY_RATE_LIMIT_ENABLED: "true"
+  GATEWAY_RATE_LIMIT_PER_MINUTE: "100"
+  GATEWAY_RATE_LIMIT_TIMEOUT_MS: "50"

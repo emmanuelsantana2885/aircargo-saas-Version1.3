@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aircargo
+  labels:
+    name: aircargo
+    environment: production

@@ -10,3 +10,6 @@ yay
 *.md
 !README.md
 .env.local
+**/docker-jars
+**/*.jar
+**/*.class

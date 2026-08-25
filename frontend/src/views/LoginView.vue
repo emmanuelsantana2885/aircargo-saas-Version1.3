@@ -27,12 +27,12 @@
             />
           </div>
 
-          <div v-if="needsPassword">
+          <div>
             <label class="block text-xs font-medium mb-1" style="color: var(--text)">{{ t('login.password') }}</label>
             <input
               v-model="password"
               type="password"
-              required
+              :required="needsPassword"
               placeholder="••••••••"
               class="w-full px-3 py-2.5 rounded text-sm outline-none transition-all border-slate-300"
               style="background: var(--bg); color: var(--text)"
@@ -167,7 +167,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../stores/auth'
 import { IconPlaneDeparture, IconBuildingStore, IconShieldLock } from '@tabler/icons-vue'
@@ -176,6 +176,7 @@ import { extractError } from '../utils/error'
 
 const { t } = useI18n()
 const router = useRouter()
+const route = useRoute()
 const toast = useToastStore()
 const auth = useAuthStore()
 
@@ -200,6 +201,7 @@ const selectedSiteLabel = computed(() => {
 async function handleLogin() {
   errorMsg.value = ''
   showSetupLink.value = false
+  needsPassword.value = false
   loading.value = true
   try {
     await auth.login(loginEmail.value, password.value)
@@ -315,6 +317,8 @@ function handleBackToLogin() {
   pendingPassword.value = ''
   totpCode.value = ''
   errorMsg.value = ''
+  needsPassword.value = false
+  showSetupLink.value = false
   auth.logout()
 }
 

@@ -1,0 +1,543 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+    tags: ['v*']
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  JAVA_VERSION: '21'
+  NODE_VERSION: '20'
+  MAVEN_OPTS: '-Xmx2g -XX:MaxMetaspaceSize=512m'
+
+jobs:
+  # ─────────────────────────────────────────────────────────────
+  # BACKEND: Build, Test, Docker Build
+  # ─────────────────────────────────────────────────────────────
+  backend-build:
+    name: Backend Build & Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: 'maven'
+
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Build all modules (offline after cache)
+        run: |
+          cd backend
+          mvn -B -o dependency:go-offline
+          mvn -B -o clean package -DskipTests
+
+      - name: Run unit tests
+        run: |
+          cd backend
+          mvn -B test
+
+      - name: Run integration tests
+        run: |
+          cd backend
+          mvn -B verify -Pintegration-tests
+
+      - name: Login to Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/aircargo-auth-service
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/aircargo-flight-service
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/aircargo-booking-service
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/aircargo-mawb-service
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/aircargo-warehouse-service
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/aircargo-uld-service
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/aircargo-load-planning-service
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/aircargo-export-service
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/aircargo-notification-service
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/aircargo-gateway
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker images
+        if: github.event_name != 'pull_request'
+        run: |
+          cd backend
+          for service in aircargo-auth-service aircargo-flight-service aircargo-booking-service aircargo-mawb-service aircargo-warehouse-service aircargo-uld-service aircargo-load-planning-service aircargo-export-service aircargo-notification-service aircargo-gateway; do
+            echo "Building $service..."
+            docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/$service:${{ steps.meta.outputs.tags }} -f $service/Dockerfile .
+            docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/$service:${{ steps.meta.outputs.tags }}
+          done
+
+  # ─────────────────────────────────────────────────────────────
+  # FRONTEND: Build, Test, Docker Build
+  # ─────────────────────────────────────────────────────────────
+  frontend-build:
+    name: Frontend Build & Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Run lint
+        run: |
+          cd frontend
+          npm run lint
+
+      - name: Run tests
+        run: |
+          cd frontend
+          npm run test -- --run
+
+      - name: Build production bundle
+        run: |
+          cd frontend
+          npm run build
+
+      - name: Login to Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/aircargo-frontend
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        if: github.event_name != 'pull_request'
+        run: |
+          cd frontend
+          docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/aircargo-frontend:${{ steps.meta.outputs.tags }} .
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/aircargo-frontend:${{ steps.meta.outputs.tags }}
+
+  # ─────────────────────────────────────────────────────────────
+  # SECURITY: Scan images and dependencies
+  # ─────────────────────────────────────────────────────────────
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [backend-build, frontend-build]
+    if: github.event_name != 'pull_request'
+    steps:
+      - name: Run Trivy vulnerability scanner (backend)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'image'
+          scan-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/aircargo-gateway:latest'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Run Trivy vulnerability scanner (frontend)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'image'
+          scan-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/aircargo-frontend:latest'
+          format: 'sarif'
+          output: 'trivy-frontend-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy frontend results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-frontend-results.sarif'
+
+  # ─────────────────────────────────────────────────────────────
+  # DEPLOY: Staging (auto on develop branch) with AUTO ROLLBACK
+  # ─────────────────────────────────────────────────────────────
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [backend-build, frontend-build, security-scan]
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    environment: staging
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/k8s-set-context@v4
+        with:
+          kubeconfig: ${{ secrets.KUBECONFIG_STAGING }}
+
+      - name: Save current deployment state (for rollback)
+        id: save-state
+        run: |
+          mkdir -p /tmp/k8s-backup
+          for service in aircargo-auth-service aircargo-flight-service aircargo-booking-service aircargo-mawb-service aircargo-warehouse-service aircargo-uld-service aircargo-load-planning-service aircargo-export-service aircargo-notification-service aircargo-gateway aircargo-frontend; do
+            kubectl get deployment $service -n aircargo -o yaml > /tmp/k8s-backup/$service.yaml 2>/dev/null || true
+            kubectl get deployment $service -n aircargo -o jsonpath='{.spec.template.spec.containers[0].image}' > /tmp/k8s-backup/$service.image.txt 2>/dev/null || true
+          done
+          echo "backup_saved=true" >> $GITHUB_OUTPUT
+
+      - name: Create DB Snapshot (Pre-Deploy Backup)
+        id: db-snapshot
+        run: |
+          echo "🗄️ Creating pre-deploy database snapshot..."
+          SNAPSHOT_ID="aircargo-predeploy-${{ github.sha }}-$(date +%Y%m%d-%H%M%S)"
+          
+          if aws rds describe-db-instances --db-instance-identifier aircargo-staging --region us-east-1 >/dev/null 2>&1; then
+            echo "Creating RDS snapshot: $SNAPSHOT_ID"
+            aws rds create-db-snapshot \
+              --db-instance-identifier aircargo-staging \
+              --db-snapshot-identifier "$SNAPSHOT_ID" \
+              --region us-east-1 \
+              --tags Key=Purpose,Value=PreDeployBackup Key=GitSHA,Value=${{ github.sha }} >/dev/null
+            
+            echo "Waiting for snapshot to be available..."
+            aws rds wait db-snapshot-available \
+              --db-snapshot-identifier "$SNAPSHOT_ID" \
+              --region us-east-1
+            
+            echo "snapshot_id=$SNAPSHOT_ID" >> $GITHUB_OUTPUT
+            echo "snapshot_type=rds" >> $GITHUB_OUTPUT
+          else
+            echo "RDS not found, creating local pg_dump..."
+            # For local/dev environments
+            DUMP_FILE="/tmp/aircargo-staging-${SNAPSHOT_ID}.dump"
+            PGPASSWORD="${{ secrets.POSTGRES_PASSWORD }}" pg_dump \
+              -h "${{ secrets.POSTGRES_HOST }}" \
+              -p "${{ secrets.POSTGRES_PORT }}" \
+              -U "${{ secrets.POSTGRES_USER }}" \
+              -d "${{ secrets.POSTGRES_DB }}" \
+              -Fc -Z 9 -f "$DUMP_FILE"
+            echo "dump_file=$DUMP_FILE" >> $GITHUB_OUTPUT
+            echo "snapshot_type=local" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update image tags in kustomization
+        run: |
+          cd deploy/k8s/overlays/staging
+          for service in aircargo-auth-service aircargo-flight-service aircargo-booking-service aircargo-mawb-service aircargo-warehouse-service aircargo-uld-service aircargo-load-planning-service aircargo-export-service aircargo-notification-service aircargo-gateway aircargo-frontend; do
+            kustomize edit set image ghcr.io/${{ github.repository }}/$service=ghcr.io/${{ github.repository }}/$service:${{ github.sha }}
+          done
+
+      - name: Deploy to staging
+        id: deploy
+        run: |
+          kubectl apply -k deploy/k8s/overlays/staging
+
+      - name: Wait for rollout
+        id: rollout
+        run: |
+          for service in aircargo-auth-service aircargo-flight-service aircargo-booking-service aircargo-mawb-service aircargo-warehouse-service aircargo-uld-service aircargo-load-planning-service aircargo-export-service aircargo-notification-service aircargo-gateway aircargo-frontend; do
+            kubectl rollout status deployment/$service -n aircargo --timeout=300s
+          done
+
+      - name: Run smoke tests
+        id: smoke
+        run: |
+          sleep 30
+          curl -f https://staging-api.aircargo.example.com/actuator/health
+          curl -f https://staging.aircargo.example.com/
+
+      # ─── AUTO ROLLBACK ON FAILURE (with DB restore) ───
+      - name: Auto Rollback on Failure
+        if: failure() && steps.save-state.outputs.backup_saved == 'true'
+        run: |
+          echo "⚠️ Deployment failed, initiating automatic rollback with DB restore..."
+          
+          # 1. Restore Database from snapshot
+          if [[ "${{ steps.db-snapshot.outputs.snapshot_type }}" == "rds" ]]; then
+            echo "🗄️ Restoring RDS from snapshot: ${{ steps.db-snapshot.outputs.snapshot_id }}"
+            RESTORED_DB="aircargo-staging-restored-$(date +%Y%m%d-%H%M%S)"
+            aws rds restore-db-instance-from-db-snapshot \
+              --db-instance-identifier "$RESTORED_DB" \
+              --db-snapshot-identifier "${{ steps.db-snapshot.outputs.snapshot_id }}" \
+              --db-instance-class db.r6g.xlarge \
+              --multi-az \
+              --region us-east-1 >/dev/null
+            
+            echo "Waiting for restore..."
+            aws rds wait db-instance-available \
+              --db-instance-identifier "$RESTORED_DB" \
+              --region us-east-1
+            
+            NEW_ENDPOINT=$(aws rds describe-db-instances \
+              --db-instance-identifier "$RESTORED_DB" \
+              --region us-east-1 \
+              --query 'DBInstances[0].Endpoint.Address' \
+              --output text)
+            
+            # Update k8s secret with new endpoint
+            kubectl patch secret aircargo-secrets -n aircargo \
+              -p "{\"stringData\":{\"POSTGRES_HOST\":\"$NEW_ENDPOINT\"}}"
+            
+            # Restart all deployments to pick up new DB
+            for svc in aircargo-auth-service aircargo-flight-service aircargo-booking-service aircargo-mawb-service aircargo-warehouse-service aircargo-uld-service aircargo-load-planning-service aircargo-export-service aircargo-notification-service aircargo-gateway; do
+              kubectl rollout restart deployment/$svc -n aircargo
+            done
+            
+          elif [[ "${{ steps.db-snapshot.outputs.snapshot_type }}" == "local" ]]; then
+            echo "🗄️ Restoring local pg_dump: ${{ steps.db-snapshot.outputs.dump_file }}"
+            PGPASSWORD="${{ secrets.POSTGRES_PASSWORD }}" pg_restore \
+              -h "${{ secrets.POSTGRES_HOST }}" \
+              -p "${{ secrets.POSTGRES_PORT }}" \
+              -U "${{ secrets.POSTGRES_USER }}" \
+              -d "${{ secrets.POSTGRES_DB }}" \
+              --clean --if-exists --no-owner --no-privileges \
+              "${{ steps.db-snapshot.outputs.dump_file }}"
+            
+            # Restart deployments
+            for svc in aircargo-auth-service aircargo-flight-service aircargo-booking-service aircargo-mawb-service aircargo-warehouse-service aircargo-uld-service aircargo-load-planning-service aircargo-export-service aircargo-notification-service aircargo-gateway; do
+              kubectl rollout restart deployment/$svc -n aircargo
+            done
+          fi
+          
+          # 2. Rollback Kubernetes deployments
+          for service in aircargo-auth-service aircargo-flight-service aircargo-booking-service aircargo-mawb-service aircargo-warehouse-service aircargo-uld-service aircargo-load-planning-service aircargo-export-service aircargo-notification-service aircargo-gateway aircargo-frontend; do
+            if [[ -f /tmp/k8s-backup/$service.yaml ]]; then
+              echo "Rolling back $service..."
+              kubectl apply -f /tmp/k8s-backup/$service.yaml
+            elif [[ -f /tmp/k8s-backup/$service.image.txt ]]; then
+              OLD_IMAGE=$(cat /tmp/k8s-backup/$service.image.txt)
+              echo "Rolling back $service to $OLD_IMAGE"
+              kubectl set image deployment/$service $service=$OLD_IMAGE -n aircargo
+            fi
+          done
+          
+          # Wait for rollback
+          for service in aircargo-auth-service aircargo-flight-service aircargo-booking-service aircargo-mawb-service aircargo-warehouse-service aircargo-uld-service aircargo-load-planning-service aircargo-export-service aircargo-notification-service aircargo-gateway aircargo-frontend; do
+            kubectl rollout status deployment/$service -n aircargo --timeout=180s || true
+          done
+          
+          echo "✅ Rollback completed (DB + K8s)"
+          exit 1
+
+  # ─────────────────────────────────────────────────────────────
+  # DEPLOY: Production (manual approval on tags) with AUTO ROLLBACK
+  # ─────────────────────────────────────────────────────────────
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [backend-build, frontend-build, security-scan]
+    if: startsWith(github.ref, 'refs/tags/v') && github.event_name == 'push'
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/k8s-set-context@v4
+        with:
+          kubeconfig: ${{ secrets.KUBECONFIG_PRODUCTION }}
+
+      - name: Save current deployment state (for rollback)
+        id: save-state
+        run: |
+          mkdir -p /tmp/k8s-backup
+          for service in aircargo-auth-service aircargo-flight-service aircargo-booking-service aircargo-mawb-service aircargo-warehouse-service aircargo-uld-service aircargo-load-planning-service aircargo-export-service aircargo-notification-service aircargo-gateway aircargo-frontend; do
+            kubectl get deployment $service -n aircargo -o yaml > /tmp/k8s-backup/$service.yaml 2>/dev/null || true
+            kubectl get deployment $service -n aircargo -o jsonpath='{.spec.template.spec.containers[0].image}' > /tmp/k8s-backup/$service.image.txt 2>/dev/null || true
+          done
+          echo "backup_saved=true" >> $GITHUB_OUTPUT
+
+      - name: Create DB Snapshot (Pre-Deploy Backup)
+        id: db-snapshot
+        run: |
+          echo "🗄️ Creating pre-deploy database snapshot..."
+          SNAPSHOT_ID="aircargo-predeploy-${{ github.ref_name }}-$(date +%Y%m%d-%H%M%S)"
+          
+          if aws rds describe-db-instances --db-instance-identifier aircargo-production --region us-east-1 >/dev/null 2>&1; then
+            echo "Creating RDS snapshot: $SNAPSHOT_ID"
+            aws rds create-db-snapshot \
+              --db-instance-identifier aircargo-production \
+              --db-snapshot-identifier "$SNAPSHOT_ID" \
+              --region us-east-1 \
+              --tags Key=Purpose,Value=PreDeployBackup Key=GitRef,Value=${{ github.ref_name }} >/dev/null
+            
+            echo "Waiting for snapshot to be available..."
+            aws rds wait db-snapshot-available \
+              --db-snapshot-identifier "$SNAPSHOT_ID" \
+              --region us-east-1
+            
+            echo "snapshot_id=$SNAPSHOT_ID" >> $GITHUB_OUTPUT
+            echo "snapshot_type=rds" >> $GITHUB_OUTPUT
+          else
+            echo "RDS not found, creating local pg_dump..."
+            DUMP_FILE="/tmp/aircargo-production-${SNAPSHOT_ID}.dump"
+            PGPASSWORD="${{ secrets.POSTGRES_PASSWORD }}" pg_dump \
+              -h "${{ secrets.POSTGRES_HOST }}" \
+              -p "${{ secrets.POSTGRES_PORT }}" \
+              -U "${{ secrets.POSTGRES_USER }}" \
+              -d "${{ secrets.POSTGRES_DB }}" \
+              -Fc -Z 9 -f "$DUMP_FILE"
+            echo "dump_file=$DUMP_FILE" >> $GITHUB_OUTPUT
+            echo "snapshot_type=local" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update image tags in kustomization
+        run: |
+          cd deploy/k8s/overlays/production
+          for service in aircargo-auth-service aircargo-flight-service aircargo-booking-service aircargo-mawb-service aircargo-warehouse-service aircargo-uld-service aircargo-load-planning-service aircargo-export-service aircargo-notification-service aircargo-gateway aircargo-frontend; do
+            kustomize edit set image ghcr.io/${{ github.repository }}/$service=ghcr.io/${{ github.repository }}/$service:${{ github.ref_name }}
+          done
+
+      - name: Deploy to production (blue-green)
+        id: deploy
+        run: |
+          # Apply new version alongside old
+          kubectl apply -k deploy/k8s/overlays/production
+          
+          # Wait for new pods to be ready
+          for service in aircargo-auth-service aircargo-flight-service aircargo-booking-service aircargo-mawb-service aircargo-warehouse-service aircargo-uld-service aircargo-load-planning-service aircargo-export-service aircargo-notification-service aircargo-gateway aircargo-frontend; do
+            kubectl rollout status deployment/$service -n aircargo --timeout=300s
+          done
+
+      - name: Verify deployment
+        id: verify
+        run: |
+          sleep 30
+          curl -f https://api.aircargo.example.com/actuator/health
+          curl -f https://aircargo.example.com/
+
+      # ─── AUTO ROLLBACK ON FAILURE (with DB restore) ───
+      - name: Auto Rollback on Failure
+        if: failure() && steps.save-state.outputs.backup_saved == 'true'
+        run: |
+          echo "⚠️ Production deployment failed, initiating automatic rollback with DB restore..."
+          
+          # 1. Restore Database from snapshot
+          if [[ "${{ steps.db-snapshot.outputs.snapshot_type }}" == "rds" ]]; then
+            echo "🗄️ Restoring RDS from snapshot: ${{ steps.db-snapshot.outputs.snapshot_id }}"
+            RESTORED_DB="aircargo-production-restored-$(date +%Y%m%d-%H%M%S)"
+            aws rds restore-db-instance-from-db-snapshot \
+              --db-instance-identifier "$RESTORED_DB" \
+              --db-snapshot-identifier "${{ steps.db-snapshot.outputs.snapshot_id }}" \
+              --db-instance-class db.r6g.xlarge \
+              --multi-az \
+              --region us-east-1 >/dev/null
+            
+            echo "Waiting for restore..."
+            aws rds wait db-instance-available \
+              --db-instance-identifier "$RESTORED_DB" \
+              --region us-east-1
+            
+            NEW_ENDPOINT=$(aws rds describe-db-instances \
+              --db-instance-identifier "$RESTORED_DB" \
+              --region us-east-1 \
+              --query 'DBInstances[0].Endpoint.Address' \
+              --output text)
+            
+            # Update k8s secret with new endpoint
+            kubectl patch secret aircargo-secrets -n aircargo \
+              -p "{\"stringData\":{\"POSTGRES_HOST\":\"$NEW_ENDPOINT\"}}"
+            
+            # Restart all deployments to pick up new DB
+            for svc in aircargo-auth-service aircargo-flight-service aircargo-booking-service aircargo-mawb-service aircargo-warehouse-service aircargo-uld-service aircargo-load-planning-service aircargo-export-service aircargo-notification-service aircargo-gateway; do
+              kubectl rollout restart deployment/$svc -n aircargo
+            done
+            
+          elif [[ "${{ steps.db-snapshot.outputs.snapshot_type }}" == "local" ]]; then
+            echo "🗄️ Restoring local pg_dump: ${{ steps.db-snapshot.outputs.dump_file }}"
+            PGPASSWORD="${{ secrets.POSTGRES_PASSWORD }}" pg_restore \
+              -h "${{ secrets.POSTGRES_HOST }}" \
+              -p "${{ secrets.POSTGRES_PORT }}" \
+              -U "${{ secrets.POSTGRES_USER }}" \
+              -d "${{ secrets.POSTGRES_DB }}" \
+              --clean --if-exists --no-owner --no-privileges \
+              "${{ steps.db-snapshot.outputs.dump_file }}"
+            
+            # Restart deployments
+            for svc in aircargo-auth-service aircargo-flight-service aircargo-booking-service aircargo-mawb-service aircargo-warehouse-service aircargo-uld-service aircargo-load-planning-service aircargo-export-service aircargo-notification-service aircargo-gateway; do
+              kubectl rollout restart deployment/$svc -n aircargo
+            done
+          fi
+          
+          # 2. Rollback Kubernetes deployments
+          for service in aircargo-auth-service aircargo-flight-service aircargo-booking-service aircargo-mawb-service aircargo-warehouse-service aircargo-uld-service aircargo-load-planning-service aircargo-export-service aircargo-notification-service aircargo-gateway aircargo-frontend; do
+            if [[ -f /tmp/k8s-backup/$service.yaml ]]; then
+              echo "Rolling back $service..."
+              kubectl apply -f /tmp/k8s-backup/$service.yaml
+            elif [[ -f /tmp/k8s-backup/$service.image.txt ]]; then
+              OLD_IMAGE=$(cat /tmp/k8s-backup/$service.image.txt)
+              echo "Rolling back $service to $OLD_IMAGE"
+              kubectl set image deployment/$service $service=$OLD_IMAGE -n aircargo
+            fi
+          done
+          
+          # Wait for rollback
+          for service in aircargo-auth-service aircargo-flight-service aircargo-booking-service aircargo-mawb-service aircargo-warehouse-service aircargo-uld-service aircargo-load-planning-service aircargo-export-service aircargo-notification-service aircargo-gateway aircargo-frontend; do
+            kubectl rollout status deployment/$service -n aircargo --timeout=180s || true
+          done
+          
+          echo "✅ Production rollback completed (DB + K8s)"
+          exit 1
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true

@@ -1,0 +1,178 @@
+# Base deployment template for all aircargo backend services
+# This is a template - create individual files for each service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aircargo-gateway
+  namespace: aircargo
+  labels:
+    app: aircargo-gateway
+    version: "latest"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: aircargo-gateway
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: aircargo-gateway
+        version: "latest"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/actuator/prometheus"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      serviceAccountName: aircargo-sa
+      containers:
+        - name: aircargo-gateway
+          image: "ghcr.io/your-org/aircargo-gateway:latest"
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+          envFrom:
+            - configMapRef:
+                name: aircargo-config
+            - secretRef:
+                name: aircargo-secrets
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "production"
+            - name: JAVA_OPTS
+              value: "-Xms256m -Xmx512m -XX:+UseContainerSupport -XX:MaxRAMPercentage=75"
+            - name: SERVICE_AUTH_URL
+              value: "http://aircargo-auth-service:9092"
+            - name: SERVICE_FLIGHT_URL
+              value: "http://aircargo-flight-service:9093"
+            - name: SERVICE_BOOKING_URL
+              value: "http://aircargo-booking-service:9094"
+            - name: SERVICE_MAWB_URL
+              value: "http://aircargo-mawb-service:9095"
+            - name: SERVICE_WAREHOUSE_URL
+              value: "http://aircargo-warehouse-service:9096"
+            - name: SERVICE_ULD_URL
+              value: "http://aircargo-uld-service:9097"
+            - name: SERVICE_LOAD_PLANNING_URL
+              value: "http://aircargo-load-planning-service:9098"
+            - name: SERVICE_EXPORT_URL
+              value: "http://aircargo-export-service:9099"
+            - name: SERVICE_NOTIFICATION_URL
+              value: "http://aircargo-notification-service:9100"
+          resources:
+            requests:
+              memory: "384Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+            successThreshold: 1
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 10"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aircargo-gateway
+  namespace: aircargo
+  labels:
+    app: aircargo-gateway
+spec:
+  selector:
+    app: aircargo-gateway
+  ports:
+    - port: 8080
+      targetPort: 8080
+      name: http
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: aircargo-gateway-hpa
+  namespace: aircargo
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: aircargo-gateway
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 10
+          periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 15
+        - type: Pods
+          value: 2
+          periodSeconds: 15
+      selectPolicy: Max
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: aircargo-gateway-pdb
+  namespace: aircargo
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: aircargo-gateway

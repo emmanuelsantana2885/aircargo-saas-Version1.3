@@ -1,0 +1,321 @@
+# NetworkPolicies for aircargo microservices
+# Default deny all ingress, then allow specific traffic
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: aircargo
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+# Allow ingress to gateway from anywhere (external traffic via Ingress)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: gateway-allow-external
+  namespace: aircargo
+spec:
+  podSelector:
+    matchLabels:
+      app: aircargo-gateway
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8080
+---
+# Allow gateway to call all backend services
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: gateway-to-services
+  namespace: aircargo
+spec:
+  podSelector:
+    matchLabels:
+      app: aircargo-gateway
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: aircargo-auth-service
+      ports:
+        - protocol: TCP
+          port: 9092
+    - to:
+        - podSelector:
+            matchLabels:
+              app: aircargo-flight-service
+      ports:
+        - protocol: TCP
+          port: 9093
+    - to:
+        - podSelector:
+            matchLabels:
+              app: aircargo-booking-service
+      ports:
+        - protocol: TCP
+          port: 9094
+    - to:
+        - podSelector:
+            matchLabels:
+              app: aircargo-mawb-service
+      ports:
+        - protocol: TCP
+          port: 9095
+    - to:
+        - podSelector:
+            matchLabels:
+              app: aircargo-warehouse-service
+      ports:
+        - protocol: TCP
+          port: 9096
+    - to:
+        - podSelector:
+            matchLabels:
+              app: aircargo-uld-service
+      ports:
+        - protocol: TCP
+          port: 9097
+    - to:
+        - podSelector:
+            matchLabels:
+              app: aircargo-load-planning-service
+      ports:
+        - protocol: TCP
+          port: 9098
+    - to:
+        - podSelector:
+            matchLabels:
+              app: aircargo-export-service
+      ports:
+        - protocol: TCP
+          port: 9099
+    - to:
+        - podSelector:
+            matchLabels:
+              app: aircargo-notification-service
+      ports:
+        - protocol: TCP
+          port: 9100
+    # DNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+# Allow backend services to call each other as needed
+# Auth service: no outbound calls needed (except DB)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: auth-service-egress
+  namespace: aircargo
+spec:
+  podSelector:
+    matchLabels:
+      app: aircargo-auth-service
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: postgres
+      ports:
+        - protocol: TCP
+          port: 5432
+    # DNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+# Flight, Booking, MAWB, Warehouse, ULD, Load Planning, Export: DB only
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: services-db-egress
+  namespace: aircargo
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values:
+          - aircargo-flight-service
+          - aircargo-booking-service
+          - aircargo-mawb-service
+          - aircargo-warehouse-service
+          - aircargo-uld-service
+          - aircargo-load-planning-service
+          - aircargo-export-service
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: postgres
+      ports:
+        - protocol: TCP
+          port: 5432
+    # DNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+# Notification service: DB + RabbitMQ
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: notification-service-egress
+  namespace: aircargo
+spec:
+  podSelector:
+    matchLabels:
+      app: aircargo-notification-service
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: postgres
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - podSelector:
+            matchLabels:
+              app: rabbitmq
+      ports:
+        - protocol: TCP
+          port: 5672
+    # DNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+# Allow frontend to call gateway
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-to-gateway
+  namespace: aircargo
+spec:
+  podSelector:
+    matchLabels:
+      app: aircargo-frontend
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: aircargo-gateway
+      ports:
+        - protocol: TCP
+          port: 8080
+    # DNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+# Allow postgres to accept from all services
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres-allow-services
+  namespace: aircargo
+spec:
+  podSelector:
+    matchLabels:
+      app: postgres
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - aircargo-auth-service
+                  - aircargo-flight-service
+                  - aircargo-booking-service
+                  - aircargo-mawb-service
+                  - aircargo-warehouse-service
+                  - aircargo-uld-service
+                  - aircargo-load-planning-service
+                  - aircargo-export-service
+                  - aircargo-notification-service
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+# Allow rabbitmq to accept from notification service
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: rabbitmq-allow-notification
+  namespace: aircargo
+spec:
+  podSelector:
+    matchLabels:
+      app: rabbitmq
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: aircargo-notification-service
+      ports:
+        - protocol: TCP
+          port: 5672
+    - from:
+        - podSelector:
+            matchLabels:
+              app: aircargo-warehouse-service
+      ports:
+        - protocol: TCP
+          port: 5672
