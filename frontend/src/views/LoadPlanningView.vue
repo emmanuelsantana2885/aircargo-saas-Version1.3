@@ -951,7 +951,6 @@ function onTableUldPointerMove(e) {
 async function onTableUldPointerUp() {
   document.removeEventListener('pointermove', onTableUldPointerMove)
   document.removeEventListener('pointerup', onTableUldPointerUp)
-  // Delay ring removal to next frame so user can see the feedback
   const floatingSection = document.querySelector('.floating-drop-zone')
   if (floatingSection) {
     requestAnimationFrame(() => floatingSection.classList.remove(...RING_CLASSES))
@@ -965,16 +964,9 @@ async function onTableUldPointerUp() {
   const wasOverFloating = dragOverFloating.value
   dragOverFloating.value = false
   if (wasOverFloating && data.uldId) {
-    const fromFlightId = reassignmentHistory.value[data.uldId]
-    if (fromFlightId) {
-      await reassignFlight({ uldId: data.uldId, flightId: fromFlightId }, true)
-      delete reassignmentHistory.value[data.uldId]
-    } else {
-      const uldNumber = allUlds.value.find(u => u.id === data.uldId)?.uldNumber || data.uldId
-      pendingFlightPick.value = { uldId: data.uldId, uldNumber }
-      flightPickValue.value = ''
-      showFlightPicker.value = false
-    }
+    const uld = allUlds.value.find(u => u.id === data.uldId)
+    if (!uld?.flightId) return
+    await reassignFlight({ uldId: data.uldId, flightId: null })
   }
 }
 

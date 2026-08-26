@@ -127,60 +127,92 @@ public class LoadPlanningController {
         StringBuilder sb = new StringBuilder();
         sb.append("<!DOCTYPE html><html><head><meta charset='UTF-8'/><title>Pallet Sheets</title>");
         sb.append("<style>");
-        sb.append("@page { margin: 12pt 16pt; size: letter portrait; }");
-        sb.append("body { font-family: Tahoma, sans-serif; font-size: 9pt; color: #1e293b; margin: 0; padding: 0; }");
+        sb.append("@page { margin: 10mm 12mm; size: letter portrait; }");
+        sb.append("body { font-family: Arial, Helvetica, sans-serif; font-size: 8pt; color: #000; margin: 0; padding: 0; }");
         sb.append(".page { page-break-after: always; padding: 0; }");
-        sb.append("h2 { font-size: 11pt; margin: 0 0 4pt 0; text-align: center; text-transform: uppercase; letter-spacing: 1pt; }");
-        sb.append(".flight-info { text-align: center; font-size: 8pt; margin-bottom: 6pt; color: #475569; }");
-        sb.append(".uld-header { display: flex; justify-content: space-between; border: 1px solid #1e293b; padding: 4pt 6pt; margin-bottom: 6pt; font-size: 8pt; }");
-        sb.append(".uld-header div { font-weight: bold; }");
-        sb.append(".uld-header span { font-weight: normal; }");
-        sb.append("table { width: 100%; border-collapse: collapse; font-size: 8pt; }");
-        sb.append("th { background-color: #1e293b; color: white; padding: 4pt 3pt; text-align: left; font-size: 7.5pt; text-transform: uppercase; }");
-        sb.append("td { padding: 3pt; border-bottom: 1px solid #cbd5e1; }");
-        sb.append("tr:nth-child(even) td { background-color: #f8fafc; }");
-        sb.append(".total-row td { font-weight: bold; border-top: 2px solid #1e293b; background-color: #e2e8f0 !important; }");
-        sb.append(".footer { text-align: center; font-size: 7pt; color: #94a3b8; margin-top: 6pt; }");
+        sb.append(".page:last-child { page-break-after: auto; }");
+        // Header
+        sb.append(".hdr-company { font-size: 16pt; font-weight: bold; text-align: center; letter-spacing: 3pt; margin: 0; }");
+        sb.append(".hdr-title { font-size: 12pt; font-weight: bold; text-align: center; text-transform: uppercase; margin: 1pt 0; letter-spacing: 1pt; }");
+        sb.append(".hdr-subtitle { font-size: 9pt; text-align: center; text-transform: uppercase; margin: 0 0 6pt 0; letter-spacing: 0.5pt; }");
+        // Info grid
+        sb.append(".info-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0; border: 1.5px solid #000; margin-bottom: 4pt; }");
+        sb.append(".info-cell { border: 0.5px solid #000; padding: 3pt 5pt; }");
+        sb.append(".info-label { font-size: 6.5pt; color: #555; text-transform: uppercase; margin-bottom: 1pt; }");
+        sb.append(".info-value { font-size: 9pt; font-weight: bold; min-height: 12pt; }");
+        // AWB table
+        sb.append("table.awb { width: 100%; border-collapse: collapse; border: 1.5px solid #000; margin-bottom: 4pt; }");
+        sb.append("table.awb th { background: #1a1a2e; color: #fff; font-size: 7pt; padding: 3pt 4pt; text-align: left; text-transform: uppercase; }");
+        sb.append("table.awb th.c { text-align: center; }");
+        sb.append("table.awb td { padding: 3pt 4pt; border-bottom: 0.5px solid #ccc; font-size: 8pt; }");
+        sb.append("table.awb td.c { text-align: center; }");
+        sb.append("table.awb td.r { text-align: right; }");
+        sb.append("table.awb tr.total td { font-weight: bold; border-top: 1.5px solid #000; border-bottom: none; background: #e8e8e8; }");
+        // Slave pallet
+        sb.append(".slave-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 0; border: 1.5px solid #000; margin-bottom: 4pt; }");
+        sb.append(".slave-cell { border: 0.5px solid #000; padding: 3pt 5pt; }");
+        sb.append(".slave-label { font-size: 6.5pt; color: #555; text-transform: uppercase; }");
+        sb.append(".slave-value { font-size: 9pt; font-weight: bold; min-height: 12pt; }");
+        // Notes + footer
+        sb.append(".notes { border: 1.5px solid #000; padding: 4pt 5pt; min-height: 28pt; margin-bottom: 4pt; }");
+        sb.append(".notes-title { font-size: 7pt; text-transform: uppercase; font-weight: bold; margin-bottom: 2pt; }");
+        sb.append(".footer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1.5px solid #000; }");
+        sb.append(".footer-cell { border: 0.5px solid #000; padding: 3pt 5pt; }");
+        sb.append(".footer-label { font-size: 6.5pt; color: #555; text-transform: uppercase; }");
+        sb.append(".footer-value { font-size: 9pt; font-weight: bold; min-height: 12pt; }");
         sb.append("</style></head><body>");
 
         List<LoadPlanningUldDTO> ulds = plan.getUlds();
         if (ulds == null || ulds.isEmpty()) {
-            sb.append("<p>No hay ULDs asignados a este vuelo.</p>");
+            sb.append("<p style='text-align:center;margin-top:40pt;'>No hay ULDs asignados a este vuelo.</p>");
         } else {
             for (int i = 0; i < ulds.size(); i++) {
                 LoadPlanningUldDTO uld = ulds.get(i);
                 if (i < ulds.size() - 1) sb.append("<div class='page'>");
                 else sb.append("<div>");
 
-                sb.append("<h2>ULD Pallet Sheet &amp; Manifest</h2>");
-                sb.append("<div class='flight-info'>");
-                sb.append("UPS-").append(xmlEscape(plan.getFlightNumber() != null ? plan.getFlightNumber() : ""));
-                sb.append(" &#160;|&#160; ").append(xmlEscape(plan.getOrigin() != null ? plan.getOrigin() : ""));
-                sb.append(" &#8594; ").append(xmlEscape(plan.getDestination() != null ? plan.getDestination() : ""));
-                if (plan.getFlightDate() != null) {
-                    sb.append(" &#160;|&#160; ").append(plan.getFlightDate().toString());
-                }
-                if (plan.getAircraftReg() != null) {
-                    sb.append(" &#160;|&#160; A/C: ").append(xmlEscape(plan.getAircraftReg()));
-                }
+                // ── Header ──
+                sb.append("<div class='hdr-company'>UPS AIR CARGO</div>");
+                sb.append("<div class='hdr-title'>UNIT LOAD DEVICE</div>");
+                sb.append("<div class='hdr-title'>I.D. TAG AND MANIFEST</div>");
+                sb.append("<div class='hdr-subtitle'>UNIDAD DE CARGA &#8212; TARJETA DE IDENTIFICACION Y MANIFESTO</div>");
+
+                // ── Flight info grid ──
+                String origin = xmlEscape(plan.getOrigin() != null ? plan.getOrigin() : "");
+                String dest = xmlEscape(plan.getDestination() != null ? plan.getDestination() : "");
+                String flightNum = xmlEscape(plan.getFlightNumber() != null ? plan.getFlightNumber() : "");
+                String dateStr = plan.getFlightDate() != null ? xmlEscape(plan.getFlightDate().toString()) : "";
+                String acReg = xmlEscape(plan.getAircraftReg() != null ? plan.getAircraftReg() : "");
+                String uldNum = xmlEscape(uld.getUldNumber() != null ? uld.getUldNumber() : "");
+                String uldType = xmlEscape(uld.getUldType() != null ? uld.getUldType() : "");
+                String position = xmlEscape(uld.getPosition() != null ? uld.getPosition() : "");
+                String tare = uld.getTareLbs() != null ? uld.getTareLbs().stripTrailingZeros().toPlainString() : "";
+
+                sb.append("<div class='info-grid'>");
+                // Row 1
+                sb.append("<div class='info-cell'><div class='info-label'>ORIGIN STATION / ESTACION DE ORIGEN</div><div class='info-value'>").append(origin).append("</div></div>");
+                sb.append("<div class='info-cell'><div class='info-label'>FLIGHT NUMBER / VUELO NR.</div><div class='info-value'>").append(flightNum).append("</div></div>");
+                sb.append("<div class='info-cell'><div class='info-label'>DATE / FECHA</div><div class='info-value'>").append(dateStr).append("</div></div>");
+                // Row 2
+                sb.append("<div class='info-cell'><div class='info-label'>DESTINATION STATION / ESTACION DE DESTINO</div><div class='info-value'>").append(dest).append("</div></div>");
+                sb.append("<div class='info-cell'><div class='info-label'>CONFIGURACION</div><div class='info-value'>").append(uldType).append("</div></div>");
+                sb.append("<div class='info-cell' style='display:flex;gap:8pt;'><div style='flex:2'><div class='info-label'>NUMERO DEL CONTENEDOR</div><div class='info-value'>").append(uldNum).append("</div></div><div style='flex:1'><div class='info-label'>TARA (LBS)</div><div class='info-value'>").append(tare).append("</div></div></div>");
+                // Row 3
+                sb.append("<div class='info-cell'><div class='info-label'>POSICION DEL PALLET</div><div class='info-value'>").append(position).append("</div></div>");
+                sb.append("<div class='info-cell'><div class='info-label'>STATUS</div><div class='info-value'>").append(xmlEscape(uld.getStatus() != null ? uld.getStatus() : "OPEN")).append("</div></div>");
+                sb.append("<div class='info-cell'><div class='info-label'>SEAL NO. / SELLO NO.</div><div class='info-value'>").append(xmlEscape(uld.getSealNumber() != null ? uld.getSealNumber() : "")).append("</div></div>");
                 sb.append("</div>");
 
-                sb.append("<div class='uld-header'>");
-                sb.append("<div>ULD: <span>").append(xmlEscape(uld.getUldNumber() != null ? uld.getUldNumber() : "-")).append("</span></div>");
-                sb.append("<div>Type: <span>").append(uld.getUldType() != null ? uld.getUldType() : "-").append("</span></div>");
-                sb.append("<div>Pos: <span>").append(xmlEscape(uld.getPosition() != null ? uld.getPosition() : "-")).append("</span></div>");
-                sb.append("<div>Seal: <span>").append(xmlEscape(uld.getSealNumber() != null ? uld.getSealNumber() : "-")).append("</span></div>");
-                sb.append("<div>Status: <span>").append(uld.getStatus() != null ? uld.getStatus() : "OPEN").append("</span></div>");
-                sb.append("</div>");
-
+                // ── AWB table ──
                 List<UldAwbDTO> awbs = uld.getAwbs();
-                sb.append("<table>");
+                sb.append("<table class='awb'>");
                 sb.append("<thead><tr>");
-                sb.append("<th>#</th>");
-                sb.append("<th>MAWB</th>");
-                sb.append("<th style='text-align:right'>Pieces</th>");
-                sb.append("<th>Destination</th>");
-                sb.append("<th>Commodity</th>");
+                sb.append("<th style='width:5%'>#</th>");
+                sb.append("<th style='width:25%'>COMPLETE AWB NUMBER / NUMERO AWB COMPLETO</th>");
+                sb.append("<th class='c' style='width:10%'>PCS / PIEZAS</th>");
+                sb.append("<th class='r' style='width:15%'>WGT (LBS) / PESO (LBS)</th>");
+                sb.append("<th style='width:25%'>DESCRIPCION</th>");
+                sb.append("<th style='width:10%'>DESTINO</th>");
                 sb.append("</tr></thead><tbody>");
 
                 int totalPieces = 0;
@@ -190,27 +222,49 @@ public class LoadPlanningController {
                         int pcs = awb.getPieces() != null ? awb.getPieces() : 0;
                         totalPieces += pcs;
                         sb.append("<tr>");
-                        sb.append("<td>").append(idx++).append("</td>");
-                        sb.append("<td>").append(xmlEscape(awb.getMawbLabel() != null ? awb.getMawbLabel() : "-")).append("</td>");
-                        sb.append("<td style='text-align:right'>").append(pcs).append("</td>");
-                        sb.append("<td>").append(xmlEscape(awb.getDestination() != null ? awb.getDestination() : "-")).append("</td>");
-                        sb.append("<td>").append(awb.getDescription() != null ? awb.getDescription() : "-").append("</td>");
+                        sb.append("<td class='c'>").append(idx++).append("</td>");
+                        sb.append("<td>").append(xmlEscape(awb.getMawbLabel() != null ? awb.getMawbLabel() : "")).append("</td>");
+                        sb.append("<td class='c'>").append(pcs).append("</td>");
+                        sb.append("<td class='r'>").append(pcs).append("</td>");
+                        sb.append("<td>").append(xmlEscape(awb.getDescription() != null ? awb.getDescription() : "DRY CARGO")).append("</td>");
+                        sb.append("<td>").append(xmlEscape(awb.getDestination() != null ? awb.getDestination() : "")).append("</td>");
                         sb.append("</tr>");
                     }
                 } else {
-                    sb.append("<tr><td colspan='5' style='text-align:center;color:#94a3b8;'>No MAWBs assigned</td></tr>");
+                    sb.append("<tr><td colspan='6' style='text-align:center;color:#999;'>No MAWBs assigned</td></tr>");
                 }
-
-                sb.append("<tr class='total-row'><td colspan='2' style='text-align:right'>TOTAL</td>");
-                sb.append("<td style='text-align:right'>").append(totalPieces).append(" pcs</td>");
-                sb.append("<td colspan='2'>");
-                sb.append("Gross: ").append(uld.getGrossWeightLbs() != null ? uld.getGrossWeightLbs().stripTrailingZeros().toPlainString() : "0").append(" lb");
-                sb.append(" &#160; Tare: ").append(uld.getTareLbs() != null ? uld.getTareLbs().stripTrailingZeros().toPlainString() : "0").append(" lb");
-                sb.append(" &#160; Net: ").append(uld.getNetWeightLbs() != null ? uld.getNetWeightLbs().stripTrailingZeros().toPlainString() : "0").append(" lb");
-                sb.append("</td></tr>");
-
+                // Total row
+                String grossStr = uld.getGrossWeightLbs() != null ? uld.getGrossWeightLbs().stripTrailingZeros().toPlainString() : "0";
+                String netStr = uld.getNetWeightLbs() != null ? uld.getNetWeightLbs().stripTrailingZeros().toPlainString() : "0";
+                sb.append("<tr class='total'>");
+                sb.append("<td colspan='2' style='text-align:right;'>TOTAL</td>");
+                sb.append("<td class='c'>").append(totalPieces).append("</td>");
+                sb.append("<td class='r'>").append(grossStr).append("</td>");
+                sb.append("<td colspan='2'>Gross: ").append(grossStr).append(" &nbsp; Tare: ").append(tare).append(" &nbsp; Net: ").append(netStr).append("</td>");
+                sb.append("</tr>");
                 sb.append("</tbody></table>");
-                sb.append("<div class='footer'>SDQ Operations &#8212; UPS Airlines &#8212; Pallet Sheet #").append(i + 1).append(" of ").append(ulds.size()).append("</div>");
+
+                // ── Slave pallet section ──
+                sb.append("<div class='slave-grid'>");
+                sb.append("<div class='slave-cell'><div class='slave-label'>NUMERO DEL SLAVE PALLE</div><div class='slave-value'></div></div>");
+                sb.append("<div class='slave-cell'><div class='slave-label'>PESO BRUTO</div><div class='slave-value'></div></div>");
+                sb.append("<div class='slave-cell'><div class='slave-label'>TARA SLAVE PALLE</div><div class='slave-value'></div></div>");
+                sb.append("<div class='slave-cell'><div class='slave-label'>PESO NETO</div><div class='slave-value'></div></div>");
+                sb.append("</div>");
+
+                // ── Notes ──
+                sb.append("<div class='notes'>");
+                sb.append("<div class='notes-title'>Notas / Notes:</div>");
+                sb.append("</div>");
+
+                // ── Footer ──
+                sb.append("<div class='footer-grid'>");
+                sb.append("<div class='footer-cell'><div class='footer-label'>POSICION ARMADA POR / Built by:</div><div class='footer-value'></div></div>");
+                sb.append("<div class='footer-cell'><div class='footer-label'>SELLO NO. / Seal No.:</div><div class='footer-value'></div></div>");
+                sb.append("<div class='footer-cell'><div class='footer-label'>CONFIRMADA CON / Confirmed with:</div><div class='footer-value'></div></div>");
+                sb.append("<div class='footer-cell'><div class='footer-label'>HORA / Time:</div><div class='footer-value'></div></div>");
+                sb.append("</div>");
+
                 sb.append("</div>");
             }
         }
