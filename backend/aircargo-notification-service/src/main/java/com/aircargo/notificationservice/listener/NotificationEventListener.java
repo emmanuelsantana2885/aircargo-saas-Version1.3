@@ -25,7 +25,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @ConditionalOnProperty(name = "spring.rabbitmq.listener.simple.auto-startup", havingValue = "true", matchIfMissing = true)
-@RabbitListener(queues = "aircargo.notifications")
+@RabbitListener(queues = "aircargo.notifications", containerFactory = "retryListenerFactory")
 public class NotificationEventListener {
 
     private static final Logger log = LoggerFactory.getLogger(NotificationEventListener.class);

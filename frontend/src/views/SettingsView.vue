@@ -26,6 +26,10 @@
         :class="activeTab === 'commodities' ? 'ds-btn-primary' : 'ds-btn-secondary'">
         {{ t('settings.tabs.commodities') }}
       </button>
+      <button v-if="canManageSettings" @click="openBackupsTab()"
+        :class="activeTab === 'backups' ? 'ds-btn-primary' : 'ds-btn-secondary'">
+        {{ t('settings.tabs.backups') }}
+      </button>
       <button v-if="canManageSettings || auth.role === 'BI_USER'" @click="activeTab = 'api'"
         :class="activeTab === 'api' ? 'ds-btn-primary' : 'ds-btn-secondary'">
         {{ t('settings.tabs.apiBi') }}
@@ -825,6 +829,134 @@
       </div>
     </template>
 
+    <!-- ============ BACKUPS TAB ============ -->
+    <template v-if="activeTab === 'backups'">
+      <div class="space-y-4 overflow-y-auto flex-1 pr-1">
+
+        <!-- Stats -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div class="ds-table-section p-3">
+            <p class="text-[11px] text-slate-500">{{ t('settings.backups.totalBackups') }}</p>
+            <p class="text-xl font-semibold text-slate-900">{{ backupStats.totalBackups ?? '—' }}</p>
+          </div>
+          <div class="ds-table-section p-3">
+            <p class="text-[11px] text-slate-500">{{ t('settings.backups.totalSize') }}</p>
+            <p class="text-xl font-semibold text-slate-900">{{ formatBytes(backupStats.totalSizeBytes) }}</p>
+          </div>
+          <div class="ds-table-section p-3">
+            <p class="text-[11px] text-slate-500">{{ t('settings.backups.successRate') }}</p>
+            <p class="text-xl font-semibold text-emerald-700">
+              {{ backupSuccessRate }}<span v-if="backupSuccessRate !== '—'" class="text-sm">%</span>
+            </p>
+          </div>
+          <div class="ds-table-section p-3">
+            <p class="text-[11px] text-slate-500">{{ t('settings.backups.diskFree') }}</p>
+            <p class="text-xl font-semibold text-slate-900">{{ formatBytes(backupStats.availableSpaceBytes) }}</p>
+          </div>
+        </div>
+
+        <!-- Config: carpeta de backups -->
+        <div class="ds-table-section">
+          <div class="p-4 space-y-4">
+            <div>
+              <h3 class="text-sm font-semibold text-slate-800 mb-1">{{ t('settings.backups.folderTitle') }}</h3>
+              <p class="text-[11px] text-slate-500 leading-relaxed">{{ t('settings.backups.folderHelp') }}</p>
+            </div>
+
+            <div>
+              <label class="ds-label block mb-1">{{ t('settings.backups.backupDir') }}</label>
+              <div class="flex items-center gap-2">
+                <input v-model="backupForm.backupDir" :disabled="backupSaving"
+                  :placeholder="t('settings.backups.backupDirPlaceholder')"
+                  class="ds-input font-mono text-[12px] flex-1">
+                <button @click="saveBackupConfig" :disabled="backupSaving" class="ds-btn-primary text-[12px] whitespace-nowrap">
+                  {{ backupSaving ? t('common.saving') : t('common.save') }}
+                </button>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-1">
+                {{ t('settings.backups.currentDir') }}: <code class="font-mono">{{ backupStats.backupDir || '—' }}</code>
+              </p>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <div>
+                <label class="ds-label block mb-1">{{ t('settings.backups.keepDays') }}</label>
+                <input v-model.number="backupForm.keepDays" type="number" min="1" max="3650"
+                  :disabled="backupSaving" class="ds-input w-full">
+              </div>
+              <div>
+                <label class="ds-label block mb-1">{{ t('settings.backups.compressLevel') }}</label>
+                <input v-model.number="backupForm.compressLevel" type="number" min="0" max="9"
+                  :disabled="backupSaving" class="ds-input w-full">
+              </div>
+              <div class="flex items-end pb-1">
+                <button @click="triggerManualBackup" :disabled="backupTriggering"
+                  class="ds-btn-secondary w-full justify-center text-[12px]">
+                  {{ backupTriggering ? t('settings.backups.creating') : t('settings.backups.createNow') }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Rollback info -->
+        <div class="bg-slate-50 border border-slate-200 rounded-lg p-3">
+          <p class="text-[11px] text-slate-600 leading-relaxed">
+            <strong class="text-slate-900">{{ t('settings.backups.rollbackTitle') }}</strong>
+            {{ t('settings.backups.rollbackHelp') }}
+            <code class="bg-slate-200 px-1 rounded font-mono text-[10px]">./scripts/rollback.sh --pre-deploy</code>
+            ·
+            <code class="bg-slate-200 px-1 rounded font-mono text-[10px]">--emergency</code>
+            ·
+            <code class="bg-slate-200 px-1 rounded font-mono text-[10px]">--restore &lt;file&gt;</code>
+          </p>
+        </div>
+
+        <!-- History -->
+        <div class="ds-table-section">
+          <div class="px-4 py-2 border-b border-slate-200 flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-slate-800">{{ t('settings.backups.history') }}</h3>
+            <button @click="loadBackupHistory" class="text-[11px] text-blue-600 hover:underline">
+              {{ t('common.refresh') }}
+            </button>
+          </div>
+          <div class="overflow-x-auto max-h-72 overflow-y-auto">
+            <table class="w-full text-[11px]">
+              <thead class="sticky top-0 bg-slate-100">
+                <tr class="text-left text-slate-600">
+                  <th class="px-3 py-1.5 font-semibold">{{ t('settings.backups.file') }}</th>
+                  <th class="px-3 py-1.5 font-semibold">{{ t('settings.backups.type') }}</th>
+                  <th class="px-3 py-1.5 font-semibold">{{ t('settings.backups.size') }}</th>
+                  <th class="px-3 py-1.5 font-semibold">{{ t('settings.backups.statusCol') }}</th>
+                  <th class="px-3 py-1.5 font-semibold">{{ t('settings.backups.date') }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-if="!backupHistory.length">
+                  <td colspan="5" class="px-3 py-6 text-center text-slate-400">{{ t('settings.backups.empty') }}</td>
+                </tr>
+                <tr v-for="h in backupHistory" :key="h.id" class="border-t border-slate-100 hover:bg-slate-50">
+                  <td class="px-3 py-1.5 font-mono text-[10px]">{{ h.fileName }}</td>
+                  <td class="px-3 py-1.5">
+                    <span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] uppercase">{{ h.backupType }}</span>
+                  </td>
+                  <td class="px-3 py-1.5">{{ formatBytes(h.sizeBytes) }}</td>
+                  <td class="px-3 py-1.5">
+                    <span :class="h.status === 'SUCCESS'
+                      ? 'text-emerald-700 bg-emerald-50'
+                      : 'text-red-700 bg-red-50'"
+                      class="px-1.5 py-0.5 rounded text-[10px] font-medium">{{ h.status }}</span>
+                  </td>
+                  <td class="px-3 py-1.5 text-slate-500">{{ formatDateTime(h.createdAt) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </template>
+
     <!-- ============ API / BI TAB ============ -->
     <template v-if="activeTab === 'api'">
       <div class="space-y-4 overflow-y-auto flex-1 pr-1">
@@ -1052,6 +1184,7 @@ import { airlinesApi } from '../api/airlines'
 import { uldTypeConfigApi } from '../api/uldTypeConfig'
 import { uldTypeCatalogApi } from '../api/uldTypeCatalog'
 import { commodityTypesApi } from '../api/commodityTypes'
+import { backupsApi } from '../api/backups'
 import { useAuthStore } from '../stores/auth'
 import { useToastStore } from '../stores/toast'
 import { extractError } from '../utils/error'
@@ -1069,6 +1202,92 @@ const editingSite = ref(null)
 const showSiteCreate = ref(false)
 
 const canManageSettings = computed(() => ['ADMIN', 'SUPER_USER'].includes(auth.role))
+
+// ── Backups ──
+const backupStats = ref({})
+const backupForm = ref({ backupDir: '', keepDays: 30, compressLevel: 6 })
+const backupHistory = ref([])
+const backupSaving = ref(false)
+const backupTriggering = ref(false)
+
+async function openBackupsTab() {
+  activeTab.value = 'backups'
+  try {
+    const [cfg, stats] = await Promise.all([backupsApi.getConfig(), backupsApi.getStats()])
+    backupForm.value = {
+      backupDir: cfg.data.backupDir || '',
+      keepDays: cfg.data.keepDays ?? 30,
+      compressLevel: cfg.data.compressLevel ?? 6,
+    }
+    backupStats.value = stats.data
+  } catch (e) {
+    toast.error(extractError(e))
+  }
+  loadBackupHistory()
+}
+
+async function loadBackupHistory() {
+  try {
+    const res = await backupsApi.getHistory(0, 50)
+    backupHistory.value = res.data || []
+  } catch { /* silencioso */ }
+}
+
+async function saveBackupConfig() {
+  backupSaving.value = true
+  try {
+    await backupsApi.updateConfig({
+      id: 1,
+      backupDir: backupForm.value.backupDir,
+      keepDays: backupForm.value.keepDays,
+      compressLevel: backupForm.value.compressLevel,
+      autoBackupEnabled: true,
+      notifyOnFailure: true,
+    })
+    toast.success(t('settings.backups.saved'))
+    const stats = await backupsApi.getStats()
+    backupStats.value = stats.data
+  } catch (e) {
+    toast.error(extractError(e))
+  } finally {
+    backupSaving.value = false
+  }
+}
+
+async function triggerManualBackup() {
+  backupTriggering.value = true
+  try {
+    await backupsApi.trigger('MANUAL')
+    toast.success(t('settings.backups.created'))
+    setTimeout(() => {
+      openBackupsTab()
+    }, 3000)
+  } catch (e) {
+    toast.error(extractError(e))
+  } finally {
+    backupTriggering.value = false
+  }
+}
+
+function formatBytes(bytes) {
+  if (bytes == null) return '—'
+  if (bytes < 1024) return bytes + ' B'
+  const units = ['KB', 'MB', 'GB', 'TB']
+  let v = bytes, i = -1
+  do { v /= 1024; i++ } while (v >= 1024 && i < units.length - 1)
+  return v.toFixed(1) + ' ' + units[i]
+}
+
+const backupSuccessRate = computed(() => {
+  const s = backupStats.value
+  if (!s.totalBackups) return '—'
+  return Math.round(((s.successCount || 0) / s.totalBackups) * 100).toString()
+})
+
+function formatDateTime(iso) {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })
+}
 
 const airlines = ref([])
 const editingAirline = ref(null)

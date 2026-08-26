@@ -105,6 +105,57 @@ Flyway migrations live in **each microservice** at `backend/aircargo-*-service/s
 
 Full plan: `Documents/MICROSERVICES-MIGRATION-PLAN.md`
 
+## Recent session changes (Aug 25, 2026 (3) — start-all.sh robusto e idempotente)
+**Verificado E2E**: arranque completo desde frío (10 servicios + frontend, todos healthy), re-ejecución con stack vivo → los 10 servicios y el frontend se omiten ("YA está healthy"), Ctrl+C mata hijos + huérfanos (patrón pkill corregido). Stack dejado levantado al terminar la sesión.
+
+| File | Change |
+|------|--------|
+| `start-all.sh` | **Prerrequisitos upfront** (java/node/curl con hint de instalación, falla temprano); flag nuevo `--observability|-o` (Prometheus+Grafana vía compose, no bloqueante); **idempotencia**: `start_service` salta si el puerto ya responde healthy; `free_port_if_unhealthy` libera puertos ocupados por instancias colgadas (vía ss→pid); frontend: `npm install` automático si falta node_modules, skip si :5173 ya sirve; **verificación final smoke** (gateway/auth/frontend) con resumen ❌/✅; FIX del pkill del cleanup (`java -jar.*aircargo.*\.jar` nunca calzaba porque JAVA_OPTS se interpone → `[j]ava .*aircargo-(gateway|.*-service)-1\.2\.0-SNAPSHOT\.jar`, verificado contra los 10 procesos vivos con pgrep). Lección: NO matar procesos Java globalmente al arrancar — anulaba la idempotencia matando stacks de otros launchers vivos |
+
+## Recent session changes (Aug 25, 2026 (2) — Observabilidad + resiliencia RabbitMQ + README + tests)
+Cierra 4 debilidades de la tabla de auditoría. **Verificado E2E**: `/actuator/prometheus` sirve métricas con etiqueta `application="aircargo-auth"`; reactor compila con micrometer-registry-prometheus (runtime scope en common → heredado por los 10 módulos); tests common 19 + auth 30 BUILD SUCCESS.
+
+| File | Change |
+|------|--------|
+| `backend/aircargo-common/pom.xml` | `micrometer-registry-prometheus` (runtime, versión gestionada por Boot BOM 1.13.0) — todos los servicios heredan el registro Prometheus |
+| 9 × `application.properties` | `management.endpoints.web.exposure.include=health,info,prometheus` + `management.metrics.tags.application=aircargo-<svc>` |
+| gateway `application.properties` | Ídem, conservando sus endpoints propios (gateway/circuitbreakers/ratelimiters) |
+| 7 × `SecurityConfig` (auth/export/load-planning/notification/uld/warehouse/gateway-reactivo) | `/actuator/**` permitAll para que Prometheus scrapee sin JWT (booking ya lo tenía; flight/mawb ya eran permitAll total). JwtGatewayFilter ya tenía `/actuator/` público |
+| `docker/docker-compose.observability.yml` | **NEW** — single-host: Prometheus :9090 (scrapea host.docker.internal:8080+9092-9100 vía extra_hosts host-gateway, retención 15d) + Grafana :3001 con datasource pre-provisionado |
+| `docker/prometheus.yml` + `docker/grafana/provisioning/datasources/prometheus.yml` | **NEW** — config de scrape (servicios + rabbitmq:15692) y datasource |
+| `docker/docker-compose.infrastructure.yml` + `docker/rabbitmq/enabled_plugins` | RabbitMQ ahora habilita plugin **rabbitmq_prometheus** (puerto 15692 expuesto) |
+| `notification-service config/RabbitConfig.java` | Resiliencia: cola durable con **DLX** (`aircargo.dlx` → `aircargo.notifications.dlq`) + factory `retryListenerFactory` (3 intentos, backoff 1s×2, `RejectAndDontRequeueRecoverer`). Listener usa `containerFactory="retryListenerFactory"`. ⚠️ Si existe la cola vieja sin DLX: borrar una vez (`rabbitmqctl delete_queue aircargo.notifications`) o PRECONDITION_FAILED al arrancar |
+| 5 × `application.properties` (flight/booking/mawb/warehouse/uld + notification dedup) | Publisher confirms `correlated`, `publisher-returns=true`, `template.mandatory=true` — publicaciones no enrutables quedan visibles en logs |
+| `README.md` | **Reescrito completo** — tabla de 10 servicios con puertos, estructura real (ya sin aircargo-api), inicio rápido con .env/start-all.sh, observabilidad, backups/rollback, Power BI vía gateway, despliegue k8s. Corregido "TypeScript"→JS en stack |
+| `common .../security/ObservabilityConsistencyTest.java` | **NEW** (3 tests) — guard estilo SecurityConfigConsistencyTest: O1 prometheus expuesto en los 10 servicios, O2 etiqueta application presente, R1 publishers AMQP con confirms/returns/mandatory, R2 notification con DLQ+retry+recoverer+listener wire |
+| `auth .../service/BackupConfigServiceTest.java` | **NEW** (7 tests) — resolución ''→default, defaults sin fila, ruta relativa/vacía rechazada, creación automática de carpeta, merge null-safe, compresión fuera de rango |
+
+Tests: common **19** (16 previos + 3 observabilidad), auth **30** (23 previos + 7 backups). Nota: micrometer-registry-prometheus 1.13.0 descargada a ~/.m2 — builds offline `-o` siguen funcionando.
+
+## Recent session changes (Aug 25, 2026 — Protocolo de backup automático + rollback con auto-restore)
+Sistema completo de respaldo/restauración gestionable desde Settings → Backups (ADMIN/SUPER_USER). **Verificado E2E**: PUT config persiste carpeta en BD → trigger MANUAL genera dump + registra historial → restore `--clean --if-exists` revierte cambios (keep_days 7→45) → flag `/tmp/aircargo-rollback-flag` detectado y consumido por el bloque de arranque. Tests: auth 23 OK (incluye SecurityConfigConsistencyTest), lint/build frontend OK.
+
+| File | Change |
+|------|--------|
+| `scripts/db-backup.sh` | Reescrito — lee config desde `backup_config` (BD) sin jq (columnas individuales psql); soporta POSTGRES_HOST; tipos daily/pre-deploy/post-deploy/manual; registra en `backup_history` (best-effort, nunca falla si la BD está caída); `-Z` configurable |
+| `scripts/rollback.sh` | **NEW** — protocolo: `--pre-deploy` (punto de rollback antes de deploy), `--post-deploy`, `--emergency` (backup de protección + flag para auto-restore en el próximo arranque), `--list`, `--restore FILE` (inmediato, `--clean --if-exists --no-owner`); log en `$BACKUP_DIR/rollback.log` |
+| `start-all.sh` | Bloque AUTO-RESTORE entre infra y build — si existe el flag, prefiere el último `*_pre-deploy_*.dump` (fallback al más reciente), restaura vía pg_restore y elimina el flag |
+| `~/.config/systemd/user/aircargo-backup.{service,timer}` | service ahora pasa tipo `daily`; timer diario 02:00 Persistent=true (activo, próxima corrida verificada) |
+| `backend/.../authservice/entity/BackupConfig.java` | **NEW** — singleton id=1 (@Version): backupDir (''=default $HOME/aircargo-backups), keepDays, compressLevel, autoBackupEnabled/Schedule, notificaciones |
+| `backend/.../authservice/entity/BackupHistory.java` | **NEW** — append-only por backup (fileName/path/sizeBytes/type/status/durationMs); índices created/type/status; @Builder.Default en createdAt |
+| `backend/.../authservice/repository/{BackupConfigRepository,BackupHistoryRepository}.java` | **NEW** |
+| `backend/.../authservice/dto/BackupDTOs.java` | **NEW** — BackupConfigDTO, BackupHistoryDTO, BackupStatsDTO |
+| `backend/.../authservice/service/BackupConfigService.java` | **NEW** — getConfig resuelve ''→default del sistema; updateConfig valida ruta absoluta, CREA la carpeta si no existe, exige permisos de escritura, merge null-safe (campos no enviados no se pisan), compresión 0-9, keepDays≥1; getStats/getHistory/getLatest/getLatestPreDeploy |
+| `backend/.../authservice/controller/BackupConfigController.java` | **NEW** — GET/PUT `/api/backup/config`, GET `/stats`, `/history?page&size`, `/latest`, `/latest-pre-deploy`, POST `/trigger?type=` (ejecuta scripts/db-backup.sh sincrónicamente con resolución de ruta subiendo directorios desde cwd); @PreAuthorize ADMIN/SUPER_USER |
+| `backend/.../authservice/config/SecurityConfig.java` | `/api/backup/**` → ADMIN/SUPER_USER |
+| `gateway RouteConfig.java` | `/api/backup/**` añadido a la ruta auth-service |
+| `backend/.../db/migration/V22__create_backup_tables.sql` ≡ raíz `V49` | Tablas `backup_config` (CHECK id=1) + `backup_history`; seed idempotente con `WHERE NOT EXISTS` (**nunca sobrescribe** la carpeta ya configurada por el admin); grants a aircargo_user |
+| `frontend/src/api/backups.js` | **NEW** — getConfig/updateConfig/getStats/getHistory/trigger |
+| `frontend/src/views/SettingsView.vue` | **NEW tab Backups** (ADMIN/SUPER_USER): stats (total/tamaño/%éxito/disco libre), formulario de carpeta editable con guardado (crea la carpeta si no existe), retención/compresión, botón "Crear backup ahora" (auto-refresh 3s), tabla historial (archivo/tipo/tamaño/estado/fecha, refresh manual), nota de comandos rollback |
+| `frontend/src/i18n/es.js` + `en.js` | Claves `settings.tabs.backups` + `settings.backups.*` |
+
+Lección shell re-confirmada: `pkill -f "aircargo-auth-service"` se auto-mata porque el propio comando contiene el literal — usar `pkill -f "[a]uth-service-..."` (bracket evita el self-match).
+
 ## Recent session changes (Aug 22, 2026 (3) — secret.yml fuera del repo)
 `k8s/secret.yml` (manifest K8s con placeholders `${POSTGRES_USER}/${POSTGRES_PASSWORD}/${JWT_SECRET}`, sin valores reales) movido a `~/Desktop/Projects/Rannik/aircargo-deploy-secrets/secret.yml` — carpeta hermana FUERA del proyecto. `.gitignore` ahora bloquea `k8s/secret*.yml` para evitar re-creación accidental. Los demás manifests de `k8s/` referencian el Secret por nombre (`aircargo-secrets`) así que no requieren cambios; al desplegar hay que aplicar la carpeta externa además de `k8s/`. Motivación: Graphify lo marcó como archivo potencialmente sensible durante el indexado del grafo.
 

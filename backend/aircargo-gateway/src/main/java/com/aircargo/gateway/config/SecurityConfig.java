@@ -19,8 +19,7 @@ public class SecurityConfig {
             "/api/auth/set-password",
             "/api/auth/refresh",
             "/api/catalog/**",
-            "/actuator/health",
-            "/actuator/info",
+            "/actuator/**",
             "/swagger-ui/**",
             "/v3/api-docs/**",
             "/webjars/**"

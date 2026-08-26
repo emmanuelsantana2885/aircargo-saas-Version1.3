@@ -4,7 +4,7 @@
       <div class="mx-auto mb-3 w-12 h-12 rounded-full flex items-center justify-center"
            style="background:var(--warn-bg); color:var(--warn)">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5" stroke-linecap="round"/><path d="M9 2h6"/>
+          <circle cx="12" cy="13" r="8" /><path d="M12 9v4l2.5 2.5" stroke-linecap="round" /><path d="M9 2h6" />
         </svg>
       </div>
       <h2 class="text-[15px] font-bold mb-1" style="color:var(--text)">{{ t('idle.title') }}</h2>

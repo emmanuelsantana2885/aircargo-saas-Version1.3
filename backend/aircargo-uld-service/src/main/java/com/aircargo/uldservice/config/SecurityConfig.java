@@ -29,7 +29,7 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                .requestMatchers("/actuator/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/ulds/**", "/api/uld-awbs/**", "/api/uld-type-config/**", "/api/uld-type-catalog/**", "/api/scan/**").hasAnyAuthority("READ_ONLY", "OPERATIONS", "TRAFFIC", "LOAD_PLANNER", "ADMIN", "SUPER_USER")
                 .requestMatchers("/api/ulds/labels/**").hasAnyAuthority("OPERATIONS", "TRAFFIC", "LOAD_PLANNER", "ADMIN", "SUPER_USER")
                 .requestMatchers(HttpMethod.POST, "/api/uld-type-config/**", "/api/uld-type-catalog/**").hasAnyAuthority("ADMIN", "SUPER_USER")
