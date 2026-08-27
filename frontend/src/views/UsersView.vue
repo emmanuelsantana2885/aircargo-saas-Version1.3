@@ -321,7 +321,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usersApi } from '../api/users'
 
@@ -329,9 +329,11 @@ const { t } = useI18n()
 import { rolesApi } from '../api/roles'
 import { useAuthStore } from '../stores/auth'
 import { useToastStore } from '../stores/toast'
+import { useConfirm } from '../composables/useConfirm'
 import { extractError } from '../utils/error'
 
 const toast = useToastStore()
+const { confirm } = useConfirm()
 const auth = useAuthStore()
 
 const activeTab = ref('connected')
@@ -584,7 +586,7 @@ async function saveView() {
 }
 
 async function deleteView(view) {
-  if (!confirm(t('users.toast.confirmDeleteView', { name: view.name, code: view.code }))) return
+  if (!(await confirm({ message: t('users.toast.confirmDeleteView', { name: view.name, code: view.code }), danger: true }))) return
   try {
     await rolesApi.deleteView(view.id)
     toast.success(t('users.toast.viewDeleted'))
@@ -611,8 +613,14 @@ watch(activeTab, (tab) => {
   }
 })
 
+let connectedTimer = null
+
 onMounted(async () => {
   loadConnected()
-  setInterval(loadConnected, 30000)
+  connectedTimer = setInterval(loadConnected, 30000)
+})
+
+onUnmounted(() => {
+  if (connectedTimer) clearInterval(connectedTimer)
 })
 </script>

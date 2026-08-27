@@ -13,7 +13,7 @@
       <div class="flex items-center gap-2">
         <button @click="handleExport" :disabled="!rows.length"
           class="ds-btn-secondary disabled:opacity-40 disabled:cursor-not-allowed">
-          <IconDownload :size="14" />
+          <component :is="icons.Download" :size="14" />
           CSV
         </button>
       </div>
@@ -68,7 +68,7 @@
       <!-- Error -->
       <div v-else-if="tableError" class="flex-1 flex items-center justify-center">
         <div class="text-center">
-          <IconAlertCircle :size="32" class="mx-auto mb-2 text-red-400" />
+          <component :is="icons.AlertCircle" :size="32" class="mx-auto mb-2 text-red-400" />
           <span class="text-[13px] font-mono text-red-500">{{ tableError }}</span>
         </div>
       </div>
@@ -76,7 +76,7 @@
       <!-- Empty -->
       <div v-else-if="!rows.length" class="flex-1 flex items-center justify-center">
         <div class="text-center">
-          <IconSearch :size="32" class="mx-auto mb-2 text-slate-300" />
+          <component :is="icons.Search" :size="32" class="mx-auto mb-2 text-slate-300" />
           <p class="text-[13px] font-mono text-slate-400 uppercase tracking-wider">
             Selecciona tipo y presiona Consultar
           </p>
@@ -126,12 +126,10 @@
 <script setup>
 import { ref, computed, reactive } from 'vue'
 import { exportData } from '../api/exports'
-import {
-  IconSearch,
-  IconDownload,
-  IconAlertCircle,
-} from '@tabler/icons-vue'
+import { useIcons } from '../composables/useIcons'
 import FilterBar from '../components/FilterBar.vue'
+
+const icons = useIcons()
 
 const types = [
   { value: 'MAWBS', label: 'MAWBs' },

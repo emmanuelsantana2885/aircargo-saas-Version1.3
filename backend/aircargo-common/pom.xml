@@ -100,5 +100,12 @@
             <artifactId>caffeine</artifactId>
             <optional>true</optional>
         </dependency>
+        <!-- Cliente Redis compartido: habilita spring.cache.type=redis en cualquier
+             servicio (modo HA con 2+ réplicas). Conexión lazy — sin Redis en marcha
+             todo funciona igual con la caché Caffeine por defecto. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
     </dependencies>
 </project>

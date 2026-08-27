@@ -192,6 +192,7 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useToastStore } from '../../stores/toast'
+import { useConfirm } from '../../composables/useConfirm'
 import { extractError } from '../../utils/error'
 import { labelTemplatesApi } from '../../api/labelTemplates'
 import { SIZE_PRESETS, FIELDS, effectiveSize, defaultElement, resolveElementValue } from '../../utils/labelConfig'
@@ -203,6 +204,7 @@ const props = defineProps({
 const emit = defineEmits(['close', 'saved'])
 
 const toast = useToastStore()
+const { confirm } = useConfirm()
 
 const typeLabel = computed(() => props.type === 'PALLET' ? 'Pallet' : 'Cargo')
 
@@ -347,7 +349,7 @@ async function save() {
 
 async function remove() {
   if (!currentId.value) return
-  if (!confirm(`¿Eliminar la plantilla "${name.value}"?`)) return
+  if (!(await confirm({ message: `¿Eliminar la plantilla "${name.value}"?`, danger: true }))) return
   try {
     await labelTemplatesApi.remove(currentId.value)
     toast.success('Plantilla eliminada')

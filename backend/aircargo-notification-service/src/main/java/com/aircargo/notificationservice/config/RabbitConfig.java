@@ -84,11 +84,9 @@ public class RabbitConfig {
     public Binding mawbBinding(Queue notificationsQueue, TopicExchange eventsExchange) {
         return BindingBuilder.bind(notificationsQueue).to(eventsExchange).with("mawb.status.changed");
     }
-
-    @Bean
-    public Binding auditBinding(Queue notificationsQueue, TopicExchange eventsExchange) {
-        return BindingBuilder.bind(notificationsQueue).to(eventsExchange).with("audit.log");
-    }
+    // NOTA: no hay binding para "audit.log" — la auditoría se persiste DIRECTAMENTE
+    // en la tabla compartida audit_log (com.aircargo.common.audit.AuditService).
+    // El binding+consumidor anterior generaba un registro duplicado por evento.
 
     /**
      * Factory con reintentos: 3 intentos (1s, 2s, 4s) y sin re-encolar —

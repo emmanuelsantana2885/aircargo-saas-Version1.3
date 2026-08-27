@@ -5,7 +5,7 @@
         <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
           <h3 class="text-[15px] font-black text-slate-950 uppercase tracking-wide font-mono">{{ t('passwordChange.title') }}</h3>
           <button @click="$emit('close')" class="text-slate-400 hover:text-slate-600 transition-colors">
-            <IconX :size="18" />
+            <component :is="icons.X" :size="18" />
           </button>
         </div>
         <div class="px-6 py-5 space-y-4">
@@ -54,7 +54,9 @@ import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { authApi } from '@/api/auth'
 import { useToastStore } from '@/stores/toast'
-import { IconX } from '@tabler/icons-vue'
+import { useIcons } from '../composables/useIcons'
+
+const icons = useIcons()
 
 const { t } = useI18n()
 const auth = useAuthStore()

@@ -27,7 +27,19 @@ for arg in "$@"; do
     --only-frontend|-F) ONLY_FRONTEND=true ;;
     --no-infra|-I) NO_INFRA=true ;;
     --observability|-o) OBSERVABILITY=true ;;
-    *) echo "❌ Flag desconocido: $arg"; echo "Uso: $0 [--skip-build|-b] [--only-backend|-B] [--only-frontend|-F] [--no-infra|-I] [--observability|-o]"; exit 1 ;;
+    --help|-h)
+      echo "Uso: $0 [opciones]"
+      echo ""
+      echo "Opciones:"
+      echo "  -b, --skip-build      Usa jars existentes (arranque rápido, sin recompilar)"
+      echo "  -B, --only-backend    Solo backend (sin frontend Vite)"
+      echo "  -F, --only-frontend   Solo frontend (asume backend UP en :8080)"
+      echo "  -I, --no-infra        No tocar Postgres/RabbitMQ (ya corriendo)"
+      echo "  -o, --observability   Arranca Prometheus (:9090) y Grafana (:3001)"
+      echo "  -h, --help            Muestra esta ayuda"
+      exit 0
+      ;;
+    *) echo "❌ Flag desconocido: $arg"; echo "Usa --help para ver las opciones"; exit 1 ;;
   esac
 done
 
@@ -126,7 +138,8 @@ cleanup() {
   done
   # Mata también procesos huérfanos de aircargo por si acaso
   # (patrón con [a] para no auto-matarse; JAVA_OPTS puede interponerse entre java y -jar)
-  pkill -f "[j]ava .*aircargo-(gateway|.*-service)-1\.2\.0-SNAPSHOT\.jar" 2>/dev/null || true
+  # El patrón es flexible con la versión del jar (matchea cualquier versión, no solo 1.2.0-SNAPSHOT)
+  pkill -f "[j]ava .*aircargo-(gateway|.*-service)-[0-9].*\.jar" 2>/dev/null || true
   [ "$ONLY_BACKEND" = "false" ] && pkill -f "vite" 2>/dev/null || true
   echo "✅ Limpieza completa"
   exit 0
@@ -201,6 +214,8 @@ fi
 # ═══════════════════════════════════════════════════════════════
 #  INFRAESTRUCTURA (Postgres + RabbitMQ)
 # ═══════════════════════════════════════════════════════════════
+
+RABBITMQ_ENABLED=true
 
 if [ "$NO_INFRA" = "false" ] && [ "$ONLY_FRONTEND" = "false" ]; then
   pg_up=false; rmq_up=false
@@ -330,6 +345,23 @@ if [ "$NO_INFRA" = "false" ] && [ "$ONLY_FRONTEND" = "false" ]; then
 fi
 
 # ═══════════════════════════════════════════════════════════════
+#  LOG ROTATION — limpiar logs viejos al arrancar
+# ═══════════════════════════════════════════════════════════════
+
+mkdir -p "$LOG_DIR"
+# Eliminar logs de build de más de 7 días
+find "$LOG_DIR" -name "build-*.log" -mtime +7 -delete 2>/dev/null || true
+# Rotar logs de servicios si son mayores a 10MB
+for logfile in "$LOG_DIR"/*.log; do
+  [ -f "$logfile" ] || continue
+  if [ "$(stat -c%s "$logfile" 2>/dev/null || echo 0)" -gt 10485760 ]; then
+    mv "$logfile" "${logfile}.$(date +%Y%m%d).old" 2>/dev/null || true
+  fi
+done
+# Eliminar .old de más de 14 días
+find "$LOG_DIR" -name "*.log.*.old" -mtime +14 -delete 2>/dev/null || true
+
+# ═══════════════════════════════════════════════════════════════
 #  BUILD (si no --skip-build)
 # ═══════════════════════════════════════════════════════════════
 
@@ -338,10 +370,21 @@ if [ "$SKIP_BUILD" = "true" ]; then
 else
   if [ "$ONLY_FRONTEND" = "false" ]; then
     echo "🏗️ Construyendo backend (reactor completo, incluye aircargo-common y feign-clients)..."
-    (cd "$AIR_ROOT/backend" && "$MAVEN_BIN" -o install -DskipTests -q) || {
-      echo "❌ La compilación del backend ha fallado."
-      exit 1
-    }
+    # Intentar offline primero (rápido si ~/.m2 está completo), fallback a online
+    BUILD_LOG="$LOG_DIR/build-$(date +%Y%m%d-%H%M%S).log"
+    mkdir -p "$LOG_DIR"
+    if (cd "$AIR_ROOT/backend" && "$MAVEN_BIN" -o clean install -DskipTests -q) 2>>"$BUILD_LOG"; then
+      echo "✅ Build offline OK"
+    else
+      echo "  ⚠️  Build offline falló — reintentando con dependencias online..."
+      if (cd "$AIR_ROOT/backend" && "$MAVEN_BIN" clean install -DskipTests) >>"$BUILD_LOG" 2>&1; then
+        echo "✅ Build online OK"
+      else
+        echo "❌ La compilación del backend ha fallado — log: $BUILD_LOG"
+        tail -20 "$BUILD_LOG" 2>/dev/null || true
+        exit 1
+      fi
+    fi
   fi
 fi
 
@@ -353,7 +396,7 @@ if [ "$ONLY_FRONTEND" = "false" ]; then
   echo "🚀 Iniciando servicios backend (escalonado con health checks)..."
 
   # 1) Gateway — todo pasa por él
-  start_service "aircargo-gateway" 8080 300 || exit 1
+  start_service "aircargo-gateway" 8080 120 || exit 1
 
   # 2) Auth — necesario para JWT que usan los demás
   start_service "aircargo-auth-service" 9092 240 || exit 1
@@ -392,7 +435,7 @@ fi
 
 if [ "$ONLY_BACKEND" = "false" ]; then
   # Idempotencia: si algo ya escucha en :5173, asumimos que es nuestro Vite
-  if curl -s http://localhost:5173 2>/dev/null | grep -q "vite\|VITE\|<html"; then
+  if curl -s -o /dev/null -w "%{http_code}" http://localhost:5173 2>/dev/null | grep -q "^2"; then
     echo "↪️  Frontend YA está corriendo en :5173 — omitido"
   else
     echo "🌐 Iniciando frontend (Vite dev server en puerto 5173)..."
@@ -413,7 +456,7 @@ if [ "$ONLY_BACKEND" = "false" ]; then
     # Esperar a que Vite esté listo
     FRONTEND_UP=false
     for _ in $(seq 1 30); do
-      if curl -s http://localhost:5173 2>/dev/null | grep -q "vite\|VITE\|<html"; then
+      if curl -s -o /dev/null -w "%{http_code}" http://localhost:5173 2>/dev/null | grep -q "^2"; then
         echo "    ✅ Frontend UP"
         FRONTEND_UP=true
         break
@@ -465,6 +508,7 @@ echo ""
 echo "🛠️  Utilidades:"
 echo "   • Logs en tiempo real: tail -f $LOG_DIR/<servicio>.log"
 echo "   • Detener todo: Ctrl+C (limpieza garantizada)"
+echo "   • Build logs: ls $LOG_DIR/build-*.log"
 echo ""
 
 # Mantener el script vivo esperando señales

@@ -17,7 +17,7 @@
           </button>
           <button v-if="streamReady" @click="capture"
             class="flex items-center gap-1.5 text-xs px-4 py-1.5 rounded font-mono uppercase tracking-wider font-bold text-white bg-slate-950 hover:bg-slate-800 transition active:scale-95">
-            <IconCamera :size="13" :stroke-width="2.5" /> Capturar
+            <component :is="icons.Camera" :size="13" :stroke-width="2.5" /> Capturar
           </button>
         </div>
       </div>
@@ -27,7 +27,9 @@
 
 <script setup>
 import { ref, watch, onUnmounted } from 'vue'
-import { IconCamera } from '@tabler/icons-vue'
+import { useIcons } from '../composables/useIcons'
+
+const icons = useIcons()
 
 const props = defineProps({
   show: { type: Boolean, default: false },

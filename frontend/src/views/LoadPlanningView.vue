@@ -32,19 +32,19 @@
         <button v-if="activeFlightMeta.id && activeFlightMeta.status !== 'DEPARTED' && activeFlightMeta.status !== 'ARRIVED' && activeFlightMeta.status !== 'CANCELLED'"
           @click="dispatchFlight" :title="t('loadPlanning.dispatchFlight')"
           class="ds-btn-primary px-2 py-1.5">
-          <IconPlaneDeparture :size="16" :stroke-width="2.5" />
+          <component :is="icons.PlaneDeparture" :size="16" :stroke-width="2.5" />
         </button>
         <button @click="triggerImport" :title="t('loadPlanning.uploadManifest')"
           class="ds-btn-secondary px-2 py-1.5">
-          <IconFileUpload :size="16" :stroke-width="2" />
+          <component :is="icons.FileUpload" :size="16" :stroke-width="2" />
         </button>
         <button @click="exportPalletSheets" :title="t('loadPlanning.palletSheets')"
           class="ds-btn-primary px-2 py-1.5 bg-slate-600 hover:bg-slate-500 border-slate-600 hover:border-slate-500">
-          <IconFileDescription :size="16" :stroke-width="2" />
+          <component :is="icons.FileDescription" :size="16" :stroke-width="2" />
         </button>
         <button @click="exportToXLSX" :title="t('loadPlanning.exportManifest')"
           class="ds-btn-primary px-2 py-1.5">
-          <IconFileExport :size="16" :stroke-width="2" />
+          <component :is="icons.FileExport" :size="16" :stroke-width="2" />
         </button>
       </div>
     </header>
@@ -114,7 +114,7 @@
           </select>
           <button @click.stop="deleteUld(uld)" :title="t('ulds.actions.delete')"
             class="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors">
-            <IconTrash size="16" />
+            <component :is="icons.Trash" size="16" />
           </button>
         </div>
       </div>
@@ -307,7 +307,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import LocaleDatePicker from '../components/LocaleDatePicker.vue'
@@ -317,13 +317,16 @@ import api from '../api/client'
 import { uldsApi } from '../api/ulds'
 import * as XLSX from 'xlsx'
 import { useToastStore } from '../stores/toast'
-    import { extractError } from '../utils/error'
-import { IconPlaneDeparture, IconFileUpload, IconFileDescription, IconFileExport, IconTrash } from '@tabler/icons-vue'
+import { extractError } from '../utils/error'
+import { useIcons } from '../composables/useIcons'
+import { useConfirm } from '../composables/useConfirm'
 
+const icons = useIcons()
 const uldsStore = useUldsStore()
 const appStore = useAppStore()
 const route = useRoute()
 const toast = useToastStore()
+const { confirm } = useConfirm()
 const { t, te } = useI18n()
 
 function lpStatus(status) {
@@ -586,6 +589,11 @@ onMounted(async () => {
   await loadAllUlds()
 })
 
+onUnmounted(() => {
+  document.removeEventListener('pointermove', onTableUldPointerMove)
+  document.removeEventListener('pointerup', onTableUldPointerUp)
+})
+
 async function loadAllUlds() {
   try {
     const airlineId = appStore.selectedFlight?.airlineId
@@ -655,8 +663,7 @@ async function reassignFlight(uldGroup, silent = false) {
     }
     loadAllUlds() // non-blocking refresh
   } catch (e) {
-    toast.error(extractError(e))
-    alert('Error reasignando vuelo: ' + (e.response?.data?.error || e.response?.data?.message || e.message))
+    toast.error('Error reasignando vuelo: ' + (e.response?.data?.error || e.response?.data?.message || e.message))
   }
 }
 
@@ -672,8 +679,7 @@ async function updatePosition(uldId, newPos) {
       ])
     }
   } catch (e) {
-    toast.error(extractError(e))
-    alert('Error actualizando posición: ' + (e.response?.data?.message || e.message))
+    toast.error('Error actualizando posición: ' + (e.response?.data?.message || e.message))
   }
 }
 
@@ -707,8 +713,7 @@ async function confirmTransfer() {
     }
     loadAllUlds() // non-blocking refresh
   } catch (e) {
-    toast.error(extractError(e))
-    alert('Error transfiriendo ULD: ' + (e.response?.data?.error || e.response?.data?.message || e.message))
+    toast.error('Error transfiriendo ULD: ' + (e.response?.data?.error || e.response?.data?.message || e.message))
   }
 }
 
@@ -728,21 +733,20 @@ async function dispatchFlight() {
     }
   }
   if (pendingAwbs.size > 0) {
-    alert(`No se puede despachar: ${pendingAwbs.size} MAWB(s) no tienen recibo de bodega:\n${[...pendingAwbs].join('\n')}\n\nComplete los recibos pendientes antes de despachar.`)
+    toast.warning(`No se puede despachar: ${pendingAwbs.size} MAWB(s) no tienen recibo de bodega:\n${[...pendingAwbs].join('\n')}\n\nComplete los recibos pendientes antes de despachar.`)
     return
   }
-  if (!confirm('¿Despachar el vuelo? Se marcarán todos los ULDs como LOADED y no se podrá modificar.')) return
+  if (!(await confirm({ message: '¿Despachar el vuelo? Se marcarán todos los ULDs como LOADED y no se podrá modificar.' }))) return
   try {
     await api.post(`/load-planning/flight/${selectedFlightId.value}/close`)
-    alert('Vuelo despachado correctamente.')
+    toast.success('Vuelo despachado correctamente.')
     await Promise.all([
       uldsStore.loadUldsForFlight(selectedFlightId.value),
       fetchLoadPlan(selectedFlightId.value),
       uldsStore.loadFlights()
     ])
   } catch (e) {
-    toast.error(extractError(e))
-    alert('Error despachando vuelo: ' + (e.response?.data?.error || e.response?.data?.message || e.message))
+    toast.error('Error despachando vuelo: ' + (e.response?.data?.error || e.response?.data?.message || e.message))
   }
 }
 
@@ -774,8 +778,7 @@ async function detachToFloating() {
     }
     loadAllUlds() // non-blocking refresh
   } catch (e) {
-    toast.error(extractError(e))
-    alert('Error desasignando vuelo: ' + (e.response?.data?.error || e.response?.data?.message || e.message))
+    toast.error('Error desasignando vuelo: ' + (e.response?.data?.error || e.response?.data?.message || e.message))
   }
 }
 
@@ -788,7 +791,7 @@ async function confirmFlightPick(flightId) {
 }
 
 async function deleteUld(uld) {
-  if (!confirm(`¿Eliminar ULD ${uld.uldNumber || ''} definitivamente? Esta acción no se puede deshacer.`)) return
+  if (!(await confirm({ message: `¿Eliminar ULD ${uld.uldNumber || ''} definitivamente? Esta acción no se puede deshacer.`, danger: true }))) return
   try {
     await api.delete(`/ulds/${uld.id}`)
     if (selectedFlightId.value) {
@@ -799,8 +802,7 @@ async function deleteUld(uld) {
     }
     loadAllUlds() // non-blocking refresh
   } catch (e) {
-    toast.error(extractError(e))
-    alert('Error eliminando ULD: ' + (e.response?.data?.error || e.response?.data?.message || e.message))
+    toast.error('Error eliminando ULD: ' + (e.response?.data?.error || e.response?.data?.message || e.message))
   }
 }
 
@@ -1044,11 +1046,11 @@ async function handleFileImport(e) {
 async function exportPalletSheets() {
   const flightId = selectedFlightId.value
   if (!flightId) {
-    alert('Seleccione un vuelo primero')
+    toast.warning('Seleccione un vuelo primero')
     return
   }
   if (!activeManifest.value.length) {
-    alert('No hay ULDs asignados a este vuelo. Primero debe importar un manifiesto (XLSX) o asignar ULDs al vuelo.')
+    toast.warning('No hay ULDs asignados a este vuelo. Primero debe importar un manifiesto (XLSX) o asignar ULDs al vuelo.')
     return
   }
   try {
@@ -1065,9 +1067,9 @@ async function exportPalletSheets() {
     window.URL.revokeObjectURL(url)
   } catch (err) {
     if (err.response?.status === 404) {
-      alert('No se encontró el plan de carga para este vuelo. Verifique que el vuelo exista y tenga ULDs asignados.')
+      toast.warning('No se encontró el plan de carga para este vuelo. Verifique que el vuelo exista y tenga ULDs asignados.')
     } else {
-      alert('Error al generar PDF. Verifique la consola para más detalles.')
+      toast.error('Error al generar PDF. Verifique la consola para más detalles.')
       console.error('Error generando pallet sheets:', err)
     }
   }
@@ -1075,7 +1077,7 @@ async function exportPalletSheets() {
 function exportToXLSX() {
   const flight = activeFlightMeta.value
   if (!flight || !activeManifest.value.length) {
-    alert('No hay datos para exportar')
+    toast.warning('No hay datos para exportar')
     return
   }
   const rows = [

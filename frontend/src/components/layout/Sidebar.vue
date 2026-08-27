@@ -10,7 +10,7 @@
     <button v-if="!isMobile" @click="collapsed = !collapsed"
       class="absolute -right-3.5 top-5 z-20 w-7 h-7 flex items-center justify-center transition-opacity hover:opacity-70 active:opacity-50"
       style="background: #2563eb; color: white">
-      <IconLayoutSidebarFilled :size="16" :stroke-width="2" />
+      <component :is="icons.LayoutSidebarFilled" :size="16" :stroke-width="2" />
     </button>
 
     <!-- Logo -->
@@ -23,7 +23,7 @@
           <div class="text-[13px] font-medium tracking-wide" style="color: #64748b">{{ auth.selectedSite?.code || 'SDQ' }} Operations</div>
         </div>
         <div v-else class="w-8 h-8 flex items-center justify-center shrink-0" style="background: #2563eb">
-          <IconLogo :size="20" color="white" :stroke-width="1.8" />
+          <component :is="icons.PlaneDeparture" :size="20" color="white" :stroke-width="1.8" />
         </div>
       </div>
     </div>
@@ -39,7 +39,7 @@
         :title="showCollapsed ? item.label : ''"
         @click="isMobile && (mobileOpen = false)">
         <div class="ico-frame shrink-0" :class="isActive(item.path) && 'ico-frame-active'" :style="{ '--ic': item.color }">
-          <component :is="item.icon" :size="showCollapsed ? 21 : 19" stroke-width="1" :color="item.color" />
+          <component :is="item.icon" :size="showCollapsed ? 21 : 19" :stroke-width="1.5" :color="item.color" />
         </div>
         <template v-if="!showCollapsed">
           <span class="nav-label font-bold" :style="isActive(item.path) ? { borderBottom: `2px solid ${item.color}`, paddingBottom: '1px' } : {}">{{ item.label }}</span>
@@ -55,7 +55,7 @@
         :title="showCollapsed ? item.label : ''"
         @click="isMobile && (mobileOpen = false)">
         <div class="ico-frame shrink-0" :class="isActive(item.path) && 'ico-frame-active'" :style="{ '--ic': item.color }">
-          <component :is="item.icon" :size="showCollapsed ? 21 : 19" stroke-width="1" :color="item.color" />
+          <component :is="item.icon" :size="showCollapsed ? 21 : 19" :stroke-width="1.5" :color="item.color" />
         </div>
         <span v-if="!showCollapsed" class="nav-label font-bold" :style="isActive(item.path) ? { borderBottom: `2px solid ${item.color}`, paddingBottom: '1px' } : {}">{{ item.label }}</span>
       </RouterLink>
@@ -76,10 +76,10 @@
           </div>
           <div class="flex items-center gap-1.5">
             <button @click="showPasswordChange = true" :title="t('sidebar.changePassword')" class="hover:opacity-70 transition-opacity">
-              <IconKey :size="16" style="color: #64748b" :stroke-width="1.5" />
+              <component :is="icons.Key" :size="16" style="color: #64748b" :stroke-width="1.5" />
             </button>
             <button @click="handleLogout" :title="t('sidebar.logout')" class="hover:opacity-70 transition-opacity">
-              <IconLogout :size="16" style="color: #64748b" :stroke-width="1.5" />
+              <component :is="icons.Logout" :size="16" style="color: #64748b" :stroke-width="1.5" />
             </button>
           </div>
         </template>
@@ -95,21 +95,14 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../../stores/auth'
+import { useIcons } from '../../composables/useIcons'
 import PasswordChangeModal from '../PasswordChangeModal.vue'
-import {
-  IconGauge, IconCalendarEvent, IconFileInvoice, IconPlaneDeparture,
-  IconClipboardList, IconRoute, IconPackage, IconLayoutGrid,
-  IconUsers, IconSettings, IconApi,
-  IconPlaneDeparture as IconLogo,
-  IconLayoutSidebarFilled, IconLogout,
-  IconCrownFilled, IconShieldLock, IconAirTrafficControl, IconArrowsExchange, IconScale, IconForklift,
-  IconUser, IconEye, IconKey,
-} from '@tabler/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const { t } = useI18n()
+const icons = useIcons()
 const collapsed = ref(false)
 const mobileOpen = ref(false)
 const isMobile = ref(false)
@@ -117,15 +110,18 @@ const isTablet = ref(false)
 const showPasswordChange = ref(false)
 
 const roleConfig = {
-  SUPER_USER:        { icon: IconCrownFilled,        bg: 'rgba(234,179,8,.15)',  fg: '#b45309' },
-  ADMIN:             { icon: IconShieldLock,         bg: 'rgba(37,99,235,.12)',  fg: '#2563eb' },
-  OPERATIONS:        { icon: IconAirTrafficControl,  bg: 'rgba(22,163,74,.12)',  fg: '#16a34a' },
-  TRAFFIC:           { icon: IconArrowsExchange,     bg: 'rgba(124,58,237,.12)', fg: '#7c3aed' },
-  LOAD_PLANNER:      { icon: IconScale,              bg: 'rgba(7,148,148,.12)',  fg: '#0891b2' },
-  WAREHOUSE_ASSISTANT:{ icon: IconForklift,          bg: 'rgba(217,119,6,.12)',  fg: '#d97706' },
-  READ_ONLY:         { icon: IconEye,                bg: 'rgba(100,116,139,.12)',fg: '#64748b' },
+  SUPER_USER:        { iconKey: 'CrownFilled',       bg: 'rgba(234,179,8,.15)',  fg: '#b45309' },
+  ADMIN:             { iconKey: 'ShieldLock',         bg: 'rgba(37,99,235,.12)',  fg: '#2563eb' },
+  OPERATIONS:        { iconKey: 'AirTrafficControl',  bg: 'rgba(22,163,74,.12)',  fg: '#16a34a' },
+  TRAFFIC:           { iconKey: 'ArrowsExchange',     bg: 'rgba(124,58,237,.12)', fg: '#7c3aed' },
+  LOAD_PLANNER:      { iconKey: 'Scale',              bg: 'rgba(7,148,148,.12)',  fg: '#0891b2' },
+  WAREHOUSE_ASSISTANT:{ iconKey: 'Forklift',          bg: 'rgba(217,119,6,.12)',  fg: '#d97706' },
+  READ_ONLY:         { iconKey: 'Eye',                bg: 'rgba(100,116,139,.12)',fg: '#64748b' },
 }
-const roleIcon = computed(() => roleConfig[auth.role] || { icon: IconUser, bg: 'rgba(100,116,139,.12)', fg: '#64748b' })
+const roleIcon = computed(() => {
+  const cfg = roleConfig[auth.role] || { iconKey: 'User', bg: 'rgba(100,116,139,.12)', fg: '#64748b' }
+  return { icon: icons.value[cfg.iconKey], bg: cfg.bg, fg: cfg.fg }
+})
 const roleLabel = computed(() => t(`users.roles.${auth.role}`) || auth.role?.replace('_', ' ') || '')
 
 const showCollapsed = computed(() => {
@@ -153,22 +149,22 @@ onMounted(() => { checkViewport(); window.addEventListener('resize', checkViewpo
 onUnmounted(() => { window.removeEventListener('resize', checkViewport) })
 
 const allMenuItems = computed(() => [
-  { path: '/',              label: t('sidebar.dashboard'),   icon: IconGauge,          view: 'DASHBOARD',     color: '#e11d48' },
-  { path: '/bookings',      label: t('sidebar.bookings'),    icon: IconCalendarEvent,  view: 'BOOKINGS',      color: '#2563eb' },
-  { path: '/receipts',      label: t('sidebar.receipts'),    icon: IconFileInvoice,    view: 'RECEIPTS',      color: '#d97706' },
-  { path: '/flights',       label: t('sidebar.flights'),     icon: IconPlaneDeparture, view: 'FLIGHTS',       color: '#7c3aed' },
-  { path: '/mawbs',         label: t('sidebar.mawbs'),       icon: IconClipboardList,  view: 'MAWBS',         color: '#16a34a' },
-  { path: '/load-planning', label: t('sidebar.loadPlanning'),icon: IconRoute,          view: 'LOAD_PLANNING', color: '#475569' },
-  { path: '/ulds',          label: t('sidebar.ulds'),        icon: IconPackage,        view: 'ULDS',          color: '#0891b2' },
-  { path: '/exports',       label: 'Reviews / Audit',        icon: IconLayoutGrid,     view: 'EXPORTS',       color: '#ea580c' },
-])
+  { path: '/',              label: t('sidebar.dashboard'),   iconKey: 'Gauge',          view: 'DASHBOARD',     color: '#e11d48' },
+  { path: '/bookings',      label: t('sidebar.bookings'),    iconKey: 'CalendarEvent',  view: 'BOOKINGS',      color: '#2563eb' },
+  { path: '/receipts',      label: t('sidebar.receipts'),    iconKey: 'FileInvoice',    view: 'RECEIPTS',      color: '#d97706' },
+  { path: '/flights',       label: t('sidebar.flights'),     iconKey: 'PlaneDeparture', view: 'FLIGHTS',       color: '#7c3aed' },
+  { path: '/mawbs',         label: t('sidebar.mawbs'),       iconKey: 'ClipboardList',  view: 'MAWBS',         color: '#16a34a' },
+  { path: '/load-planning', label: t('sidebar.loadPlanning'),iconKey: 'Route',          view: 'LOAD_PLANNING', color: '#475569' },
+  { path: '/ulds',          label: t('sidebar.ulds'),        iconKey: 'Package',        view: 'ULDS',          color: '#0891b2' },
+  { path: '/exports',       label: 'Reviews / Audit',        iconKey: 'LayoutGrid',     view: 'EXPORTS',       color: '#ea580c' },
+].map(item => ({ ...item, icon: computed(() => icons.value[item.iconKey]) })))
 const mainMenu = computed(() => allMenuItems.value.filter(item => auth.canView(item.view)))
 const settingsMenu = computed(() => {
   const items = []
-  if (auth.canView('USERS')) items.push({ path: '/users', label: t('sidebar.users'), icon: IconUsers, color: '#334155' })
-  if (auth.canView('SETTINGS')) items.push({ path: '/settings', label: t('sidebar.settings'), icon: IconSettings, color: '#6d28d9' })
-  if (auth.canView('SECURITY')) items.push({ path: '/security', label: t('sidebar.security'), icon: IconKey, color: '#dc2626' })
-  if (auth.canView('API_CATALOG')) items.push({ path: '/api-catalog', label: 'API Catalog', icon: IconApi, color: '#0e7490' })
+  if (auth.canView('USERS')) items.push({ path: '/users', label: t('sidebar.users'), icon: computed(() => icons.value.Users), color: '#334155' })
+  if (auth.canView('SETTINGS')) items.push({ path: '/settings', label: t('sidebar.settings'), icon: computed(() => icons.value.Settings), color: '#6d28d9' })
+  if (auth.canView('SECURITY')) items.push({ path: '/security', label: t('sidebar.security'), icon: computed(() => icons.value.Key), color: '#dc2626' })
+  if (auth.canView('API_CATALOG')) items.push({ path: '/api-catalog', label: 'API Catalog', icon: computed(() => icons.value.Api), color: '#0e7490' })
   return items
 })
 </script>
@@ -179,11 +175,12 @@ const settingsMenu = computed(() => {
 .nav-active { background: rgba(37,99,235,.10); color: #1e293b; font-weight: 700; }
 .nav-label { font-size: 14px; letter-spacing: 0.02em; }
 
-/* Thin icon frame — light theme */
+/* Icon frame — light theme */
 .ico-frame {
   width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;
   border-radius: 8px; position: relative;
-  border: 1px solid color-mix(in srgb, var(--ic) 15%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--ic) 20%, transparent);
+  background: color-mix(in srgb, var(--ic) 4%, transparent);
   transition: all 0.2s ease;
 }
 .ico-frame::before {
@@ -192,13 +189,13 @@ const settingsMenu = computed(() => {
   border-radius: 0 3px 0 0; opacity: 0; transition: opacity 0.2s;
 }
 .nav-default:hover .ico-frame {
-  border-color: color-mix(in srgb, var(--ic) 35%, transparent);
-  background: color-mix(in srgb, var(--ic) 6%, transparent);
+  border-color: color-mix(in srgb, var(--ic) 40%, transparent);
+  background: color-mix(in srgb, var(--ic) 10%, transparent);
 }
 .ico-frame-active {
-  border-color: color-mix(in srgb, var(--ic) 50%, transparent) !important;
-  background: color-mix(in srgb, var(--ic) 12%, transparent) !important;
+  border-color: color-mix(in srgb, var(--ic) 60%, transparent) !important;
+  background: color-mix(in srgb, var(--ic) 15%, transparent) !important;
   border-width: 1.5px;
 }
-.ico-frame-active::before { opacity: 0.5; }
+.ico-frame-active::before { opacity: 0.6; }
 </style>

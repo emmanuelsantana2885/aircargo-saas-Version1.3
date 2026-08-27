@@ -4,7 +4,7 @@
       <!-- Header -->
       <div class="text-center mb-6">
         <div class="w-12 h-12 rounded-lg flex items-center justify-center mx-auto mb-3" style="background: var(--accent)">
-          <IconShieldLock :size="28" color="white" :stroke-width="2" />
+          <component :is="icons.ShieldLock" :size="28" color="white" :stroke-width="2" />
         </div>
         <h1 class="text-xl font-bold" style="color: var(--text)">Configurar autenticación MFA</h1>
         <p class="text-sm mt-1" style="color: var(--muted)">Escanea el código QR con tu aplicación de autenticación</p>
@@ -92,7 +92,7 @@
       <!-- Step 3: Success -->
       <div v-if="step === 'success'" class="text-center space-y-4">
         <div class="w-12 h-12 rounded-full flex items-center justify-center mx-auto" style="background: #dcfce7">
-          <IconCheck :size="24" color="#16a34a" :stroke-width="2" />
+          <component :is="icons.Check" :size="24" color="#16a34a" :stroke-width="2" />
         </div>
         <h2 class="text-lg font-bold" style="color: var(--text)">MFA habilitado correctamente</h2>
         <p class="text-xs" style="color: var(--muted)">
@@ -115,8 +115,10 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { authApi } from '../api/auth'
-import { IconShieldLock, IconCheck } from '@tabler/icons-vue'
+import { useIcons } from '../composables/useIcons'
 import { useToastStore } from '../stores/toast'
+
+const icons = useIcons()
 import { extractError } from '../utils/error'
 
 const router = useRouter()

@@ -7,7 +7,7 @@
         <template v-if="step === 'credentials'">
         <div class="text-center mb-6">
           <div class="w-12 h-12 rounded-lg flex items-center justify-center mx-auto mb-3" style="background: var(--accent)">
-            <IconPlaneDeparture :size="28" color="white" :stroke-width="2" />
+            <component :is="icons.PlaneDeparture" :size="28" color="white" :stroke-width="2" />
           </div>
           <h1 class="text-xl font-bold" style="color: var(--text)">{{ t('login.brand') }}</h1>
           <p class="text-sm mt-1" style="color: var(--muted)">{{ t('login.tagline') }}</p>
@@ -69,7 +69,7 @@
       <template v-if="step === 'mfa'">
         <div class="text-center mb-6">
           <div class="w-12 h-12 rounded-lg flex items-center justify-center mx-auto mb-3" style="background: var(--accent)">
-            <IconShieldLock :size="28" color="white" :stroke-width="2" />
+            <component :is="icons.ShieldLock" :size="28" color="white" :stroke-width="2" />
           </div>
           <h1 class="text-xl font-bold" style="color: var(--text)">{{ t('login.mfa.title') }}</h1>
           <p class="text-sm mt-1" style="color: var(--muted)">{{ t('login.mfa.subtitle') }}</p>
@@ -122,7 +122,7 @@
       <template v-if="step === 'site-select'">
         <div class="text-center mb-6">
           <div class="w-12 h-12 rounded-lg flex items-center justify-center mx-auto mb-3" style="background: var(--accent)">
-            <IconBuildingStore :size="28" color="white" :stroke-width="2" />
+            <component :is="icons.BuildingStore" :size="28" color="white" :stroke-width="2" />
           </div>
           <h1 class="text-xl font-bold" style="color: var(--text)">{{ t('login.stepSite.title') }}</h1>
           <p class="text-sm mt-1" style="color: var(--muted)">{{ t('login.stepSite.subtitle') }}</p>
@@ -170,8 +170,10 @@ import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../stores/auth'
-import { IconPlaneDeparture, IconBuildingStore, IconShieldLock } from '@tabler/icons-vue'
+import { useIcons } from '../composables/useIcons'
 import { useToastStore } from '../stores/toast'
+
+const icons = useIcons()
 import { extractError } from '../utils/error'
 
 const { t } = useI18n()

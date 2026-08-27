@@ -1,14 +1,11 @@
 package com.aircargo.notificationservice.listener;
 
-import com.aircargo.common.event.AuditLogEvent;
 import com.aircargo.common.event.BookingAwbUpdatedEvent;
 import com.aircargo.common.event.FlightDepartedEvent;
 import com.aircargo.common.event.MawbStatusChangedEvent;
 import com.aircargo.common.event.ReceiptCreatedEvent;
 import com.aircargo.feign.client.AuthClient;
 import com.aircargo.feign.dto.UserDTO;
-import com.aircargo.notificationservice.entity.AuditLog;
-import com.aircargo.notificationservice.repository.AuditLogRepository;
 import com.aircargo.notificationservice.service.EmailNotificationService;
 import com.aircargo.notificationservice.service.NotificationService;
 import org.slf4j.Logger;
@@ -33,29 +30,13 @@ public class NotificationEventListener {
     private final NotificationService notificationService;
     private final EmailNotificationService emailNotificationService;
     private final AuthClient authClient;
-    private final AuditLogRepository auditLogRepository;
 
     public NotificationEventListener(NotificationService notificationService,
                                      EmailNotificationService emailNotificationService,
-                                     AuthClient authClient,
-                                     AuditLogRepository auditLogRepository) {
+                                     AuthClient authClient) {
         this.notificationService = notificationService;
         this.emailNotificationService = emailNotificationService;
         this.authClient = authClient;
-        this.auditLogRepository = auditLogRepository;
-    }
-
-    @RabbitHandler
-    public void onAuditLog(AuditLogEvent event) {
-        log.info("Received audit.log event: action={}, entity={}, entityId={}",
-                event.action(), event.entityType(), event.entityId());
-        try {
-            auditLogRepository.save(new AuditLog(
-                    event.userId(), event.email(), event.fullName(), event.action(),
-                    event.entityType(), event.entityId(), event.details(), event.ipAddress()));
-        } catch (Exception e) {
-            log.error("Failed to persist audit.log event: {}", e.getMessage(), e);
-        }
     }
 
     @RabbitHandler

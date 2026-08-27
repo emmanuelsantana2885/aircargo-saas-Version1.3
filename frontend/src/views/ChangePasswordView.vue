@@ -4,7 +4,7 @@
       <!-- Header -->
       <div class="text-center mb-6">
         <div class="w-12 h-12 rounded-lg flex items-center justify-center mx-auto mb-3" style="background: var(--accent)">
-          <IconLock :size="28" color="white" :stroke-width="2" />
+          <component :is="icons.Lock" :size="28" color="white" :stroke-width="2" />
         </div>
         <h1 class="text-xl font-bold" style="color: var(--text)">
           {{ mustChange ? 'Cambiar contraseña requerido' : 'Cambiar contraseña' }}
@@ -141,8 +141,10 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { authApi } from '../api/auth'
-import { IconLock } from '@tabler/icons-vue'
+import { useIcons } from '../composables/useIcons'
 import { useToastStore } from '../stores/toast'
+
+const icons = useIcons()
 import { extractError } from '../utils/error'
 import { checkPasswordStrength, isStrongPassword, passwordRuleLabels } from '../utils/password'
 

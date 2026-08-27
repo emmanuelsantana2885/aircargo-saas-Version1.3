@@ -936,7 +936,6 @@ export default {
       active: 'Active',
       count: '{n} airlines',
       empty: 'No airlines',
-      validation: 'Code and name are required',
       deleteConfirm: 'Delete this airline?',
       toast: {
         created: 'Airline created successfully',
@@ -962,7 +961,6 @@ export default {
       bulkSave: 'Save Configuration',
       empty: 'No configuration for this airline. Add rows and save.',
       count: '{n} configs',
-      selectAirline: 'Select an airline first',
       newType: 'New ULD type',
       newTypeTitle: 'Register new ULD type (IATA)',
       newTypeHelp: 'IATA code, 3 letters (up to 5). Becomes available system-wide: forms, scanner and catalog.',

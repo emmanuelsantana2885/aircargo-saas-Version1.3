@@ -26,11 +26,12 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/actuator/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/airlines/**").hasAnyAuthority("ADMIN", "SUPER_USER")
                 .requestMatchers(HttpMethod.PUT, "/api/airlines/**").hasAnyAuthority("ADMIN", "SUPER_USER")
                 .requestMatchers(HttpMethod.DELETE, "/api/airlines/**").hasAnyAuthority("ADMIN", "SUPER_USER")
                 .requestMatchers("/api/**").authenticated()
-                .anyRequest().permitAll()
+                .anyRequest().authenticated()
             )
             .exceptionHandling(eh -> eh.authenticationEntryPoint(
                 new org.springframework.security.web.authentication.HttpStatusEntryPoint(org.springframework.http.HttpStatus.UNAUTHORIZED)))

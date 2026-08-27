@@ -18,6 +18,7 @@
     @logout-now="expireIdleSession"
   />
   <ToastNotifications />
+  <ConfirmDialog />
 </template>
 
 <script setup>
@@ -29,6 +30,7 @@ import ErrorBoundary from './components/ErrorBoundary.vue'
 import Sidebar from './components/layout/Sidebar.vue'
 import Header from './components/layout/Header.vue'
 import ToastNotifications from './components/ToastNotifications.vue'
+import ConfirmDialog from './components/ConfirmDialog.vue'
 import IdleWarningModal from './components/IdleWarningModal.vue'
 import { useIdleLogout } from './composables/useIdleLogout'
 import { usersApi } from './api/users'

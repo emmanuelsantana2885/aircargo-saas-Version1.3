@@ -394,12 +394,14 @@ import { useI18n } from 'vue-i18n'
 import ScanPanel from '../components/ScanPanel.vue'
 import LabelPrintModal from '../components/labels/LabelPrintModal.vue'
 import { useCommodities } from '../composables/useCommodities'
+import { useConfirm } from '../composables/useConfirm'
 import FilterBar from '../components/FilterBar.vue'
 
 const uldsStore = useUldsStore()
 const appStore = useAppStore()
 const toast = useToastStore()
 const { t, te } = useI18n()
+const { confirm } = useConfirm()
 const { commodities: dbCommodities, loadCommodities } = useCommodities()
 
 const showLabels = ref(false)
@@ -861,7 +863,7 @@ function createNewBlankUld() {
 }
 
 async function dismountUld(uld) {
-  if (!confirm(t('ulds.confirmDemountFull', { number: uld.uldNumber || '' }))) return
+  if (!(await confirm({ message: t('ulds.confirmDemountFull', { number: uld.uldNumber || '' }) }))) return
   try {
     // 1. Delete all ULD-AWB links
     const existing = await uldAwbsApi.getByUld(uld.backendId)
@@ -888,7 +890,6 @@ async function dismountUld(uld) {
     expandedUldId.value = null
   } catch (e) {
     toast.error(extractError(e))
-    alert(t('ulds.toast.demountError', { error: e.response?.data?.message || e.message }))
   }
 }
 
@@ -901,7 +902,7 @@ async function deleteUld(uld) {
   }
   const hasCargo = (uld.mawbs || []).length > 0
   if (hasCargo) {
-    if (!confirm(t('ulds.confirmDeleteWithCargo', { number: uld.uldNumber || '', count: uld.mawbs.length }))) return
+    if (!(await confirm({ message: t('ulds.confirmDeleteWithCargo', { number: uld.uldNumber || '', count: uld.mawbs.length }), danger: true }))) return
     // Dismount first
     try {
       const existing = await uldAwbsApi.getByUld(uld.backendId)
@@ -922,11 +923,10 @@ async function deleteUld(uld) {
       await uldsApi.assignFlight(uld.backendId, null)
     } catch (e) {
       toast.error(extractError(e))
-      alert(t('ulds.toast.demountError', { error: e.response?.data?.message || e.message }))
       return
     }
   } else {
-    if (!confirm(t('ulds.confirmDelete', { number: uld.uldNumber || '' }))) return
+    if (!(await confirm({ message: t('ulds.confirmDelete', { number: uld.uldNumber || '' }), danger: true }))) return
   }
   try {
     await uldsApi.delete(uld.backendId)
@@ -936,20 +936,19 @@ async function deleteUld(uld) {
     rebuildLocalList()
   } catch (e) {
     toast.error(extractError(e))
-    alert(t('ulds.toast.deleteError', { error: e.response?.data?.message || e.message }))
   }
 }
 
 async function saveUld(uld) {
   if (!uld.uldNumber) {
-    alert(t('ulds.uldNumberRequired'))
+    toast.warning(t('ulds.uldNumberRequired'))
     return
   }
   const flightId = uld.saveFlightId
 
   if (!flightId) {
     if (!uld.backendId) {
-      alert(t('ulds.selectFlightRequired'))
+      toast.warning(t('ulds.selectFlightRequired'))
       return
     }
     // Floating ULD without flight change — just update fields
@@ -993,7 +992,6 @@ async function saveUld(uld) {
       rebuildLocalList()
     } catch (e) {
       toast.error(extractError(e))
-      alert(t('common.errorPrefix', { message: e.response?.data?.message || e.message }))
     }
     return
   }
@@ -1032,7 +1030,6 @@ async function saveUld(uld) {
     await appStore.loadAllMawbs()
   } catch (e) {
     toast.error(extractError(e))
-    alert(t('common.errorPrefix', { message: e.response?.data?.message || e.message }))
   }
 }
 

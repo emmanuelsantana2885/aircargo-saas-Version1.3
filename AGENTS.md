@@ -105,6 +105,31 @@ Flyway migrations live in **each microservice** at `backend/aircargo-*-service/s
 
 Full plan: `Documents/MICROSERVICES-MIGRATION-PLAN.md`
 
+## Recent session changes (Aug 26, 2026 — Backups offsite + Redis HA opcional + auditoría sin duplicados)
+Cierra 4 debilidades de la tabla de análisis. **DPA/Política de Privacidad sigue con `[CORCHETES]` a la espera de datos reales del cliente (razón social/RNC/contacto) — NO rellenar por cuenta propia.** Verificado: compile + tests common 19 / gateway 3 OK.
+
+| File | Change |
+|------|--------|
+| `scripts/db-backup.sh` | **OFFSITE** — tras cada dump exitoso sincroniza best-effort según `BACKUP_OFFSITE_TARGET`: prefijo `rsync:` (disco externo/NAS montado, espejo con retención local) o `rclone:` (nube; requiere `rclone config`). Nunca falla el backup local; avisos ⚠ si falta la herramienta o el montaje |
+| `.env.example` | Nuevas vars: `BACKUP_OFFSITE_TARGET`, `REDIS_HOST/PORT`, `RATE_LIMIT_USE_REDIS` |
+| `backend/aircargo-common/pom.xml` | `spring-boot-starter-data-redis` (compile — cliente lazy heredado por todos los servicios; sin Redis en marcha no conecta ni afecta arranque) |
+| `common .../cache/RedisCacheConfig.java` | **NEW** — CacheManager Redis (`spring.cache.type=redis`): JSON serializer (sin exigir Serializable), TTL `spring.cache.redis.time-to-live` (default 300s; conservar TTL por servicio: export 60s, load-planning 120s, auth 600s vía env) |
+| `common .../cache/CacheConfig.java` | Ahora condicionado a `spring.cache.type=caffeine` (matchIfMissing); `none` → Boot auto-configura NoOpCacheManager. Selección Caffeine/Redis/None explícita |
+| gateway `pom.xml` | `spring-boot-starter-data-redis-reactive` |
+| gateway `.../filter/RateLimitFilter.java` | **Reescrito** — backend REDIS (`app.gateway.rate-limit.use-redis=true`): ventana fija 1 min compartida entre réplicas (`INCR rl:{email}:{epochMinute}` + EXPIRE 70s), fail-open si Redis cae; default sigue in-memory resilience4j (correcto con 1 réplica) |
+| gateway + 9 × `application.properties` | `management.health.redis.enabled=false` en los 10 — el cliente Redis es lazy y NO debe bajar `/actuator/health` cuando Redis está apagado (modo default) |
+| `docker/docker-compose.infrastructure.yml` | Servicio `redis:7-alpine` (AOF, 256mb LRU, healthcheck ping) — OPCIONAL: solo para HA |
+| `common .../security/ObservabilityConsistencyTest.java` | Guard nuevo **O3**: cada application.properties debe tener `management.health.redis.enabled=false` |
+| `common .../audit/AuditService.java` | **Sin doble registro** — eliminado el publish AMQP "audit.log" (la copia de notification duplicaba cada evento). Única vía: INSERT en `audit_log` compartida; si el INSERT falla → log WARN, nunca lanza. Condición `@ConditionalOnClass(JdbcTemplate)` |
+| notification `NotificationEventListener` | Handler `onAuditLog` eliminado (era el consumidor duplicado) |
+| notification `RabbitConfig` | Binding `audit.log` eliminado (con comentario del motivo) |
+| notification `{entity/AuditLog, repository/AuditLogRepository, config/AuditRetentionJob}` | **DELETED** — la tabla `notification.audit_log` ya no tiene productor ni lector |
+| notification `V3__drop_notification_audit_log.sql` ≡ raíz `V50` | DROP TABLE `notification.audit_log` |
+| `common .../event/AuditLogEvent.java` | **DELETED** — record sin consumidores tras quitar el publish |
+| `common .../audit/AuditServiceTest.java` | Reescrito al comportamiento single-write (5 tests: persiste 1 registro, INSERT fallido no lanza, sin BD no lanza, IP pseudonimizada, details sanitizado) |
+
+Lección Maven: esta máquina NO tiene mvn en PATH ni SDKMAN — usar `export MAVEN_BIN=/var/lib/flatpak/app/com.jetbrains.IntelliJ-IDEA-Community/x86_64/stable/active/files/plugins/maven-plugin/lib/maven3/bin/mvn`. Deps nuevas (data-redis/reactive) requieren un primer `dependency:resolve` ONLINE antes de compilar `-o`.
+
 ## Recent session changes (Aug 25, 2026 (3) — start-all.sh robusto e idempotente)
 **Verificado E2E**: arranque completo desde frío (10 servicios + frontend, todos healthy), re-ejecución con stack vivo → los 10 servicios y el frontend se omiten ("YA está healthy"), Ctrl+C mata hijos + huérfanos (patrón pkill corregido). Stack dejado levantado al terminar la sesión.
 

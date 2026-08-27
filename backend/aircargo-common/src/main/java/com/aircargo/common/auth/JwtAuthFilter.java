@@ -24,6 +24,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(JwtAuthFilter.class);
     private static final long REVOCATION_CACHE_MS = 30_000;
+    private static final List<String> PUBLIC_PATHS = List.of(
+            "/api/auth/login", "/api/auth/set-password", "/api/auth/set-password-token",
+            "/api/auth/reset-password/", "/api/auth/refresh", "/api/auth/heartbeat"
+    );
 
     private final JwtUtil jwtUtil;
     // Opcional: habilita revocación central por-request (tokens_valid_from / blocked / is_active)
@@ -47,6 +51,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                                     FilterChain chain) throws ServletException, IOException {
         String method = request.getMethod();
         String uri = request.getRequestURI();
+
+        // Endpoints públicos: skip JWT validation (permitAll en SecurityConfig se encarga)
+        if (PUBLIC_PATHS.stream().anyMatch(uri::startsWith)) {
+            chain.doFilter(request, response);
+            return;
+        }
 
         String token = extractToken(request);
         if (token == null) {

@@ -17,6 +17,8 @@ import static org.junit.jupiter.api.Assertions.*;
  * Escanea los application.properties de cada microservicio y falla el build si:
  *  O1. /actuator/prometheus NO está expuesto (Prometheus no podría scrapear).
  *  O2. Falta management.metrics.tags.application (etiqueta por servicio en Grafana).
+ *  O3. Falta management.health.redis.enabled=false (todos heredan el cliente Redis
+ *      de common; sin este flag /actuator/health baja cuando no hay Redis en marcha).
  *  R1. Servicios que publican AMQP sin publisher-confirm-type=correlated
  *      (publicaciones silenciosamente perdidas ante caída del broker).
  *  R2. notification-service sin publisher-returns/mandatory (mensajes no enrutables invisibles).
@@ -63,6 +65,10 @@ class ObservabilityConsistencyTest {
             // O2: etiqueta application para filtrar en Grafana
             if (!content.contains("management.metrics.tags.application=")) {
                 violations.add(service + ": falta management.metrics.tags.application");
+            }
+            // O3: health check de Redis desactivado (cliente lazy heredado de common)
+            if (!content.contains("management.health.redis.enabled=false")) {
+                violations.add(service + ": falta management.health.redis.enabled=false");
             }
         }
         assertTrue(violations.isEmpty(),

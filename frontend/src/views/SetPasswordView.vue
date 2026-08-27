@@ -3,7 +3,7 @@
     <div class="w-full max-w-sm p-6 md:p-8 rounded-2xl shadow-xl" style="background: var(--surface); border: 1px solid var(--border)">
       <div class="text-center mb-6">
         <div class="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3" style="background: var(--accent)">
-          <IconLock :size="28" color="white" :stroke-width="2" />
+          <component :is="icons.Lock" :size="28" color="white" :stroke-width="2" />
         </div>
         <h1 class="text-xl font-bold" style="color: var(--text)">{{ t('setPassword.title') }}</h1>
         <p class="text-sm mt-1" style="color: var(--muted)">{{ t('setPassword.subtitle') }}</p>
@@ -109,8 +109,10 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { authApi } from '../api/auth'
-import { IconLock } from '@tabler/icons-vue'
+import { useIcons } from '../composables/useIcons'
 import { useToastStore } from '../stores/toast'
+
+const icons = useIcons()
 import { extractError } from '../utils/error'
 import { checkPasswordStrength, isStrongPassword, passwordRuleLabels } from '../utils/password'
 

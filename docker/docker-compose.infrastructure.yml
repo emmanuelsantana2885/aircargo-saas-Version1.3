@@ -15,7 +15,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aircargo_user} -d ${POSTGRES_DB:-aircargo_db}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aircargo_user} -d ${POSTGRES_DB:-aircargo}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -40,5 +40,23 @@ services:
       timeout: 5s
       retries: 5
 
+  # Opcional — solo necesario en HA (2+ réplicas de gateway/servicios):
+  # RATE_LIMIT_USE_REDIS=true en el gateway y SPRING_CACHE_TYPE=redis en los servicios.
+  redis:
+    image: redis:7-alpine
+    container_name: aircargo-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   pgdata:
+  redisdata:

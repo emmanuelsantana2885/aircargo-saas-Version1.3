@@ -11,6 +11,14 @@
 #     backup_config.compress_level → compresión pg_dump 0-9 (default 6)
 #   Variables de entorno (.env):
 #     POSTGRES_HOST, POSTGRES_PORT, POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD
+#
+#   Copia OFFSITE (protege ante fallo de disco — el backup local vive en la
+#   misma máquina que la BD). Se sincroniza tras cada dump exitoso, best-effort:
+#     BACKUP_OFFSITE_TARGET  destino con prefijo de modo:
+#       rsync:/mnt/usb/aircargo-backups      → rsync a disco local externo (USB/NAS montado)
+#       rclone:gdrive:aircargo-backups       → rclone remote (S3/GDrive/OneDrive…)
+#     BACKUP_OFFSITE_DIR     subcarpeta dentro del target (default: mismo nombre de BACKUP_DIR)
+#   Nota rclone: configurar el remote antes (`rclone config`); rsync/rclone son opcionales.
 # ────────────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -72,3 +80,50 @@ INSERT INTO backup_history (file_name, file_path, size_bytes, backup_type, statu
 VALUES ('$(basename "$OUT")', '$OUT', $(stat -c%s "$OUT"), '${BACKUP_TYPE^^}', 'SUCCESS', $DURATION, now());
 SQL
 fi
+
+# ── Copia OFFSITE (best-effort: nunca falla el backup local) ──────────
+sync_offsite() {
+  local target="${BACKUP_OFFSITE_TARGET:-}"
+  [ -z "$target" ] && return 0
+
+  local mode="${target%%:*}"
+  local rest="${target#*:}"
+
+  case "$mode" in
+    rsync)
+      if ! command -v rsync >/dev/null 2>&1; then
+        echo "[$(date '+%F %T')] ⚠ OFFSITE: rsync no instalado — copia omitida ($target)"
+        return 0
+      fi
+      local dest="${rest%/}/${BACKUP_OFFSITE_DIR:-$(basename "$BACKUP_DIR")}"
+      mkdir -p "$dest" 2>/dev/null || { echo "[$(date '+%F %T')] ⚠ OFFSITE: no se puede crear $dest (¿disco montado?)"; return 0; }
+      if rsync -a --delete --include="*.dump" --exclude="*" "$BACKUP_DIR/" "$dest/" 2>/dev/null; then
+        echo "[$(date '+%F %T')] ✓ OFFSITE: sincronizado a $dest"
+      else
+        echo "[$(date '+%F %T')] ⚠ OFFSITE: rsync falló hacia $dest (revisar montaje/red)"
+      fi
+      ;;
+    rclone)
+      if ! command -v rclone >/dev/null 2>&1; then
+        echo "[$(date '+%F %T')] ⚠ OFFSITE: rclone no instalado — copia omitida ($target)"
+        return 0
+      fi
+      local dest="${rest%/}/$(basename "$BACKUP_DIR")"
+      # Solo subimos los dumps vigentes (la retención local ya podó los viejos)
+      local failed=0
+      for f in "$BACKUP_DIR"/*.dump; do
+        [ -e "$f" ] || continue
+        rclone copy "$f" "$dest" 2>/dev/null || failed=1
+      done
+      if [ "$failed" = "0" ]; then
+        echo "[$(date '+%F %T')] ✓ OFFSITE: sincronizado a rclone:$dest"
+      else
+        echo "[$(date '+%F %T')] ⚠ OFFSITE: rclone con errores hacia $dest (revisar remote/conexión)"
+      fi
+      ;;
+    *)
+      echo "[$(date '+%F %T')] ⚠ OFFSITE: prefijo desconocido '$mode' (usar rsync: o rclone:) — omitido"
+      ;;
+  esac
+}
+sync_offsite

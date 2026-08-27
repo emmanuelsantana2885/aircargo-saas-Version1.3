@@ -25,7 +25,7 @@
       <button
         @click="clear"
         class="text-[11px] font-mono text-slate-400 hover:text-slate-500 uppercase tracking-wider transition flex items-center gap-1">
-        <IconTrash :size="11" :stroke-width="2" /> Limpiar
+        <component :is="icons.Trash" :size="11" :stroke-width="2" /> Limpiar
       </button>
     </div>
   </div>
@@ -33,7 +33,9 @@
 
 <script setup>
 import { ref, onMounted, watch } from 'vue'
-import { IconTrash } from '@tabler/icons-vue'
+import { useIcons } from '../composables/useIcons'
+
+const icons = useIcons()
 
 const props = defineProps({
   modelValue: { type: String, default: '' },

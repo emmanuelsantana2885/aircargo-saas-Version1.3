@@ -8,19 +8,25 @@
       <!-- Mobile hamburger -->
       <button v-if="isMobile" @click="$emit('toggleSidebar')"
         class="flex items-center justify-center w-8 h-8 rounded hover:bg-white/10 transition lg:hidden">
-        <IconMenu :size="20" :stroke-width="2" style="color: white" />
+        <component :is="icons.Menu" :size="20" :stroke-width="2" style="color: white" />
       </button>
-      <IconChevronRight :size="12" style="color: rgba(255,255,255,0.4)" :stroke-width="2" class="hidden sm:block" />
+      <component :is="icons.ChevronRight" :size="12" style="color: rgba(255,255,255,0.4)" :stroke-width="2" class="hidden sm:block" />
       <span class="text-[13px] md:text-xs font-bold uppercase text-white tracking-wide" style="text-shadow: 0 1px 2px rgba(0,0,0,0.3)">{{ title }}</span>
     </div>
 
     <div class="flex items-center gap-2 md:gap-4 relative z-10">
       <LanguageSwitcher />
       <span class="text-[12px] md:text-xs text-slate-300">{{ date }}</span>
+      <button @click="toggleIconLib"
+        :title="iconLib === 'tabler' ? 'Switch to Lucide icons' : 'Switch to Tabler icons'"
+        class="flex items-center justify-center w-8 h-8 rounded hover:bg-white/10 transition text-[10px] font-bold"
+        style="color: rgba(255,255,255,0.7)">
+        {{ iconLib === 'tabler' ? 'TB' : 'LC' }}
+      </button>
       <button @click="toggleTheme" :title="theme === 'tokyo' ? t('header.themeLight') : t('header.themeDark')"
         class="flex items-center justify-center w-8 h-8 rounded hover:bg-white/10 transition">
-        <IconMoon v-if="theme === 'light'" :size="17" style="color: white" :stroke-width="1.8" />
-        <IconSun v-else :size="17" style="color: #ff9e64" :stroke-width="1.8" />
+        <component :is="icons.Moon" v-if="theme === 'light'" :size="17" style="color: white" :stroke-width="1.8" />
+        <component :is="icons.Sun" v-else :size="17" style="color: #ff9e64" :stroke-width="1.8" />
       </button>
     </div>
   </header>
@@ -30,8 +36,9 @@
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { IconChevronRight, IconMenu, IconMoon, IconSun } from '@tabler/icons-vue'
 import { getTheme, setTheme } from '../../utils/theme'
+import { iconLib, toggleIconLib } from '../../utils/iconLib'
+import { useIcons } from '../../composables/useIcons'
 import LanguageSwitcher from '../LanguageSwitcher.vue'
 
 defineEmits(['toggleSidebar'])
@@ -40,6 +47,7 @@ const { t } = useI18n()
 const route = useRoute()
 const isMobile = ref(false)
 const theme = ref(getTheme())
+const icons = useIcons()
 
 function toggleTheme() {
   theme.value = setTheme(theme.value === 'tokyo' ? 'light' : 'tokyo')

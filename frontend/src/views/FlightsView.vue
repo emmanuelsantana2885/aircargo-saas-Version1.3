@@ -31,7 +31,7 @@
           container-class="!gap-1"
         />
         <button @click="openCreate" class="ds-btn-primary">
-          <IconPlus :size="14" :stroke-width="2.5" /> {{ t('flights.newFlight') }}
+          <component :is="icons.Plus" :size="14" :stroke-width="2.5" /> {{ t('flights.newFlight') }}
         </button>
       </div>
     </header>
@@ -60,7 +60,7 @@
 
       <!-- Empty -->
       <div v-else-if="filteredFlights.length === 0" class="ds-empty">
-        <IconPlaneDeparture :size="32" class="text-slate-300" :stroke-width="1.2" />
+        <component :is="icons.PlaneDeparture" :size="32" class="text-slate-300" :stroke-width="1.2" />
         <p class="uppercase tracking-widest">{{ t('flights.empty') }}</p>
         <button @click="openCreate" class="ds-btn-secondary mt-1">
           + {{ t('flights.createFirstFlight') }}
@@ -114,11 +114,11 @@
           <div class="col-span-1 flex justify-center gap-1.5 relative z-10">
             <button @click.stop="openEdit(f)"
               class="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:border-slate-950 hover:text-slate-950 transition">
-              <IconPencil :size="13" :stroke-width="2" />
+              <component :is="icons.Pencil" :size="13" :stroke-width="2" />
             </button>
             <button @click.stop="confirmDelete(f)"
               class="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-100 text-slate-400 hover:border-red-300 hover:text-red-500 transition">
-              <IconTrash :size="13" :stroke-width="2" />
+              <component :is="icons.Trash" :size="13" :stroke-width="2" />
             </button>
           </div>
         </div>
@@ -135,7 +135,7 @@
             {{ editingFlight ? t('flights.editFlight') : t('flights.newFlight') }}
           </h2>
           <button @click="closeModal" class="text-slate-400 hover:text-slate-950 transition">
-            <IconX :size="18" :stroke-width="2" />
+            <component :is="icons.X" :size="18" :stroke-width="2" />
           </button>
         </div>
 
@@ -195,7 +195,7 @@
             {{ t('common.cancel') }}
           </button>
           <button @click="saveForm" :disabled="saving" class="ds-btn-primary">
-            <IconCheck v-if="!saving" :size="14" :stroke-width="2.5" />
+            <component :is="icons.Check" v-if="!saving" :size="14" :stroke-width="2.5" />
             <span>{{ saving ? t('common.saving') : (editingFlight ? t('common.update') : t('flights.newFlight')) }}</span>
           </button>
         </div>
@@ -212,16 +212,19 @@ import { useI18n } from 'vue-i18n'
 import { useAppStore } from '../stores/app'
 import { airlinesApi } from '../api/airlines'
 import { uldsApi } from '../api/ulds'
-import { IconPlus, IconPencil, IconTrash, IconX, IconCheck, IconPlaneDeparture } from '@tabler/icons-vue'
+import { useIcons } from '../composables/useIcons'
 import { useToastStore } from '../stores/toast'
+import { useConfirm } from '../composables/useConfirm'
 import { extractError } from '../utils/error'
 import FilterBar from '../components/FilterBar.vue'
 import LocaleDatePicker from '../components/LocaleDatePicker.vue'
 
+const icons = useIcons()
 const { t } = useI18n()
 const store = useAppStore()
 const router = useRouter()
 const toast = useToastStore()
+const { confirm } = useConfirm()
 
 const airlines = ref([])
 const airlinesError = ref(false)
@@ -366,7 +369,7 @@ function closeModal() {
 
 async function saveForm() {
   if (!form.value.airlineId || !form.value.flightNumber || !form.value.flightDate) {
-    alert(t('flights.validation.requiredFields'))
+    toast.warning(t('flights.validation.requiredFields'))
     return
   }
   try {
@@ -380,19 +383,17 @@ async function saveForm() {
     closeModal()
   } catch (e) {
     toast.error(extractError(e))
-    alert(t('flights.toast.saveError', { error: e.response?.data?.message || e.message }))
   } finally {
     saving.value = false
   }
 }
 
 async function confirmDelete(f) {
-  if (!confirm(t('flights.confirmDeleteWithNumber', { number: f.flightNumber }))) return
+  if (!(await confirm({ message: t('flights.confirmDeleteWithNumber', { number: f.flightNumber }), danger: true }))) return
   try {
     await store.deleteFlight(f.id)
   } catch (e) {
     toast.error(extractError(e))
-    alert(t('flights.toast.deleteError', { error: e.response?.data?.message || e.message }))
   }
 }
 

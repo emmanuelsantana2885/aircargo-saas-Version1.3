@@ -1187,10 +1187,12 @@ import { commodityTypesApi } from '../api/commodityTypes'
 import { backupsApi } from '../api/backups'
 import { useAuthStore } from '../stores/auth'
 import { useToastStore } from '../stores/toast'
+import { useConfirm } from '../composables/useConfirm'
 import { extractError } from '../utils/error'
 import client from '../api/client'
 
 const toast = useToastStore()
+const { confirm } = useConfirm()
 const auth = useAuthStore()
 const users = ref([])
 const allSites = ref([])
@@ -1388,7 +1390,7 @@ async function toggleUldTypeActive(tp) {
 
 async function removeCatalogEntry(tp) {
   if (!tp.id) return
-  if (!confirm(t('settings.uldConfig.catalog.deleteConfirm', { code: tp.code }))) return
+  if (!(await confirm({ message: t('settings.uldConfig.catalog.deleteConfirm', { code: tp.code }), danger: true }))) return
   try {
     await uldTypeCatalogApi.remove(tp.id)
     toast.success(t('settings.uldConfig.catalog.deleted', { code: tp.code }))
@@ -1510,7 +1512,7 @@ async function saveAirlineEdit() {
 }
 
 async function removeAirline(a) {
-  if (!confirm(t('settings.airlines.deleteConfirm'))) return
+  if (!(await confirm({ message: t('settings.airlines.deleteConfirm'), danger: true }))) return
   try {
     await airlinesApi.delete(a.id)
     toast.success(t('settings.airlines.toast.deleted'))
@@ -1644,7 +1646,7 @@ async function saveEdit() {
 }
 
 async function removeUser(user) {
-  if (!confirm(t('settings.users.deleteConfirm'))) return
+  if (!(await confirm({ message: t('settings.users.deleteConfirm'), danger: true }))) return
   try {
     await usersApi.delete(user.id)
     await loadUsers()
@@ -1652,7 +1654,7 @@ async function removeUser(user) {
 }
 
 async function resetPass(user) {
-  if (!confirm(t('settings.users.resetPasswordConfirm'))) return
+  if (!(await confirm({ message: t('settings.users.resetPasswordConfirm'), danger: true }))) return
   try {
     await usersApi.resetPassword(user.id)
     await loadUsers()
@@ -1700,7 +1702,7 @@ function cancelMfaSetup() {
 }
 
 async function disableMfaUser(user) {
-  if (!confirm(t('settings.users.confirmDisableMfa'))) return
+  if (!(await confirm({ message: t('settings.users.confirmDisableMfa'), danger: true }))) return
   try {
     await usersApi.mfaDisable(user.id)
     await loadUsers()
@@ -1708,7 +1710,7 @@ async function disableMfaUser(user) {
 }
 
 async function lockMfaUser(user) {
-  if (!confirm(t('settings.users.confirmLock'))) return
+  if (!(await confirm({ message: t('settings.users.confirmLock'), danger: true }))) return
   try {
     await usersApi.mfaLock(user.id)
     await loadUsers()
@@ -1716,7 +1718,7 @@ async function lockMfaUser(user) {
 }
 
 async function unlockMfaUser(user) {
-  if (!confirm(t('settings.users.confirmUnlock'))) return
+  if (!(await confirm({ message: t('settings.users.confirmUnlock'), danger: true }))) return
   try {
     await usersApi.mfaUnlock(user.id)
     await loadUsers()
@@ -1769,7 +1771,7 @@ async function saveSiteEdit() {
 }
 
 async function removeSite(site) {
-  if (!confirm(t('settings.sites.deleteConfirm'))) return
+  if (!(await confirm({ message: t('settings.sites.deleteConfirm'), danger: true }))) return
   try {
     await sitesApi.delete(site.id)
     await loadSites()
@@ -1777,7 +1779,7 @@ async function removeSite(site) {
 }
 
 async function genTempPassword(user) {
-  if (!confirm(t('settings.users.confirmGenTemp'))) return
+  if (!(await confirm({ message: t('settings.users.confirmGenTemp'), danger: true }))) return
   try {
     const res = await usersApi.generateResetLink(user.id)
     generatedPassword.value = res.data.resetLink
@@ -1840,7 +1842,7 @@ async function saveCommodityCreate() {
 
 async function removeCommodity(c) {
   if (commodityTotpCode.value.length !== 6) { toast.warning(t('settings.commodities.totpRequired')); return }
-  if (!confirm(t('settings.commodities.deleteConfirm'))) return
+  if (!(await confirm({ message: t('settings.commodities.deleteConfirm'), danger: true }))) return
   try {
     await commodityTypesApi.delete(c.id, commodityTotpCode.value)
     toast.success(t('settings.commodities.toast.deleted'))
@@ -1851,7 +1853,7 @@ async function removeCommodity(c) {
 
 async function restoreCommodityDefaults() {
   if (commodityTotpCode.value.length !== 6) { toast.warning(t('settings.commodities.totpRequired')); return }
-  if (!confirm(t('settings.commodities.restoreConfirm'))) return
+  if (!(await confirm({ message: t('settings.commodities.restoreConfirm'), danger: true }))) return
   try {
     const res = await commodityTypesApi.restoreDefaults(commodityTotpCode.value)
     const restored = res.data?.restored || 0

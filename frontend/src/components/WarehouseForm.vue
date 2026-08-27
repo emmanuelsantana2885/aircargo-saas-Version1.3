@@ -10,7 +10,7 @@
                 : currentStep > idx + 1
                   ? 'bg-slate-600 text-white border-slate-600'
                   : 'bg-white text-slate-400 border-slate-300'">
-              <IconCheck v-if="currentStep > idx + 1" :size="11" :stroke-width="3" />
+              <component :is="icons.Check" v-if="currentStep > idx + 1" :size="11" :stroke-width="3" />
               <span v-else>{{ idx + 1 }}</span>
             </div>
             <span class="text-[11px] font-mono uppercase tracking-wide font-bold hidden lg:inline"
@@ -22,7 +22,7 @@
         </template>
       </div>
       <button @click="$emit('cancel')" class="text-slate-400 hover:text-slate-700 transition">
-        <IconX :size="16" :stroke-width="2" />
+        <component :is="icons.X" :size="16" :stroke-width="2" />
       </button>
     </div>
 
@@ -41,10 +41,10 @@
             <span class="text-slate-400 uppercase tracking-wide">Total medido (Paso 2):</span>
             <span class="font-black" :class="piecesMismatch ? 'text-slate-500' : 'text-slate-700'">{{ totalQty }}</span>
             <span v-if="piecesMismatch" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-50 border border-slate-200 text-slate-600 uppercase font-bold">
-              <IconAlertTriangle :size="10" :stroke-width="2.5" /> No coincide
+              <component :is="icons.AlertTriangle" :size="10" :stroke-width="2.5" /> No coincide
             </span>
             <span v-else class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 border border-slate-300 text-slate-700 uppercase font-bold">
-              <IconCheck :size="10" :stroke-width="2.5" /> Coincide
+              <component :is="icons.Check" :size="10" :stroke-width="2.5" /> Coincide
             </span>
           </div>
         </div>
@@ -74,7 +74,7 @@
           <span class="text-slate-400 uppercase tracking-wide">Total:</span>
           <span class="font-black" :class="piecesMismatch ? 'text-slate-500' : 'text-slate-700'">{{ totalQty }}</span>
           <span v-if="piecesMismatch" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-50 border border-slate-200 text-slate-600 uppercase font-bold">
-            <IconAlertTriangle :size="10" :stroke-width="2.5" /> Revisar
+            <component :is="icons.AlertTriangle" :size="10" :stroke-width="2.5" /> Revisar
           </span>
         </div>
       </div>
@@ -146,7 +146,7 @@
           <div style="padding:4px; text-align:center;" class="relative z-10">
             <button v-if="form.pieceGroups.length > 1" @click="removeGroup(i)"
               class="text-slate-300 hover:text-slate-500 transition">
-              <IconTrash :size="13" :stroke-width="1.8" />
+              <component :is="icons.Trash" :size="13" :stroke-width="1.8" />
             </button>
           </div>
         </div>
@@ -164,7 +164,7 @@
       <div class="flex items-center gap-2 mt-3">
         <button @click="addGroup"
           class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border border-slate-300 font-mono uppercase tracking-wider font-bold text-slate-600 hover:bg-slate-50 transition">
-          <IconPlus :size="12" :stroke-width="2.5" /> Agregar Grupo Dimensional
+          <component :is="icons.Plus" :size="12" :stroke-width="2.5" /> Agregar Grupo Dimensional
         </button>
       </div>
     </div>
@@ -212,7 +212,7 @@
       </button>
       <button v-if="currentStep === 5" @click="handleSubmit"
         class="flex items-center gap-1.5 text-xs px-3.5 py-1.5 rounded font-mono uppercase tracking-wider font-bold text-white bg-slate-800 hover:bg-slate-700 shadow-pencil-marine transition active:scale-95">
-        <IconCheck :size="12" :stroke-width="2.5" /> Guardar Recibo Completo
+        <component :is="icons.Check" :size="12" :stroke-width="2.5" /> Guardar Recibo Completo
       </button>
     </div>
   </div>
@@ -220,7 +220,9 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { IconCheck, IconX, IconPlus, IconTrash, IconAlertTriangle, IconCamera, IconFileUpload, IconPaperclip } from '@tabler/icons-vue'
+import { useIcons } from '../composables/useIcons'
+
+const icons = useIcons()
 
 const props = defineProps({
   initialData: { type: Object, default: () => ({}) }
@@ -290,9 +292,9 @@ const checkboxes = [
 ]
 
 const evidenceButtons = [
-  { label: 'Capturar Foto',        icon: IconCamera },
-  { label: 'Subir PDF / Imágenes', icon: IconFileUpload },
-  { label: 'Otros Archivos',       icon: IconPaperclip },
+  { label: 'Capturar Foto',        icon: icons.Camera },
+  { label: 'Subir PDF / Imágenes', icon: icons.FileUpload },
+  { label: 'Otros Archivos',       icon: icons.Paperclip },
 ]
 
 const signatureFields = [

@@ -123,12 +123,12 @@
             <button @click.stop="openEdit(b)"
               class="text-slate-400 hover:text-blue-600 transition-colors p-1"
               :title="t('common.edit')">
-              <IconPencil :size="15" :stroke-width="1.5" />
+              <component :is="icons.Pencil" :size="15" :stroke-width="1.5" />
             </button>
             <button @click.stop="removeBooking(b)"
               class="text-slate-400 hover:text-slate-600 transition-colors p-1"
               :title="t('common.delete')">
-              <IconTrash :size="15" :stroke-width="1.5" />
+              <component :is="icons.Trash" :size="15" :stroke-width="1.5" />
             </button>
           </div>
         </div>
@@ -139,7 +139,7 @@
       <div class="ds-modal-panel">
         <div class="ds-modal-header">
           <h2 class="ds-modal-title">{{ editingBooking ? t('bookings.editBooking') : t('bookings.newBooking') }}</h2>
-          <button @click="closeModal" class="text-slate-400 hover:text-slate-950 transition"><IconX :size="18" :stroke-width="2" /></button>
+          <button @click="closeModal" class="text-slate-400 hover:text-slate-950 transition"><component :is="icons.X" :size="18" :stroke-width="2" /></button>
         </div>
           <div class="space-y-4">
           <div class="grid grid-cols-2 gap-4">
@@ -235,7 +235,7 @@
             <h2 class="ds-modal-title">{{ t('bookings.import.previewTitle') }}</h2>
             <p class="text-[13px] font-mono text-slate-950 mt-0.5">{{ t('bookings.import.rowsFound', { n: parsedRows.length }) }}</p>
           </div>
-          <button @click="closeImportModal" class="text-slate-950 hover:text-slate-950"><IconX :size="16" :stroke-width="2" /></button>
+          <button @click="closeImportModal" class="text-slate-950 hover:text-slate-950"><component :is="icons.X" :size="16" :stroke-width="2" /></button>
         </div>
 
         <div class="overflow-auto flex-1 min-h-0">
@@ -296,10 +296,13 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '../stores/app'
-import { IconX, IconTrash, IconPencil } from '@tabler/icons-vue'
+import { useIcons } from '../composables/useIcons'
 import * as XLSX from 'xlsx'
+
+const icons = useIcons()
 import { downloadCSV } from '../utils/csv'
 import { useToastStore } from '../stores/toast'
+import { useConfirm } from '../composables/useConfirm'
 import { extractError } from '../utils/error'
 import { useCommodities } from '../composables/useCommodities'
 import FilterBar from '../components/FilterBar.vue'
@@ -308,6 +311,7 @@ const store = useAppStore()
 const { t } = useI18n()
 const { commodities: dbCommodities, loadCommodities } = useCommodities()
 const toast = useToastStore()
+const { confirm } = useConfirm()
 
 const showModal = ref(false)
 const saving = ref(false)
@@ -588,8 +592,7 @@ function handleFileImport(e) {
       parsedRows.value = parseBookingsFromXLSX(rows)
       showImportModal.value = true
     } catch (err) {
-      toast.error(extractError(err))
-      alert(t('bookings.toast.fileReadError', { error: err.message }))
+      toast.error(t('bookings.toast.fileReadError', { error: extractError(err) }))
     }
   }
   reader.readAsArrayBuffer(file)
@@ -603,7 +606,7 @@ function closeImportModal() {
 
 async function confirmImport() {
   if (!store.selectedFlightId) {
-    alert(t('bookings.selectFlightFirst'))
+    toast.warning(t('bookings.selectFlightFirst'))
     return
   }
   if (parsedRows.value.length === 0) return
@@ -669,16 +672,16 @@ async function confirmImport() {
   ])
   importing.value = false
   closeImportModal()
-  alert(`Importación completada: ${success} exitosos, ${errors} errores`)
+  toast.success(`Importación completada: ${success} exitosos, ${errors} errores`)
 }
 
 async function saveBooking() {
   if (!form.value.clientName || !form.value.contactName || !form.value.reservedKg) {
-    alert('Cliente, Contacto y Peso Reservado son obligatorios')
+    toast.warning('Cliente, Contacto y Peso Reservado son obligatorios')
     return
   }
   if (!store.selectedFlightId) {
-    alert(t('bookings.selectFlightFirst'))
+    toast.warning(t('bookings.selectFlightFirst'))
     return
   }
   try {
@@ -745,7 +748,6 @@ async function saveBooking() {
     closeModal()
   } catch (e) {
     toast.error(extractError(e))
-    alert('Error: ' + (e.response?.data?.message || e.message))
   } finally {
     saving.value = false
   }
@@ -756,7 +758,7 @@ async function removeBooking(b) {
   const msg = keys.length > 1
     ? `¿Eliminar ${keys.length} bookings agrupados (${keys.join(', ')})?`
     : `¿Eliminar booking de ${b.clientName || '—'} (${b.awbNumber || b.id?.slice(0, 8) || 'N/A'})?`
-  if (!confirm(msg)) return
+  if (!(await confirm({ message: msg }))) return
   try {
     if (b._dupCount > 1) {
       const group = store.bookings.filter(x => (x.mawbId === b.mawbId) || (!b.mawbId && x.awbNumber === b.awbNumber))
@@ -765,9 +767,7 @@ async function removeBooking(b) {
       await store.deleteBooking(b.id)
     }
   } catch (e) {
-    toast.error(extractError(e))
-    const msg = e.response?.data?.error || e.response?.data?.message || e.message
-    alert('Error al eliminar: ' + msg)
+    toast.error('Error al eliminar: ' + extractError(e))
   }
 }
 

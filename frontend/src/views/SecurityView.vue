@@ -12,7 +12,7 @@
         </span>
         <span v-if="updatedLabel" class="text-[11px] font-mono text-slate-400">{{ updatedLabel }}</span>
         <button @click="loadAll" class="ds-btn-secondary">
-          <IconRefresh :size="14" /> {{ t('common.refresh') }}
+          <component :is="icons.Refresh" :size="14" /> {{ t('common.refresh') }}
         </button>
       </div>
     </header>
@@ -130,11 +130,14 @@ import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import api from '@/api/client'
 import { useToastStore } from '@/stores/toast'
-import { IconRefresh } from '@tabler/icons-vue'
+import { useConfirm } from '../composables/useConfirm'
+import { useIcons } from '../composables/useIcons'
 
+const icons = useIcons()
 const { t } = useI18n()
 const auth = useAuthStore()
 const toast = useToastStore()
+const { confirm } = useConfirm()
 const sessions = ref([])
 const auditLogs = ref([])
 const allUsers = ref([])
@@ -256,7 +259,7 @@ async function loadAll() {
 async function toggleBlock(user) {
   const action = user.blocked ? 'unblock' : 'block'
   const name = user.fullName || user.email
-  if (!confirm(t('security.confirmBlock', { action, name }))) return
+  if (!(await confirm({ message: t('security.confirmBlock', { action, name }), danger: true }))) return
   try {
     await api.post('/auth/' + action + '/' + user.id)
     user.blocked = !user.blocked

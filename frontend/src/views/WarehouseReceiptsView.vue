@@ -686,7 +686,7 @@
                   </div>
                   <div class="border-2 border-dashed border-slate-400 rounded flex flex-col items-center justify-center cursor-pointer hover:border-slate-950 transition group min-h-[80px]"
                     @click="openCamera(m.id)">
-                    <IconCamera :size="16" class="text-slate-300 group-hover:text-slate-950 transition" />
+                    <component :is="icons.Camera" :size="16" class="text-slate-300 group-hover:text-slate-950 transition" />
                     <span class="text-[12px] font-mono text-slate-950 mt-0.5 uppercase tracking-wider">Cámara</span>
                   </div>
                 </div>
@@ -814,7 +814,7 @@
               </button>
               <button @click="openMawbCamera()"
                 class="ds-btn-secondary text-[11px] px-2.5 py-1 flex items-center gap-1">
-                <IconCamera :size="12" /> Cámara
+                <component :is="icons.Camera" :size="12" /> Cámara
               </button>
               <button v-if="mawbEvidenceMgr.docs.length > 0" @click="downloadMawbEvidencePdf()"
                 class="ml-auto ds-btn-primary text-[11px] px-2.5 py-1">
@@ -972,15 +972,19 @@ import SignaturePad from '../components/SignaturePad.vue'
 import CameraCapture from '../components/CameraCapture.vue'
 import EditReceiptModal from '../components/EditReceiptModal.vue'
 import LocaleDatePicker from '../components/LocaleDatePicker.vue'
-import { IconCamera } from '@tabler/icons-vue'
+import { useIcons } from '../composables/useIcons'
 import { hawbsApi } from '../api/hawbs'
+
+const icons = useIcons()
 import { mawbsApi } from '../api/mawbs'
 import { receiptsApi } from '../api/receipts'
 import { useToastStore } from '../stores/toast'
 import { extractError } from '../utils/error'
+import { useConfirm } from '../composables/useConfirm'
 
 const store = useAppStore()
 const toast = useToastStore()
+const { confirm } = useConfirm()
 const route = useRoute()
 
 function airlineCodeById(airlineId) {
@@ -1224,7 +1228,7 @@ async function applyBulkStatus() {
   const target = bulkStatusTarget.value
   if (!target || selectedMawbIds.size === 0) return
   const ids = [...selectedMawbIds]
-  if (!confirm(`¿Cambiar estado de ${ids.length} MAWB(s) a "${statusSteps.find(s => s.key === target)?.label}"?`)) return
+  if (!(await confirm({ message: `¿Cambiar estado de ${ids.length} MAWB(s) a "${statusSteps.find(s => s.key === target)?.label}"?` }))) return
   let ok = 0, fail = 0
   for (const id of ids) {
     try {
@@ -1695,7 +1699,7 @@ async function syncMawbName(m, field) {
 async function changeMawbStatus(m, newStatus) {
   const cur = m.status || 'BOOKED'
   if (cur === newStatus) return
-  if (!confirm(`¿Cambiar estado de ${m.awbNumber || m.id.slice(0, 8)} de "${statusLabels[cur] ?? cur}" a "${statusLabels[newStatus] ?? newStatus}"?`)) return
+  if (!(await confirm({ message: `¿Cambiar estado de ${m.awbNumber || m.id.slice(0, 8)} de "${statusLabels[cur] ?? cur}" a "${statusLabels[newStatus] ?? newStatus}"?` }))) return
   m.status = newStatus
   try {
     await mawbsApi.updateStatus(m.id, newStatus)
@@ -1707,7 +1711,7 @@ async function changeMawbStatus(m, newStatus) {
   } catch (e) {
     toast.error(extractError(e))
     m.status = cur
-    alert('Error al actualizar estado: ' + (e.response?.data?.error || e.message))
+    toast.error('Error al actualizar estado: ' + (e.response?.data?.error || e.message))
   }
 }
 
@@ -2016,7 +2020,7 @@ function openConfirmModal(m) {
   if (!f) return
   f.pieces = f.pieces.filter(p => p.hawbId != null || p.lengthIn || p.widthIn || p.heightIn || p.scaleWeightLbs)
   if (f.pieces.length === 0) {
-    alert('Ingresa al menos una pieza')
+    toast.warning('Ingresa al menos una pieza')
     return
   }
   pendingSubmitMawb.value = m
@@ -2067,7 +2071,7 @@ async function confirmBookingCorrection() {
     const data = e.response?.data
     const msg = data?.error || data?.message || (typeof data === 'string' ? data : null) || e.message
     console.error('Booking correction emit error:', { error: e, responseData: data })
-    alert('Error (' + (e.response?.status || '?') + '): ' + msg)
+    toast.error('Error (' + (e.response?.status || '?') + '): ' + msg)
   }
 }
 
@@ -2078,11 +2082,11 @@ async function submitReceipt(m) {
   if (!f) return
   f.pieces = f.pieces.filter(p => p.hawbId != null || p.lengthIn || p.widthIn || p.heightIn || p.scaleWeightLbs)
   if (f.pieces.length === 0) {
-    alert('Ingresa al menos una pieza')
+    toast.warning('Ingresa al menos una pieza')
     return
   }
   if (receiptById.value[m.id]) {
-    if (!confirm('Este MAWB ya tiene un recibo activo. Emitir uno nuevo reemplazara el recibo existente. ¿Continuar?')) {
+    if (!(await confirm({ message: 'Este MAWB ya tiene un recibo activo. Emitir uno nuevo reemplazara el recibo existente. ¿Continuar?', danger: true }))) {
       return
     }
   }
@@ -2227,7 +2231,7 @@ async function submitReceipt(m) {
     const data = e.response?.data
     const msg = data?.error || data?.message || (typeof data === 'string' ? data : null) || e.message
     console.error('Receipt submit error:', { error: e, responseData: data })
-    alert('Error (' + e.response?.status + '): ' + msg)
+    toast.error('Error (' + e.response?.status + '): ' + msg)
   } finally {
     submitting.value = false
   }
@@ -2363,7 +2367,7 @@ const mawbCameraOpen = ref(false)
 
 async function toggleMawbEvidenceManager(m) {
   if (mawbEvidenceMgr.show && mawbEvidenceMgr.mawbId === m.id) {
-    closeMawbEvidenceMgr()
+    await closeMawbEvidenceMgr()
     return
   }
   mawbEvidenceMgr.show = true
@@ -2379,9 +2383,9 @@ async function toggleMawbEvidenceManager(m) {
   }
 }
 
-function closeMawbEvidenceMgr() {
+async function closeMawbEvidenceMgr() {
   if (mawbEvidenceMgr.dirty) {
-    if (!confirm('Hay cambios sin guardar. ¿Descartar cambios?')) return
+    if (!(await confirm({ message: 'Hay cambios sin guardar. ¿Descartar cambios?' }))) return
   }
   mawbEvidenceMgr.show = false
   mawbEvidenceMgr.mawbId = null
@@ -2435,10 +2439,10 @@ async function saveMawbEvidence() {
     const docsToSave = mawbEvidenceMgr.docs.map(d => ({ name: d.name, type: d.type, url: d.url }))
     await mawbsApi.updateSupportingDocs(id, docsToSave)
     mawbEvidenceMgr.dirty = false
-    alert('Evidencias guardadas correctamente')
+    toast.success('Evidencias guardadas correctamente')
   } catch (e) {
     toast.error(extractError(e))
-    alert('Error guardando evidencias: ' + (e.response?.data?.error || e.message))
+    toast.error('Error guardando evidencias: ' + (e.response?.data?.error || e.message))
   }
 }
 
@@ -2457,7 +2461,7 @@ async function downloadMawbEvidencePdf() {
   } catch (e) {
     toast.error(extractError(e))
     console.error('MAWB evidence PDF error:', e)
-    alert('Error descargando PDF de evidencias')
+    toast.error('Error descargando PDF de evidencias')
   }
 }
 

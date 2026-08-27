@@ -635,7 +635,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick, shallowRef, reactive } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, shallowRef, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAppStore } from '../stores/app'
 import api from '../api/client'
@@ -1639,6 +1639,11 @@ onMounted(async () => {
   }
   highlightFlightId.value = localFlightId.value || null
   await buildMatrix()
+})
+
+onUnmounted(() => {
+  document.removeEventListener('pointermove', onColResize)
+  document.removeEventListener('pointerup', stopColResize)
 })
 </script>
 

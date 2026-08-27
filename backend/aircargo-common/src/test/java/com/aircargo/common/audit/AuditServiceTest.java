@@ -1,11 +1,8 @@
 package com.aircargo.common.audit;
 
-import com.aircargo.common.event.AuditLogEvent;
 import org.junit.jupiter.api.Test;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -17,65 +14,44 @@ class AuditServiceTest {
     /** Fakes manuales: byte-buddy no puede mockear clases concretas en JDK 25. */
     static class FakeJdbc extends JdbcTemplate {
         int calls;
-        Object lastArg;
+        Object[] args;
 
         @Override
         public int update(String sql, Object... args) {
+            if (boom != null) throw boom;
             calls++;
-            lastArg = args.length > 0 ? args[args.length - 1] : null;
+            this.args = args;
             return 1;
         }
-    }
 
-    static class FakeRabbit extends RabbitTemplate {
-        int sends;
+        Object arg(int i) { return args == null ? null : args[i]; }
         RuntimeException boom;
-
-        @Override
-        public void convertAndSend(String exchange, String routingKey, Object message) {
-            if (boom != null) throw boom;
-            sends++;
-            assert message instanceof AuditLogEvent;
-        }
     }
 
     @Test
-    void conBrokerYBD_escribeLocalYPublica() {
-        FakeRabbit rt = new FakeRabbit();
+    void conBD_persisteUnSoloRegistro() {
         FakeJdbc jdbc = new FakeJdbc();
 
-        AuditService svc = new AuditService(Optional.of(rt), jdbc);
-        svc.log(id, "a@x.com", "Ana", "USER_UPDATED", "USER", id.toString(), "{}", "10.1.2.3");
-
-        assertEquals(1, jdbc.calls);
-        assertEquals(1, rt.sends);
-    }
-
-    @Test
-    void sinBroker_conBD_fallbackLocalNoPierdeElEvento() {
-        FakeJdbc jdbc = new FakeJdbc();
-
-        AuditService svc = new AuditService(Optional.empty(), jdbc);
+        AuditService svc = new AuditService(jdbc);
         assertDoesNotThrow(() ->
-                svc.log(id, "a@x.com", "Ana", "BOOKING_CREATED", "BOOKING", id.toString(), null, "10.1.2.4"));
+                svc.log(id, "a@x.com", "Ana", "USER_UPDATED", "USER", id.toString(), "{}", "10.1.2.3"));
         assertEquals(1, jdbc.calls);
     }
 
     @Test
-    void brokerCaido_conBD_registraPorFallbackSinLanzar() {
-        FakeRabbit rt = new FakeRabbit();
-        rt.boom = new RuntimeException("broker down");
+    void insertFallido_noLanzaYAdvierte() {
         FakeJdbc jdbc = new FakeJdbc();
+        jdbc.boom = new RuntimeException("bd caida");
 
-        AuditService svc = new AuditService(Optional.of(rt), jdbc);
+        AuditService svc = new AuditService(jdbc);
         assertDoesNotThrow(() ->
                 svc.log(id, "a@x.com", "Ana", "MAWB_UPDATED", "MAWB", id.toString(), null, "10.1.2.5"));
-        assertEquals(1, jdbc.calls);  // el evento NO se pierde aunque el broker caiga
+        assertEquals(0, jdbc.calls);  // el fallo se registra en el log de la app, no revienta la request
     }
 
     @Test
-    void sinBrokerNiBD_noLanza() {
-        AuditService svc = new AuditService(Optional.empty(), null);
+    void sinBD_noLanza() {
+        AuditService svc = new AuditService(null);
         assertDoesNotThrow(() ->
                 svc.log(id, "a@x.com", "Ana", "X", null, null, null, null));
     }
@@ -84,9 +60,20 @@ class AuditServiceTest {
     void ipSePseudonimizaEnInsert() {
         FakeJdbc jdbc = new FakeJdbc();
 
-        AuditService svc = new AuditService(Optional.empty(), jdbc);
+        AuditService svc = new AuditService(jdbc);
         svc.log(id, "a@x.com", "Ana", "X", null, null, null, "192.168.23.45");
+        assertEquals("192.168.23.0", jdbc.arg(7));
+    }
 
-        assertEquals("192.168.23.0", jdbc.lastArg);
+    @Test
+    void detailsNulosSeSanitizan() {
+        FakeJdbc jdbc = new FakeJdbc();
+
+        AuditService svc = new AuditService(jdbc);
+        svc.log(id, "a@x.com", "Ana", "X", null, null, null, "10.0.0.1");
+
+        // details (índice 6) nunca debe llegar null al INSERT (TextUtil.safe)
+        assertNotNull(jdbc.arg(6));
+        assertNull(jdbc.arg(4)); // entityType sí puede ser null
     }
 }
