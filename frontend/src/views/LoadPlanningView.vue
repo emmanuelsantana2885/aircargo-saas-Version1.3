@@ -92,7 +92,9 @@
         <span class="text-slate-950 font-bold">{{ uldGroup.items.length }} MAWB</span>
         <span class="text-slate-950">{{ (uldGroup.weight || 0).toLocaleString() }} lb</span>
         <select :value="uldGroup.flightId" @change="onTransferRequest(uldGroup.uldId, uldGroup.uld, uldGroup.flightId, $event.target.value)"
-          class="ml-1 bg-slate-100 border border-slate-400 rounded px-2 py-1 text-[13px] font-bold text-slate-950 focus:outline-none cursor-pointer">
+          :disabled="!isLiveUld(uldGroup.uldId)"
+          class="ml-1 bg-slate-100 border border-slate-400 rounded px-2 py-1 text-[13px] font-bold text-slate-950 focus:outline-none cursor-pointer"
+          :class="{ 'opacity-50 cursor-not-allowed': !isLiveUld(uldGroup.uldId) }">
           <option v-for="f in uldsStore.flights" :key="f.id" :value="f.id">
             {{ airlineCodeById(f.airlineId) }}-{{ f.flightNumber }}
           </option>
@@ -448,16 +450,20 @@ const positionSummary = computed(() => {
 const activeManifest = computed(() => {
   const liveMap = {}
   for (const uld of uldsStore.activeUlds || []) liveMap[uld.id] = uld
+  const allUldsMap = {}
+  for (const uld of allUlds.value || []) allUldsMap[uld.id] = uld
   const planIds = loadPlan.value?.ulds ? new Set(loadPlan.value.ulds.map(u => u.id)) : new Set()
   const merged = []
   for (const uld of uldsStore.activeUlds || []) merged.push(uld)
   for (const uld of loadPlan.value?.ulds || []) {
     if (!planIds.has(uld.id) || liveMap[uld.id]) continue
+    // Skip plan ULDs that exist in allUlds but are NOT assigned to this flight (stale cache or unassigned)
+    if (allUldsMap[uld.id] && !liveMap[uld.id]) continue
     merged.push(uld)
   }
   return merged.map(uld => ({
     uldId: uld.id,
-    flightId: uld.flightId || '',
+    flightId: uld.flightId || selectedFlightId.value || '',
     uld: uld.uldNumber || uld.id || 'SIN-ULD',
     pos: uld.position || null,
     config: uld.uldType || '-',
@@ -476,8 +482,16 @@ const activeManifest = computed(() => {
 })
 
 const floatingUlds = computed(() => {
-  return allUlds.value.filter(u => !u.flightId && u.status !== 'OPEN')
+  // Usar una copia estática para evitar problemas de reactivity timing
+  const currentActiveManifest = activeManifest.value
+  const currentAllUlds = [...allUlds.value]
+  const manifestIds = new Set(currentActiveManifest.map(u => u.uldId))
+  return currentAllUlds.filter(u => !u.flightId && u.status !== 'OPEN' && !manifestIds.has(u.id))
 })
+
+function isLiveUld(uldId) {
+  return allUlds.value.some(u => u.id === uldId)
+}
 
 const calculatedTotals = computed(() => {
   let uldsCount = activeManifest.value.length
@@ -658,10 +672,10 @@ async function reassignFlight(uldGroup, silent = false) {
     if (selectedFlightId.value) {
       await Promise.all([
         uldsStore.loadUldsForFlight(selectedFlightId.value),
-        fetchLoadPlan(selectedFlightId.value)
+        fetchLoadPlan(selectedFlightId.value),
+        loadAllUlds()
       ])
     }
-    loadAllUlds() // non-blocking refresh
   } catch (e) {
     toast.error('Error reasignando vuelo: ' + (e.response?.data?.error || e.response?.data?.message || e.message))
   }
@@ -685,6 +699,10 @@ async function updatePosition(uldId, newPos) {
 
 function onTransferRequest(uldId, uldNumber, fromFlightId, toFlightId) {
   if (!toFlightId || toFlightId === fromFlightId) return
+  if (!isLiveUld(uldId)) {
+    toast.warning('Este ULD solo existe en el plan de carga y no se puede transferir desde aquí. Use la vista de ULDs para reasignarlo.')
+    return
+  }
   pendingTransfer.value = { uldId, fromFlightId, toFlightId, uldNumber }
   transferReason.value = ''
 }
