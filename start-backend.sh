@@ -4,6 +4,8 @@ set -euo pipefail
 # ── Load secrets from gitignored .env ───────────────────────────
 AIR_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$AIR_ROOT/aircargo-env.sh"
+LOG_DIR="${LOG_DIR:-$HOME/aircargo-logs}"
+mkdir -p "$LOG_DIR"
 
 # =============================================================================
 # 🛑 STOP EVERYTHING RUNNING — force an exec clean slate
@@ -61,14 +63,14 @@ wait_health() {
 # 1) Gateway — everything routes through it
 (
     cd "$AIR_ROOT/backend/aircargo-gateway"
-    java $MAX_CONNS $JAVA_OPTS -jar "target/aircargo-gateway-1.2.0-SNAPSHOT.jar" >> "/tmp/aircargo-gateway.log" 2>&1 &
+    java $MAX_CONNS $JAVA_OPTS -jar "target/aircargo-gateway-1.2.0-SNAPSHOT.jar" >> "$LOG_DIR/aircargo-gateway.log" 2>&1 &
 )
 wait_health aircargo-gateway 8080 300 || exit 1
 
 # 2) Auth — needed for JWT issuance used by everyone downstream
 (
     cd "$AIR_ROOT/backend/aircargo-auth-service"
-    java $MAX_CONNS $JAVA_OPTS -jar "target/aircargo-auth-service-1.2.0-SNAPSHOT.jar" >> "/tmp/aircargo-auth-service.log" 2>&1 &
+    java $MAX_CONNS $JAVA_OPTS -jar "target/aircargo-auth-service-1.2.0-SNAPSHOT.jar" >> "$LOG_DIR/aircargo-auth-service.log" 2>&1 &
 )
 wait_health aircargo-auth-service 9092 240 || exit 1
 
@@ -92,9 +94,9 @@ for entry in "aircargo-flight-service 9093" \
     port="${entry##* }"
     (
         cd "$AIR_ROOT/backend/$name"
-        RABBITMQ_ENABLED="$RABBITMQ_ENABLED" java $MAX_CONNS $JAVA_OPTS -jar "target/${name}-1.2.0-SNAPSHOT.jar" >> "/tmp/${name}.log" 2>&1 &
+        RABBITMQ_ENABLED="$RABBITMQ_ENABLED" java $MAX_CONNS $JAVA_OPTS -jar "target/${name}-1.2.0-SNAPSHOT.jar" >> "$LOG_DIR/${name}.log" 2>&1 &
     )
     wait_health "$name" "$port" 240 || exit 1
 done
 
-echo "✅ All 10 backend services healthy. (logs in /tmp/<service>.log)"
+echo "✅ All 10 backend services healthy. (logs in $LOG_DIR/<service>.log)"

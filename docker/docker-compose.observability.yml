@@ -1,5 +1,3 @@
-version: '3.8'
-
 # ────────────────────────────────────────────────────────────────
 # Observabilidad para single-host (dev/staging sin k8s)
 #

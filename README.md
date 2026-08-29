@@ -43,7 +43,10 @@ aircargo-saas/
 
 ### Requisitos
 
-JDK 21+ · Maven (o IntelliJ bundled) · Node.js 18+ · Docker (o PostgreSQL/RabbitMQ nativos) · `pg_dump` para backups.
+JDK 21+ · Maven (o IntelliJ bundled) · Node.js 20.19+ (o 22.12+) · Docker (o PostgreSQL/RabbitMQ nativos) · `pg_dump` para backups.
+
+> **Guía de instalación por SO** (Fedora, Ubuntu, Arch Linux y Windows 11 con WSL2):
+> [`Documents/INSTALACION-POR-SO.md`](Documents/INSTALACION-POR-SO.md)
 
 ### 1. Configurar secretos
 

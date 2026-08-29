@@ -36,7 +36,7 @@ export JWT_SECRET RABBITMQ_PASSWORD POSTGRES_PASSWORD POSTGRES_DB POSTGRES_USER 
 # ── Maven: locate a usable mvn binary ───────────────────────────
 # 1) MAVEN_BIN already set (env var)
 # 2) mvn on PATH
-# 3) IntelliJ bundled Maven (flatpak), SDKMAN candidates
+# 3) IntelliJ bundled Maven (flatpak), SDKMAN, Homebrew y rutas típicas por distro
 if [ -z "${MAVEN_BIN:-}" ]; then
   if command -v mvn >/dev/null 2>&1; then
     MAVEN_BIN="$(command -v mvn)"
@@ -44,7 +44,11 @@ if [ -z "${MAVEN_BIN:-}" ]; then
     for cand in \
       "/var/lib/flatpak/app/com.jetbrains.IntelliJ-IDEA-Community/x86_64/stable/active/files/plugins/maven-plugin/lib/maven3/bin/mvn" \
       "$HOME/.sdkman/candidates/maven/current/bin/mvn" \
-      "/opt/maven/bin/mvn"; do
+      "/usr/share/maven/bin/mvn" \
+      "/opt/maven/bin/mvn" \
+      "/usr/local/share/maven/bin/mvn" \
+      "$HOME/homebrew/opt/maven/bin/mvn" \
+      "/opt/homebrew/opt/maven/bin/mvn"; do
       if [ -x "$cand" ]; then MAVEN_BIN="$cand"; break; fi
     done
   fi

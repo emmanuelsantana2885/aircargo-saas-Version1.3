@@ -55,13 +55,59 @@ LOG_DIR="${LOG_DIR:-$HOME/aircargo-logs}"
 
 # ═══════════════════════════════════════════════════════════════
 #  PRERREQUISITOS — fallar temprano con mensaje claro
+#  (mensajes de instalación adaptados al gestor de paquetes del SO)
 # ═══════════════════════════════════════════════════════════════
 
-echo "🔎 Verificando prerrequisitos..."
+# Detecta el comando de instalación del distro (hint para mensajes de error)
+pkg_hint() {
+  # $1 = package name (nombre lógico: jdk / node / docker / postgres / rabbitmq)
+  local pkg="$1"
+  case "${PKG_MGR:-}" in
+    apt)   case "$pkg" in
+            jdk) echo "sudo apt install -y openjdk-21-jdk" ;;
+            node) echo "sudo apt install -y nodejs npm" ;;
+            docker) echo "sudo apt install -y docker.io docker-compose-v2 && sudo systemctl enable --now docker" ;;
+            postgres) echo "sudo apt install -y postgresql postgresql-client" ;;
+            rabbitmq) echo "sudo apt install -y rabbitmq-server" ;;
+            *) echo "sudo apt install -y $pkg" ;;
+           esac ;;
+    dnf)   case "$pkg" in
+            jdk) echo "sudo dnf install -y java-21-openjdk-devel" ;;
+            node) echo "sudo dnf install -y nodejs npm" ;;
+            docker) echo "sudo dnf install -y moby-engine docker-compose && sudo systemctl enable --now docker" ;;
+            postgres) echo "sudo dnf install -y postgresql-server postgresql" ;;
+            rabbitmq) echo "sudo dnf install -y rabbitmq-server" ;;
+            *) echo "sudo dnf install -y $pkg" ;;
+           esac ;;
+    pacman) case "$pkg" in
+            jdk) echo "sudo pacman -S jdk21-openjdk" ;;
+            node) echo "sudo pacman -S nodejs npm" ;;
+            docker) echo "sudo pacman -S docker docker-compose && sudo systemctl enable --now docker" ;;
+            postgres) echo "sudo pacman -S postgresql" ;;
+            rabbitmq) echo "sudo pacman -S rabbitmq" ;;
+            *) echo "sudo pacman -S $pkg" ;;
+           esac ;;
+    *)     case "$pkg" in
+            jdk) echo "instala un JDK 21+ (Adoptium Temurin: https://adoptium.net)" ;;
+            *) echo "instala $pkg con el gestor de paquetes de tu distro" ;;
+           esac ;;
+  esac
+}
+
+# Detecta distro → gestor de paquetes (best-effort, no bloqueante)
+detect_pkg_mgr() {
+  if command -v apt-get >/dev/null 2>&1; then echo "apt"
+  elif command -v dnf >/dev/null 2>&1; then echo "dnf"
+  elif command -v pacman >/dev/null 2>&1; then echo "pacman"
+  else echo "unknown"; fi
+}
+PKG_MGR="${PKG_MGR:-$(detect_pkg_mgr)}"
+
+echo "🔎 Verificando prerrequisitos (gestor de paquetes: ${PKG_MGR:-unknown})..."
 PREREQ_FAIL=false
 
 if ! command -v java >/dev/null 2>&1; then
-  echo "  ❌ java no encontrado — instala JDK 21+ (sudo pacman -S jdk21-openjdk)"
+  echo "  ❌ java no encontrado — $(pkg_hint jdk)"
   PREREQ_FAIL=true
 else
   echo "  ✅ java ($(java -version 2>&1 | head -1 | cut -d'"' -f2))"
@@ -73,7 +119,7 @@ fi
 
 if [ "$ONLY_BACKEND" = "false" ]; then
   if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
-    echo "  ❌ node/npm no encontrados — instala Node.js 18+ (sudo pacman -S nodejs npm)"
+    echo "  ❌ node/npm no encontrados — $(pkg_hint node)  (Node 20.19+ requerido)"
     PREREQ_FAIL=true
   else
     echo "  ✅ node $(node --version)"
@@ -156,6 +202,20 @@ trap cleanup SIGINT SIGTERM EXIT
 port_up() { (echo > "/dev/tcp/127.0.0.1/$1") 2>/dev/null; }
 
 docker_ok() { command -v docker >/dev/null 2>&1 && timeout 10 docker info >/dev/null 2>&1; }
+
+# Detecta initdb/pg_ctl (establece PG_INITDB y PG_CTL globales).
+# En Debian/Ubuntu los binarios PostgreSQL NO están en PATH: viven en
+# /usr/lib/postgresql/<ver>/bin/ (Fedora/Arch sí usan /usr/bin).
+find_pg_bins() {
+  PG_INITDB="" PG_CTL=""
+  if command -v initdb >/dev/null 2>&1 && command -v pg_ctl >/dev/null 2>&1; then
+    PG_INITDB="$(command -v initdb)"; PG_CTL="$(command -v pg_ctl)"
+    return 0
+  fi
+  for dir in /usr/lib/postgresql/*/bin; do
+    [ -x "$dir/initdb" ] && [ -x "$dir/pg_ctl" ] && { PG_INITDB="$dir/initdb"; PG_CTL="$dir/pg_ctl"; return 0; }
+  done
+}
 
 wait_health() {
   local name="$1" port="$2" timeout="${3:-240}"
@@ -273,9 +333,10 @@ if [ "$NO_INFRA" = "false" ] && [ "$ONLY_FRONTEND" = "false" ]; then
 
   # Si :5432 lo tiene nuestra instancia nativa vacía pero Docker está
   # disponible, detenerla y dejar que Docker sirva la BD real (volumen pgdata)
-  if [ "$pg_up" = "true" ] && [ -f "$PG_DATA/PG_VERSION" ] && pg_ctl -D "$PG_DATA" status >/dev/null 2>&1 && docker_ok; then
+  find_pg_bins
+  if [ "$pg_up" = "true" ] && [ -f "$PG_DATA/PG_VERSION" ] && [ -n "$PG_CTL" ] && "$PG_CTL" -D "$PG_DATA" status >/dev/null 2>&1 && docker_ok; then
     echo "🔄 Cediendo :$PG_PORT al Postgres de Docker (deteniendo instancia nativa vacía)..."
-    pg_ctl -D "$PG_DATA" -m fast stop || true
+    "$PG_CTL" -D "$PG_DATA" -m fast stop || true
     sleep 2
     pg_up=false
   fi
@@ -287,7 +348,8 @@ if [ "$NO_INFRA" = "false" ] && [ "$ONLY_FRONTEND" = "false" ]; then
       docker compose -f "$AIR_ROOT/docker/docker-compose.infrastructure.yml" up -d postgres 2>/dev/null || \
       docker compose -f "$AIR_ROOT/docker/docker-compose.infrastructure.yml" up -d
     else
-      if ! command -v initdb >/dev/null 2>&1 || ! command -v pg_ctl >/dev/null 2>&1; then
+      # Los binarios ya fueron detectados por find_pg_bins (ver arriba)
+      if [ -z "$PG_INITDB" ] || [ -z "$PG_CTL" ]; then
         echo "❌ Ni Docker ni PostgreSQL nativo están disponibles." >&2
         echo "   Instala PostgreSQL o inicia el daemon de Docker." >&2
         exit 1
@@ -296,9 +358,9 @@ if [ "$NO_INFRA" = "false" ] && [ "$ONLY_FRONTEND" = "false" ]; then
       if [ ! -f "$PG_DATA/PG_VERSION" ]; then
         rm -rf "$PG_DATA"
         mkdir -p "$PG_DATA"
-        initdb -D "$PG_DATA" -U "${POSTGRES_USER:-aircargo_user}" -A trust >/dev/null
+        "$PG_INITDB" -D "$PG_DATA" -U "${POSTGRES_USER:-aircargo_user}" -A trust >/dev/null
       fi
-      pg_ctl -D "$PG_DATA" -l "$PG_DATA/postgres.log" \
+      "$PG_CTL" -D "$PG_DATA" -l "$PG_DATA/postgres.log" \
         -o "-p $PG_PORT -c max_connections=150 -c unix_socket_directories=/tmp" -w start
     fi
     echo "⏳ Esperando Postgres :$PG_PORT..."

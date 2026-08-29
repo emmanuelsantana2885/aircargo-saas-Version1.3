@@ -105,6 +105,20 @@ Flyway migrations live in **each microservice** at `backend/aircargo-*-service/s
 
 Full plan: `Documents/MICROSERVICES-MIGRATION-PLAN.md`
 
+## Recent session changes (Aug 29, 2026 — Portabilidad multi-SO: Fedora/Ubuntu/Arch + Windows 11)
+Auditoría completa para que el proyecto corra sin tocar código en cualquier Linux + Windows (WSL2). No se modificó código Java — todo son scripts bash, compose y docs. Verificado: `bash -n` x6, `docker compose config` x3 (infra+services+observability) con exit 0 y SIN warnings, frontend lint/guard 39 SFC 0 refs/tests 15/vitest 15, build OK.
+
+| File | Change |
+|------|--------|
+| `start-all.sh` | **Prerrequisitos multi-distro** — nueva función `pkg_hint(jdk\|node\|docker\|postgres\|rabbitmq)` que muestra el comando correcto según `PKG_MGR` detectado (apt/dnf/pacman) en los mensajes de error; `detect_pkg_mgr()` best-effort. **`find_pg_bins()`** — detecta `initdb`+`pg_ctl` en PATH **o** en `/usr/lib/postgresql/*/bin` (Debian/Ubuntu los NO ponen en PATH vs Fedora/Arch que sí); usado tanto en el bloque "ceder :5432 a Docker" como en el fallback nativo (antes `pg_ctl`/`initdb` crudos → fallo silencioso en Ubuntu) |
+| `start-backend.sh` | Logs de los 10 servicios: `/tmp/<svc>.log` → **`$LOG_DIR`** (default `~/aircargo-logs`), consistente con `start-all.sh`/rotación 10MB-14d |
+| `aircargo-env.sh` | Candidatos Maven ampliados: + `/usr/share/maven/bin/mvn` (Debian/Fedora), + Homebrew (`/opt/homebrew/opt/maven`, `~/homebrew/opt/maven`) — útiles en distros donde Maven no queda en PATH |
+| `docker/docker-compose.{infrastructure,services,observability}.yml` | Eliminado `version: '3.8'` obsoleto (warning de Compose v2 en cualquier SO). En `services.yml` seguía el fix de indentación de la sesión `start-all.sh` (POSTGRES_DB anidado rompía el YAML entero) |
+| `README.md` | Requisito Node corregido: 20.19+ (no 18+) + enlace a la guía por SO |
+| `Documents/INSTALACION-POR-SO.md` | **NEW** — guía de instalación: requisitos comunes (JDK 21, Maven autodetectable, Node 20.19+, Docker o nativos), pasos exactos por Fedora (dnf) / Ubuntu (apt) / Arch (pacman), Windows 11 (**WSL2 recomendado** — Git Bash/MSYS2 NO soportado: sin `/dev/tcp` para `port_up`, sin `ss`/`pkill`/`pg_ctl`), backups/rollback y troubleshooting con fixes reales (PRECONDITION_FAILED rabbit, 401 invalid secret, 403 masivos) |
+
+Decisiones de diseño de portabilidad (documentadas en la guía): el datadir nativo postgres es `.local-pg/` dentro del repo (gitignored), socket en `/tmp`; RabbitMQ nativo cae a `~/.local-rabbitmq/` y en Arch el Erlang del sistema lo rompe → Docker es el camino universal (imágenes `postgres:16-alpine`, `rabbitmq:4.0-management-alpine`, `redis:7-alpine`, Temurin 21 en los 10 Dockerfiles backend + node/nginx en el frontend). En Windows NO correr los scripts en Git Bash — los puertos 5173/8080 llegan a `localhost` automáticamente desde WSL2.
+
 ## Recent session changes (Aug 26, 2026 — Backups offsite + Redis HA opcional + auditoría sin duplicados)
 Cierra 4 debilidades de la tabla de análisis. **DPA/Política de Privacidad sigue con `[CORCHETES]` a la espera de datos reales del cliente (razón social/RNC/contacto) — NO rellenar por cuenta propia.** Verificado: compile + tests common 19 / gateway 3 OK.
 
