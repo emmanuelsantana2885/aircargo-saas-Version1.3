@@ -100,6 +100,9 @@ const format = ref('PDF')
 const quantity = ref(1)
 const downloading = ref(false)
 const designerOpen = ref(false)
+function openDesigner() {
+  designerOpen.value = true
+}
 
 const currentTemplate = computed(() => templates.value.find(t => t.id === templateId.value) || null)
 

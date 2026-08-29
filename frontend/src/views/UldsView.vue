@@ -273,14 +273,18 @@
                   </div>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-slate-200 pt-5">
+                <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 border-t border-slate-200 pt-5">
                   <div>
-                    <label class="ds-label block mb-1">{{ t('ulds.form.location') }}</label>
-                    <input v-model="uld.door" type="text" :placeholder="t('ulds.form.doorPlaceholder')" class="ds-input uppercase" />
+                    <label class="ds-label block mb-1">{{ t('ulds.form.destination') }}</label>
+                    <input v-model="uld.destination" type="text" :placeholder="t('ulds.form.destinationPlaceholder')" class="ds-input uppercase" />
                   </div>
+<div>
+                      <label class="ds-label block mb-1">{{ t('ulds.form.builtBy') }}</label>
+                      <input v-model="uld.builtBy" type="text" :placeholder="t('ulds.form.builtByPlaceholder')" class="ds-input font-bold" />
+                    </div>
                   <div>
-                    <label class="ds-label block mb-1">{{ t('ulds.form.manifestedBy') }}</label>
-                    <input v-model="uld.filledBy" type="text" :placeholder="t('ulds.form.rampOpsPlaceholder')" class="ds-input font-bold" />
+                    <label class="ds-label block mb-1">{{ t('ulds.form.confirmedWith') }}</label>
+                    <input v-model="uld.confirmedWith" type="text" :placeholder="t('ulds.form.confirmedWithPlaceholder')" class="ds-input" />
                   </div>
                   <div>
                     <label class="ds-label block mb-1">{{ t('ulds.form.notes') }}</label>
@@ -388,6 +392,7 @@ import { uldsApi } from '../api/ulds'
 import { uldAwbsApi } from '../api/uldAwbs'
 import { uldTypeConfigApi } from '../api/uldTypeConfig'
 import { uldTypeCatalogApi } from '../api/uldTypeCatalog'
+
 import { useToastStore } from '../stores/toast'
 import { extractError } from '../utils/error'
 import { useI18n } from 'vue-i18n'
@@ -798,9 +803,10 @@ function rebuildLocalList() {
       tareLbs: u.tareLbs || u.tareWeight || 0,
       grossWeightLbs: u.grossWeightLbs || u.grossWeight || 0,
       status: u.status || 'OPEN',
-      filledBy: '',
+      builtBy: u.builtBy || '',
       notes: u.notes || '',
-      door: u.door || '',
+      destination: u.destination || '',
+      confirmedWith: u.confirmedWith || '',
       saveFlightId: u.flightId,
       awbs: (u.awbs || []),
       volumePct: 0,
@@ -851,9 +857,10 @@ function createNewBlankUld() {
     grossWeightLbs: 0,
     status: 'OPEN',
     volumePct: 0,
-    filledBy: '',
+    builtBy: '',
     notes: '',
-    door: '',
+    destination: '',
+    confirmedWith: '',
     mawbs: [],
   })
   expandedUldId.value = localUlds.value[0].uid
@@ -953,7 +960,7 @@ async function saveUld(uld) {
     }
     // Floating ULD without flight change — just update fields
     try {
-      uld.notes = [uld.door ? t('ulds.notesLocation', { value: uld.door }) : '', uld.filledBy ? t('ulds.notesFilledBy', { value: uld.filledBy }) : '', uld.notes].filter(Boolean).join(' | ')
+      // notes: solo lo que escriba el operador (sin autollenado)
       await uldsApi.update(uld.backendId, {
         airlineId: uld.airlineId || appStore.selectedFlight?.airlineId || null,
         uldNumber: uld.uldNumber,
@@ -965,6 +972,8 @@ async function saveUld(uld) {
         grossWeightLbs: uld.grossWeightLbs || 0,
         status: uld.status || 'OPEN',
         notes: uld.notes ?? null,
+        destination: uld.destination ?? null,
+        builtBy: uld.builtBy ?? null,
       })
       // Recreate ULD-AWB links
       if (uld.backendId) {
@@ -999,7 +1008,7 @@ async function saveUld(uld) {
 
   try {
     uld.flightId = flightId
-    uld.notes = [uld.door ? t('ulds.notesLocation', { value: uld.door }) : '', uld.filledBy ? t('ulds.notesFilledBy', { value: uld.filledBy }) : '', uld.notes].filter(Boolean).join(' | ')
+    // notes: solo lo que escriba el operador (sin autollenado)
     const result = await uldsStore.dispatchUld(uld, flightId)
     uld.backendId = result?.id || uld.backendId
     // Delete existing ULD-AWB links before recreating

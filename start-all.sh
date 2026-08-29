@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Desarrollado por Emmanuel Santana Solano
 set -euo pipefail
 
 # ────────────────────────────────────────────────────────────────
@@ -112,7 +113,12 @@ free_port_if_unhealthy() {
 }
 
 # ── PIDs de procesos hijos para limpieza ───────────────────────
-declare -A CHILD_PIDS
+# =() evita "unbound variable" bajo `set -u` cuando todo arranca ya healthy
+# (el array queda vacío porque ningún servicio fue iniciado por este script).
+declare -A CHILD_PIDS=()
+# Puerto de cada proceso → lo usa el monitor para distinguir "proceso
+# sustituido por otro" de "servicio caído de verdad".
+declare -A SERVICE_PORTS
 CLEANUP_DONE=false
 
 cleanup() {
@@ -185,15 +191,58 @@ start_service() {
 
   mkdir -p "$LOG_DIR"
   echo "  → Iniciando $name (puerto $port)"
-  local cmd="java ${JAVA_OPTS:-} -jar \"$jar\""
+  # exec: el proceso en segundo plano ES el propio java (no un wrapper bash),
+  # así el cleanup con kill llega directo al PID real del JVM.
+  local cmd="exec java ${JAVA_OPTS:-} -jar \"$jar\""
   # shellcheck disable=SC2086
   bash -c "$extra_env $cmd" >> "$LOG_DIR/$name.log" 2>&1 &
   local pid=$!
   CHILD_PIDS["$name"]=$pid
+  SERVICE_PORTS["$name"]=$port
   echo "    [PID $pid] → $LOG_DIR/$name.log"
 
   wait_health "$name" "$port" "$timeout" || return 1
   return 0
+}
+
+# ═══════════════════════════════════════════════════════════════
+#  MONITOR — keep-alive resiliente
+#  Antes, el `wait` final bajo `set -e` abortaba TODO el stack en
+#  cuanto UN solo servicio salía con código distinto de 0 (cualquier
+#  crash/exit) — eso derribaba los 10 a la vez. Ahora el launcher se
+#  queda vivo, avisa por log del caído y deja el resto intacto.
+# ═══════════════════════════════════════════════════════════════
+
+monitor() {
+  echo ""
+  echo "🧊 Monitor activo — el stack permanece levantado aunque un servicio caiga."
+  echo "   Ctrl+C para detener todos los servicios."
+  echo ""
+  while true; do
+    if [ "${#CHILD_PIDS[@]}" -gt 0 ]; then
+      local names=("${!CHILD_PIDS[@]}")
+      for name in "${names[@]}"; do
+        local pid="${CHILD_PIDS[$name]}"
+        if ! kill -0 "$pid" 2>/dev/null; then
+          echo ""
+          echo "  ⚠️  [$name] (PID $pid) terminó — el resto del stack sigue activo"
+          local port="${SERVICE_PORTS[$name]:-}"
+          local responds=false
+          if [ -n "$port" ] && curl -s -o /dev/null --max-time 3 "http://localhost:${port}" 2>/dev/null; then
+            responds=true
+          fi
+          if [ "$responds" = "true" ]; then
+            echo "       el puerto :$port sigue respondiendo (proceso sustituido) — no se re-arranca"
+          else
+            echo "       últimos logs de $LOG_DIR/$name.log:"
+            tail -25 "$LOG_DIR/$name.log" 2>/dev/null | sed 's/^/         /' || true
+          fi
+          unset CHILD_PIDS["$name"]
+        fi
+      done
+    fi
+    sleep 15
+  done
 }
 
 # ═══════════════════════════════════════════════════════════════
@@ -425,7 +474,7 @@ if [ "$ONLY_FRONTEND" = "false" ]; then
 
   if [ "$ONLY_BACKEND" = "true" ]; then
     echo "🔧 Modo --only-backend: backend listo. Presiona Ctrl+C para detener."
-    wait  # Espera a que terminen todos los hijos (nunca, salvo señal)
+    monitor
   fi
 fi
 
@@ -448,9 +497,10 @@ if [ "$ONLY_BACKEND" = "false" ]; then
       }
     fi
     mkdir -p "$LOG_DIR"
-    (cd "$AIR_ROOT/frontend" && npm run dev) >> "$LOG_DIR/frontend.log" 2>&1 &
+    (cd "$AIR_ROOT/frontend" && exec npm run dev) >> "$LOG_DIR/frontend.log" 2>&1 &
     FRONTEND_PID=$!
     CHILD_PIDS["frontend"]=$FRONTEND_PID
+    SERVICE_PORTS["frontend"]="5173"
     echo "    [PID $FRONTEND_PID] → $LOG_DIR/frontend.log"
 
     # Esperar a que Vite esté listo
@@ -511,5 +561,6 @@ echo "   • Detener todo: Ctrl+C (limpieza garantizada)"
 echo "   • Build logs: ls $LOG_DIR/build-*.log"
 echo ""
 
-# Mantener el script vivo esperando señales
-wait
+# Mantener el script vivo esperando señales (resiliente ante crashes de
+# servicios individuales — ver funciones monitor() y cleanup())
+monitor

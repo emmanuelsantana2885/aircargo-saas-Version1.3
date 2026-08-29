@@ -28,6 +28,10 @@ public class UldDTO {
     private OffsetDateTime builtAt;
     private OffsetDateTime loadedAt;
     private String notes;
+    private String destination;
+    private String builtBy;
+    private String confirmedWith;
+    private OffsetDateTime completedAt;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
     private List<UldAwbDTO> awbs;
@@ -55,6 +59,10 @@ public class UldDTO {
         dto.setBuiltAt(entity.getBuiltAt());
         dto.setLoadedAt(entity.getLoadedAt());
         dto.setNotes(entity.getNotes());
+        dto.setDestination(entity.getDestination());
+        dto.setBuiltBy(entity.getBuiltBy());
+        dto.setConfirmedWith(entity.getConfirmedWith());
+        dto.setCompletedAt(entity.getCompletedAt());
         dto.setCreatedAt(entity.getCreatedAt());
         dto.setUpdatedAt(entity.getUpdatedAt());
         return dto;
@@ -81,6 +89,10 @@ public class UldDTO {
         entity.setBuiltAt(dto.getBuiltAt());
         entity.setLoadedAt(dto.getLoadedAt());
         entity.setNotes(dto.getNotes());
+        entity.setDestination(dto.getDestination());
+        entity.setBuiltBy(dto.getBuiltBy());
+        entity.setConfirmedWith(dto.getConfirmedWith());
+        entity.setCompletedAt(dto.getCompletedAt());
         return entity;
     }
 
@@ -120,6 +132,14 @@ public class UldDTO {
     public void setLoadedAt(OffsetDateTime loadedAt) { this.loadedAt = loadedAt; }
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
+    public String getDestination() { return destination; }
+    public void setDestination(String destination) { this.destination = destination; }
+    public String getBuiltBy() { return builtBy; }
+    public void setBuiltBy(String builtBy) { this.builtBy = builtBy; }
+    public String getConfirmedWith() { return confirmedWith; }
+    public void setConfirmedWith(String confirmedWith) { this.confirmedWith = confirmedWith; }
+    public OffsetDateTime getCompletedAt() { return completedAt; }
+    public void setCompletedAt(OffsetDateTime completedAt) { this.completedAt = completedAt; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
     public OffsetDateTime getUpdatedAt() { return updatedAt; }

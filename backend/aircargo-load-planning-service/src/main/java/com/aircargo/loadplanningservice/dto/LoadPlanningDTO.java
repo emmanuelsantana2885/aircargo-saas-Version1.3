@@ -16,6 +16,7 @@ public class LoadPlanningDTO {
     private Integer totalPositions;
     private BigDecimal maxPayloadKg;
     private List<LoadPlanningUldDTO> ulds;
+    private String airlineName;
 
     public LoadPlanningDTO() {}
 
@@ -37,4 +38,6 @@ public class LoadPlanningDTO {
     public void setMaxPayloadKg(BigDecimal maxPayloadKg) { this.maxPayloadKg = maxPayloadKg; }
     public List<LoadPlanningUldDTO> getUlds() { return ulds; }
     public void setUlds(List<LoadPlanningUldDTO> ulds) { this.ulds = ulds; }
+    public String getAirlineName() { return airlineName; }
+    public void setAirlineName(String airlineName) { this.airlineName = airlineName; }
 }

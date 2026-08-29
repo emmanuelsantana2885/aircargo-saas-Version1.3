@@ -39,7 +39,7 @@
         :title="showCollapsed ? item.label : ''"
         @click="isMobile && (mobileOpen = false)">
         <div class="ico-frame shrink-0" :class="isActive(item.path) && 'ico-frame-active'" :style="{ '--ic': item.color }">
-          <component :is="item.icon" :size="showCollapsed ? 21 : 19" :stroke-width="1.5" :color="item.color" />
+          <component :is="icons[item.iconKey]" :size="showCollapsed ? 21 : 19" :stroke-width="1.5" :color="item.color" />
         </div>
         <template v-if="!showCollapsed">
           <span class="nav-label font-bold" :style="isActive(item.path) ? { borderBottom: `2px solid ${item.color}`, paddingBottom: '1px' } : {}">{{ item.label }}</span>
@@ -55,7 +55,7 @@
         :title="showCollapsed ? item.label : ''"
         @click="isMobile && (mobileOpen = false)">
         <div class="ico-frame shrink-0" :class="isActive(item.path) && 'ico-frame-active'" :style="{ '--ic': item.color }">
-          <component :is="item.icon" :size="showCollapsed ? 21 : 19" :stroke-width="1.5" :color="item.color" />
+          <component :is="icons[item.iconKey]" :size="showCollapsed ? 21 : 19" :stroke-width="1.5" :color="item.color" />
         </div>
         <span v-if="!showCollapsed" class="nav-label font-bold" :style="isActive(item.path) ? { borderBottom: `2px solid ${item.color}`, paddingBottom: '1px' } : {}">{{ item.label }}</span>
       </RouterLink>
@@ -157,14 +157,14 @@ const allMenuItems = computed(() => [
   { path: '/load-planning', label: t('sidebar.loadPlanning'),iconKey: 'Route',          view: 'LOAD_PLANNING', color: '#475569' },
   { path: '/ulds',          label: t('sidebar.ulds'),        iconKey: 'Package',        view: 'ULDS',          color: '#0891b2' },
   { path: '/exports',       label: 'Reviews / Audit',        iconKey: 'LayoutGrid',     view: 'EXPORTS',       color: '#ea580c' },
-].map(item => ({ ...item, icon: computed(() => icons.value[item.iconKey]) })))
+])
 const mainMenu = computed(() => allMenuItems.value.filter(item => auth.canView(item.view)))
 const settingsMenu = computed(() => {
   const items = []
-  if (auth.canView('USERS')) items.push({ path: '/users', label: t('sidebar.users'), icon: computed(() => icons.value.Users), color: '#334155' })
-  if (auth.canView('SETTINGS')) items.push({ path: '/settings', label: t('sidebar.settings'), icon: computed(() => icons.value.Settings), color: '#6d28d9' })
-  if (auth.canView('SECURITY')) items.push({ path: '/security', label: t('sidebar.security'), icon: computed(() => icons.value.Key), color: '#dc2626' })
-  if (auth.canView('API_CATALOG')) items.push({ path: '/api-catalog', label: 'API Catalog', icon: computed(() => icons.value.Api), color: '#0e7490' })
+  if (auth.canView('USERS')) items.push({ path: '/users', label: t('sidebar.users'), iconKey: 'Users', color: '#334155' })
+  if (auth.canView('SETTINGS')) items.push({ path: '/settings', label: t('sidebar.settings'), iconKey: 'Settings', color: '#6d28d9' })
+  if (auth.canView('SECURITY')) items.push({ path: '/security', label: t('sidebar.security'), iconKey: 'Key', color: '#dc2626' })
+  if (auth.canView('API_CATALOG')) items.push({ path: '/api-catalog', label: 'API Catalog', iconKey: 'Api', color: '#0e7490' })
   return items
 })
 </script>

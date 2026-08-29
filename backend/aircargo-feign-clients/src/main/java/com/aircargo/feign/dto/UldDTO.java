@@ -21,6 +21,10 @@ public class UldDTO {
     private BigDecimal netWeightKg;
     private String status;
     private String notes;
+    private String destination;
+    private String builtBy;
+    private String confirmedWith;
+    private String completedAt;
     private List<UldAwbDTO> awbs;
 
     public UldDTO() {}
@@ -57,6 +61,14 @@ public class UldDTO {
     public void setStatus(String status) { this.status = status; }
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
+    public String getDestination() { return destination; }
+    public void setDestination(String destination) { this.destination = destination; }
+    public String getBuiltBy() { return builtBy; }
+    public void setBuiltBy(String builtBy) { this.builtBy = builtBy; }
+    public String getConfirmedWith() { return confirmedWith; }
+    public void setConfirmedWith(String confirmedWith) { this.confirmedWith = confirmedWith; }
+    public String getCompletedAt() { return completedAt; }
+    public void setCompletedAt(String completedAt) { this.completedAt = completedAt; }
     public List<UldAwbDTO> getAwbs() { return awbs; }
     public void setAwbs(List<UldAwbDTO> awbs) { this.awbs = awbs; }
 }

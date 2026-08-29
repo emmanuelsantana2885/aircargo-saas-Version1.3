@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -167,10 +168,20 @@ public class UldServiceImpl implements UldService {
                         existing.setNetWeightLbs(dto.getNetWeightLbs());
                         existing.setNetWeightKg(dto.getNetWeightLbs().multiply(KG_PER_LB));
                     }
-                    if (dto.getStatus() != null) existing.setStatus(dto.getStatus());
+                    if (dto.getStatus() != null) {
+                        boolean wasCompleted = isCompletedStatus(existing.getStatus());
+                        boolean willBeCompleted = isCompletedStatus(dto.getStatus());
+                        existing.setStatus(dto.getStatus());
+                        if (!wasCompleted && willBeCompleted) {
+                            existing.setCompletedAt(OffsetDateTime.now());
+                        }
+                    }
                     if (dto.getBuiltAt() != null) existing.setBuiltAt(dto.getBuiltAt());
                     if (dto.getLoadedAt() != null) existing.setLoadedAt(dto.getLoadedAt());
                     if (dto.getNotes() != null) existing.setNotes(dto.getNotes());
+                    if (dto.getDestination() != null) existing.setDestination(dto.getDestination());
+                    if (dto.getBuiltBy() != null) existing.setBuiltBy(dto.getBuiltBy());
+                    if (dto.getConfirmedWith() != null) existing.setConfirmedWith(dto.getConfirmedWith());
                     return uldRepository.save(existing);
                 })
                 .map(UldDTO::fromEntity)
@@ -231,6 +242,14 @@ public class UldServiceImpl implements UldService {
         } catch (Exception e) {
             log.warn("Failed to resolve ULD-AWB links for ULD {}: {}", uldId, e.getMessage());
         }
+    }
+
+    private boolean isCompletedStatus(UldStatus status) {
+        if (status == null) return false;
+        return switch (status) {
+            case BUILT, SEALED, LOADED, OFFLOADED, LEFT_BEHIND -> true;
+            default -> false;
+        };
     }
 
     @Override

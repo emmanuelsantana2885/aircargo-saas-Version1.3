@@ -63,9 +63,19 @@ public class LoadPlanningServiceImpl implements LoadPlanningService {
                         dto.setNetWeightLbs(uld.getNetWeightLbs());
                         dto.setStatus(uld.getStatus());
                         dto.setAwbs(awbs);
+                        dto.setDestination(uld.getDestination());
+                        dto.setBuiltBy(uld.getBuiltBy());
+                        dto.setConfirmedWith(uld.getConfirmedWith());
+                        dto.setCompletedAt(uld.getCompletedAt() != null ? uld.getCompletedAt().toString() : null);
                         return dto;
                     })
                     .collect(Collectors.toList());
+
+            String airlineName = null;
+            try {
+                var airline = flightClient.getAirlineById(flight.getAirlineId());
+                if (airline != null) airlineName = airline.getName();
+            } catch (Exception ignored) {}
 
             LoadPlanningDTO result = new LoadPlanningDTO();
             result.setFlightId(flight.getId());
@@ -78,6 +88,7 @@ public class LoadPlanningServiceImpl implements LoadPlanningService {
             result.setMaxPayloadKg(flight.getMaxPayloadKg() != null
                     ? java.math.BigDecimal.valueOf(flight.getMaxPayloadKg()) : null);
             result.setUlds(uldDtos);
+            result.setAirlineName(airlineName);
             return Optional.of(result);
         } catch (Exception e) {
             return Optional.empty();

@@ -95,8 +95,8 @@
           :disabled="!isLiveUld(uldGroup.uldId)"
           class="ml-1 bg-slate-100 border border-slate-400 rounded px-2 py-1 text-[13px] font-bold text-slate-950 focus:outline-none cursor-pointer"
           :class="{ 'opacity-50 cursor-not-allowed': !isLiveUld(uldGroup.uldId) }">
-          <option v-for="f in uldsStore.flights" :key="f.id" :value="f.id">
-            {{ airlineCodeById(f.airlineId) }}-{{ f.flightNumber }}
+          <option v-for="f in flightOptionsFor(uldGroup.flightId)" :key="f.id" :value="f.id">
+            {{ flightOptionLabel(f) }}
           </option>
         </select>
       </div>
@@ -110,8 +110,8 @@
           <select :value="uld.flightId" @change="onTransferRequest(uld.id, uld.uldNumber, null, $event.target.value)"
             class="bg-white border border-slate-300 rounded px-2 py-1 text-[13px] font-bold text-slate-950 focus:outline-none cursor-pointer">
             <option value="" disabled>{{ t('ulds.actions.assignFlight') }}</option>
-            <option v-for="f in uldsStore.flights" :key="f.id" :value="f.id">
-              {{ airlineCodeById(f.airlineId) }}-{{ f.flightNumber }}
+            <option v-for="f in assignableFlights" :key="f.id" :value="f.id">
+              {{ flightOptionLabel(f) }}
             </option>
           </select>
           <button @click.stop="deleteUld(uld)" :title="t('ulds.actions.delete')"
@@ -249,8 +249,8 @@
         <select v-model="flightPickValue"
           class="bg-slate-100 border border-slate-400 rounded px-3 py-1.5 text-[14px] font-bold text-slate-950 focus:outline-none cursor-pointer">
           <option value="" selected disabled>Vuelo destino</option>
-          <option v-for="f in uldsStore.flights" :key="f.id" :value="f.id">
-            {{ airlineCodeById(f.airlineId) }}-{{ f.flightNumber }} ({{ f.origin }}→{{ f.destination }})
+          <option v-for="f in assignableFlights" :key="f.id" :value="f.id">
+            {{ flightOptionLabel(f) }} ({{ f.origin }}→{{ f.destination }})
           </option>
         </select>
         <button @click="confirmFlightPick(flightPickValue)"
@@ -329,7 +329,7 @@ const appStore = useAppStore()
 const route = useRoute()
 const toast = useToastStore()
 const { confirm } = useConfirm()
-const { t, te } = useI18n()
+const { t, te, locale } = useI18n()
 
 function lpStatus(status) {
   const key = `loadPlanning.status.${status}`
@@ -390,6 +390,54 @@ const flightDatabase = computed(() => {
     return fd === selectedDate.value
   })
 })
+
+const ASSIGNABLE_STATUSES = new Set(['SCHEDULED', 'BOARDING', 'DELAYED'])
+const intlLoc = computed(() => (locale.value || 'es').startsWith('en') ? 'en-US' : 'es-DO')
+
+function fmtFlightDate(d) {
+  if (!d) return ''
+  const [y, m, day] = String(d).slice(0, 10).split('-')
+  if (!y || !m || !day) return String(d)
+  return new Date(y, m - 1, day).toLocaleDateString(intlLoc.value, { day: '2-digit', month: 'short' })
+}
+
+function flightOptionLabel(f) {
+  const base = `${airlineCodeById(f.airlineId)}-${f.flightNumber}`
+  return fmtFlightDate(f.flightDate) ? `${fmtFlightDate(f.flightDate)} · ${base}` : base
+}
+
+// Vuelos asignables: semana actual + próxima, incluye hoy, excluye ya despachados.
+// Garantiza al menos 10 próximos vuelos, sin exceder 15.
+const assignableFlights = computed(() => {
+  const today = new Date().toISOString().split('T')[0]
+  const dow = new Date().getDay()
+  const daysToThisSunday = dow === 0 ? 0 : 7 - dow
+  const endNextWeek = new Date()
+  endNextWeek.setDate(endNextWeek.getDate() + daysToThisSunday + 7)
+  const endNextWeekStr = endNextWeek.toISOString().split('T')[0]
+
+  const byDate = (a, b) => a.flightDate.localeCompare(b.flightDate) || a.flightNumber.localeCompare(b.flightNumber)
+
+  const eligible = uldsStore.flights.filter(f =>
+    f.flightDate && ASSIGNABLE_STATUSES.has(f.status) && f.flightDate >= today
+  )
+  const inWindow = eligible
+    .filter(f => f.flightDate <= endNextWeekStr)
+    .sort(byDate)
+
+  if (inWindow.length >= 10) return inWindow.slice(0, 15)
+  const extended = [...eligible].sort(byDate).slice(0, 15)
+  return extended.length >= 10 ? extended : extended
+})
+
+function flightOptionsFor(currentFlightId) {
+  const opts = [...assignableFlights.value]
+  if (currentFlightId && !opts.some(f => f.id === currentFlightId)) {
+    const cur = uldsStore.flights.find(f => f.id === currentFlightId)
+    if (cur) opts.unshift(cur)
+  }
+  return opts
+}
 
 const activeFlightMeta = computed(() => uldsStore.selectedFlight || {})
 

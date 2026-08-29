@@ -110,7 +110,9 @@ export const useUldsStore = defineStore('ulds', () => {
       grossWeightLbs: uld.grossWeightLbs || uld.grossWeight || 0,
       tareLbs: uld.tareLbs || uld.tareWeight || 0,
       status: uld.status || 'BUILT',
-      notes: uld.notes ?? (uld.filledBy ? `Llenado por: ${uld.filledBy}` : null),
+      notes: uld.notes ?? null,
+      destination: uld.destination ?? null,
+      builtBy: uld.builtBy ?? null,
     }
 
     let res

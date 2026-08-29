@@ -130,6 +130,20 @@ Cierra 4 debilidades de la tabla de análisis. **DPA/Política de Privacidad sig
 
 Lección Maven: esta máquina NO tiene mvn en PATH ni SDKMAN — usar `export MAVEN_BIN=/var/lib/flatpak/app/com.jetbrains.IntelliJ-IDEA-Community/x86_64/stable/active/files/plugins/maven-plugin/lib/maven3/bin/mvn`. Deps nuevas (data-redis/reactive) requieren un primer `dependency:resolve` ONLINE antes de compilar `-o`.
 
+## Recent session changes (Aug 28, 2026 — Guard estático anti-runtime-errors terminado + 3 bugs reales encontrados)
+
+Guard `check-sfc-refs.mjs` terminado y **integrado en `npm run lint` y `npm run build`** (ambos ahora anteponen `npm run check:refs`). Analiza los 39 SFC y cada archivo pasado por el scanner produce 0 referencias no resueltas salvo casos reales. **El guard encontró y permitió corregir 3 bugs reales de frontend** que ni ESLint ni el build detectaban (regla de oro: solo el runtime lo notaría).
+
+| File | Change |
+|------|--------|
+| `frontend/scripts/check-sfc-refs.mjs` | **Guard terminado** — `candidates()` devuelve `{name,index}` (índice real por token); `lineOf()` con offset del bloque script (línea absoluta del archivo); `stripRegexLiterals()` nueva (quita `/.../flags` con conteo de escapes y clases, heurística de contexto para no confundir división); `extractDefinitions` reescrita: imports (default `api from`/named `{a,b}`/namespace `* as XLSX`/mixtos), declaradores múltiples (`let pcs=0, gross=0`), destructuring en params de arrow (`([value,count]) =>`), `for (const [,positions] of ..)`, arrows de un solo param con char previo significativo (fix del bug: truncar 12 chars podía cortar un string `'\n'` y dejar `stripped="\n"`), catch/for. Líneas de template calculadas vs el archivo real (`src.slice(0, templateStart+idx)`), no relativas al contenido. Exit 0 = limpio; exit 1 = hay issues (gate de lint/build) |
+| `frontend/package.json` | `"check:refs": "node scripts/check-sfc-refs.mjs"`; `lint` y `build` ahora corren `npm run check:refs` primero |
+| `src/views/LoginView.vue:294` | **BUG REAL #1** — el import de `@/utils/formDraft` tenía `{ popReturnTo, loadDraft, restoreForms }` pero el código llama `clearDraft()` → `ReferenceError` en runtime (ruta de restauración de drafts tras re-login). Añadido `clearDraft` al import |
+| `src/views/PrivacyPolicyView.vue:13` | **BUG REAL #2** — el template usa `t('privacy.title')` etc. pero el setup solo desestructuraba `{ locale }` de `useI18n()` → `t is not defined` al renderizar la página pública `/privacy` (i18n `legacy:false` sin `globalInjection`, así que no hay `t` global). Ahora `const { locale, t } = useI18n()` |
+| `src/components/labels/LabelPrintModal.vue` | **BUG REAL #3** — el template llama `@click="openDesigner"` (2 botones) pero la función no existía (solo la ref `designerOpen`); sin `openDesigner` el click lanzaba error y no abría el diseñador de plantillas. Añadida `function openDesigner()` que setea `designerOpen=true` |
+
+Verificado: `node scripts/check-sfc-refs.mjs` → `✓ 39 SFC analizados, 0 referencias no resueltas` (exit 0); `npm run lint` OK; `npm run test` 15/15 OK; `npm run build` OK. Prueba de línea con probe temporal: template línea 3/4 y setup línea 12 reportados con precisión. Falsos positivos eliminados: literales regex (`/^\d+-Q/`, `/[T:]/g`, `[A-Za-z0-9]`...) y `BarcodeDetector` (API Shape Detection) registrada en GLOBALS. Evolución del conteo de issues: template 72→60→5→0; setup 2010→123→87→23→0.
+
 ## Recent session changes (Aug 25, 2026 (3) — start-all.sh robusto e idempotente)
 **Verificado E2E**: arranque completo desde frío (10 servicios + frontend, todos healthy), re-ejecución con stack vivo → los 10 servicios y el frontend se omiten ("YA está healthy"), Ctrl+C mata hijos + huérfanos (patrón pkill corregido). Stack dejado levantado al terminar la sesión.
 

@@ -195,7 +195,9 @@ export const useAppStore = defineStore('app', () => {
       grossWeightLbs: localUld.grossWeight || 0,
       tareLbs:       localUld.tareWeight || 0,
       status:        'BUILT',
-      notes:         localUld.filledBy ? `Llenado por: ${localUld.filledBy}` : null,
+      notes:         localUld.notes ?? null,
+      destination:   localUld.destination ?? null,
+      builtBy:       localUld.builtBy ?? null,
     }
     let saved
     if (localUld.backendId) {

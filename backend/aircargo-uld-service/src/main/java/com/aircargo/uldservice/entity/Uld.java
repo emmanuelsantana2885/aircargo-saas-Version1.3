@@ -71,6 +71,18 @@ public class Uld {
     @Column(name = "notes")
     private String notes;
 
+    @Column(name = "destination", length = 100)
+    private String destination;
+
+    @Column(name = "built_by", length = 100)
+    private String builtBy;
+
+    @Column(name = "confirmed_with", length = 100)
+    private String confirmedWith;
+
+    @Column(name = "completed_at")
+    private OffsetDateTime completedAt;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false, nullable = false)
     private OffsetDateTime createdAt;
@@ -119,6 +131,14 @@ public class Uld {
     public void setLoadedAt(OffsetDateTime loadedAt) { this.loadedAt = loadedAt; }
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
+    public String getDestination() { return destination; }
+    public void setDestination(String destination) { this.destination = destination; }
+    public String getBuiltBy() { return builtBy; }
+    public void setBuiltBy(String builtBy) { this.builtBy = builtBy; }
+    public String getConfirmedWith() { return confirmedWith; }
+    public void setConfirmedWith(String confirmedWith) { this.confirmedWith = confirmedWith; }
+    public OffsetDateTime getCompletedAt() { return completedAt; }
+    public void setCompletedAt(OffsetDateTime completedAt) { this.completedAt = completedAt; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
     public OffsetDateTime getUpdatedAt() { return updatedAt; }

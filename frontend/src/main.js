@@ -1,3 +1,4 @@
+// Desarrollado por Emmanuel Santana Solano
 import './assets/main.css'
 
 import { createApp } from 'vue'

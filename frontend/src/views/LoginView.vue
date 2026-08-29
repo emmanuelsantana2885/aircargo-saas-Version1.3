@@ -291,7 +291,7 @@ function proceedAfterLogin() {
   step.value = 'site-select'
 }
 
-import { popReturnTo, loadDraft, restoreForms } from '@/utils/formDraft'
+import { popReturnTo, loadDraft, restoreForms, clearDraft } from '@/utils/formDraft'
 
 function navigateAfterSiteConfirm() {
   const draft = loadDraft()

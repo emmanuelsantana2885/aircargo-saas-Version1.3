@@ -19,6 +19,10 @@ public class LoadPlanningUldDTO {
     private BigDecimal netWeightLbs;
     private String status;
     private List<UldAwbDTO> awbs;
+    private String destination;
+    private String builtBy;
+    private String confirmedWith;
+    private String completedAt;
 
     public LoadPlanningUldDTO() {}
 
@@ -44,4 +48,12 @@ public class LoadPlanningUldDTO {
     public void setStatus(String status) { this.status = status; }
     public List<UldAwbDTO> getAwbs() { return awbs; }
     public void setAwbs(List<UldAwbDTO> awbs) { this.awbs = awbs; }
+    public String getDestination() { return destination; }
+    public void setDestination(String destination) { this.destination = destination; }
+    public String getBuiltBy() { return builtBy; }
+    public void setBuiltBy(String builtBy) { this.builtBy = builtBy; }
+    public String getConfirmedWith() { return confirmedWith; }
+    public void setConfirmedWith(String confirmedWith) { this.confirmedWith = confirmedWith; }
+    public String getCompletedAt() { return completedAt; }
+    public void setCompletedAt(String completedAt) { this.completedAt = completedAt; }
 }

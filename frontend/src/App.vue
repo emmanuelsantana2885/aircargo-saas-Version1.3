@@ -22,6 +22,7 @@
 </template>
 
 <script setup>
+// Desarrollado por Emmanuel Santana Solano
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from './stores/auth'

@@ -3,16 +3,17 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "AirCargo SDQ \u2014 Frontend Vue 3 para gesti\u00f3n de carga a\u00e9rea",
+  "description": "AirCargo SDQ — Frontend Vue 3 para gestión de carga aérea",
   "author": "Emmanuel Santana Solano <emmanuelsantana2885@gmail.com>",
   "license": "UNLICENSED",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "npm run check:refs && vite build",
     "preview": "vite preview",
-    "lint": "eslint src/",
+    "lint": "npm run check:refs && eslint src/",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "check:refs": "node scripts/check-sfc-refs.mjs"
   },
   "dependencies": {
     "@tabler/icons-vue": "^3.44.0",

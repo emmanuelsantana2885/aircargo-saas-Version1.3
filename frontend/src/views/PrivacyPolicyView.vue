@@ -32,7 +32,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-const { locale } = useI18n()
+const { locale, t } = useI18n()
 const ES = locale.value === 'es' || !locale.value.startsWith('en')
 
 const sections = computed(() => ES ? esSections : enSections)
