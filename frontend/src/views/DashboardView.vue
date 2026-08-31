@@ -470,9 +470,9 @@ watch(() => appStore.ulds.length, () => _uldIdCache.clear())
 
 // Dispatched weight per MAWB within a specific flight:
 // only counts ULD-AWB links whose ULD belongs to that flight.
-// Formula: (receivedWeight / receivedPieces) * dispatchedPieces
+// Formula: (physicalWeight / totalPieces) * dispatchedPieces
 function mawbDispatchedWeightLbs(mawb, flightId) {
-  const receivedKg = Number(mawb.chargeableWeightKg || mawb.reportedWeightKg || 0)
+  const receivedKg = Number(mawb.reportedWeightKg || mawb.chargeableWeightKg || 0)
   const receivedPcs = Number(mawb.pieces || 0)
   if (!receivedKg || !receivedPcs) return 0
   const uldIds = flightUldIdSet(flightId)
@@ -501,8 +501,8 @@ function commodityTooltip(flightId, commodityType) {
     const links = appStore.uldAwbs?.filter?.(l => l.mawbLabel === m.awbNumber && uldIds.has(l.uldId)) || []
     return s + links.reduce((ps, l) => ps + (Number(l.pieces) || 0), 0)
   }, 0)
-  const awbNumbers = items.map(m => m.awbNumber).join(', ')
-  return t('dashboard.tooltip.commodity', { label: COMMODITY_MAP.value[commodityType]?.label || commodityType, lbs: Math.round(totalLbs), pcs: totalPcs }) + ` • ${awbNumbers}`
+  const mawbCount = items.length
+  return t('dashboard.tooltip.commodity', { label: COMMODITY_MAP.value[commodityType]?.label || commodityType, lbs: Math.round(totalLbs), pcs: totalPcs, n: mawbCount })
 }
 
 // Visible commodities = those with dispatched payload > 0 in ANY filtered flight

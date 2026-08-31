@@ -23,13 +23,16 @@ public class SetPasswordCommandHandler {
     private final PasswordEncoder passwordEncoder;
     private final AuditService auditService;
     private final JwtUtil jwtUtil;
+    private final boolean mfaMandatory;
 
     public SetPasswordCommandHandler(AppUserRepository userRepository, PasswordEncoder passwordEncoder,
-                                     AuditService auditService, JwtUtil jwtUtil) {
+                                     AuditService auditService, JwtUtil jwtUtil,
+                                     @org.springframework.beans.factory.annotation.Value("${app.mfa.mandatory:true}") boolean mfaMandatory) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.auditService = auditService;
         this.jwtUtil = jwtUtil;
+        this.mfaMandatory = mfaMandatory;
     }
 
     @Transactional
@@ -64,6 +67,18 @@ public class SetPasswordCommandHandler {
 
         auditService.log(user.getId(), user.getEmail(), user.getFullName(), AuditEventType.PASSWORD_SET,
                 "USER", user.getId().toString(), null, command.ipAddress());
+
+        // MFA obligatorio: sin MFA configurado NO se emite sesión — flujo de enrolamiento
+        if (mfaMandatory && !Boolean.TRUE.equals(user.getMfaEnabled())) {
+            String enrollToken = jwtUtil.generateEnrollToken(
+                    user.getId().toString(), user.getRole().name(), user.getEmail(), user.getFullName());
+            return PasswordOutcome.failure(PasswordOutcome.Status.MFA_ENROLLMENT_REQUIRED, Map.of(
+                    "mfaEnrollmentRequired", true,
+                    "enrollToken", enrollToken,
+                    "email", user.getEmail(),
+                    "message", "Configura la autenticación de dos factores (MFA) para continuar"
+            ));
+        }
 
         String token = jwtUtil.generateToken(
                 user.getId().toString(),

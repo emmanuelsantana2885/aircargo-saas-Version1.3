@@ -19,10 +19,5 @@ COMMENT ON TABLE uld_confirmed_source IS 'Fuentes válidas de confirmación de p
 COMMENT ON COLUMN uld_confirmed_source.code IS 'Código interno (ej. SCALE_MAIN, WB_PROCESS, SCALE_ALT)';
 COMMENT ON COLUMN uld_confirmed_source.description IS 'Descripción visible en dropdown (ej. Balanza Principal, Proceso W&B Certificado)';
 
--- Seed data for UPS (airline_id = '00000000-0000-0000-0000-000000000001')
-INSERT INTO uld_confirmed_source (airline_id, code, description, is_active, sort_order) VALUES
-('00000000-0000-0000-0000-000000000001', 'SCALE_MAIN', 'Balanza Principal Certificada', true, 1),
-('00000000-0000-0000-0000-000000000001', 'SCALE_ALT', 'Balanza Alterna Certificada', true, 2),
-('00000000-0000-0000-0000-000000000001', 'WB_PROCESS', 'Proceso Weight & Balance Certificado', true, 3),
-('00000000-0000-0000-0000-000000000001', 'MANUAL_VER', 'Verificación Manual Autorizada', true, 4)
-ON CONFLICT (airline_id, code) DO NOTHING;
+-- Seed eliminado: la tabla se descarta en V55 (drop_uld_confirmed_source) y el seed
+-- referenciaba el UUID fijo de UPS (00000000-...) que no existe en airline (UUID autogenerado).

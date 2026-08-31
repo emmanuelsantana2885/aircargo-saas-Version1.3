@@ -21,6 +21,7 @@ public class JwtUtil {
     private static final Logger log = LoggerFactory.getLogger(JwtUtil.class);
     private static final String DEV_DEFAULT = "dev-only-insecure-secret-do-not-use-in-production-please-change-me";
     private static final long ACCESS_TOKEN_MS = 15 * 60 * 1000L;       // 15 minutes
+    private static final long ENROLL_TOKEN_MS = 15 * 60 * 1000L;       // 15 minutes
     private static final long REFRESH_TOKEN_MS = 7 * 24 * 60 * 60 * 1000L; // 7 days
     private static final long CLEANUP_INTERVAL_MS = 60 * 60 * 1000L;   // 1 hour
 
@@ -30,7 +31,7 @@ public class JwtUtil {
     private volatile long lastCleanupMs = System.currentTimeMillis();
 
     public JwtUtil(
-            @Value("${app.jwt.secret:dev-only-insecure-secret-do-not-use-in-production-please-change-me}") String secret,
+            @Value("${app.jwt.secret:}") String secret,
             @Value("${app.jwt.expiration-ms:86400000}") long expirationMs,
             @Value("${app.jwt.allow-dev-secret:false}") boolean allowDevSecret) {
         if (secret == null || secret.isBlank()) {
@@ -68,6 +69,25 @@ public class JwtUtil {
                 .claim("tokenType", "access")
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + ttlMs))
+                .signWith(key)
+                .compact();
+    }
+
+    /**
+     * Token de corta duración que solo autoriza el flujo de enrolamiento MFA
+     * (setup + enable). Se emite en el login cuando MFA es obligatorio pero el
+     * usuario aún no lo tiene configurado. Nunca da acceso a APIs de negocio.
+     */
+    public String generateEnrollToken(String userId, String role, String email, String fullName) {
+        Date now = new Date();
+        return Jwts.builder()
+                .subject(userId)
+                .claim("role", role)
+                .claim("email", email)
+                .claim("fullName", fullName != null ? fullName : "")
+                .claim("tokenType", "enroll")
+                .issuedAt(now)
+                .expiration(new Date(now.getTime() + ENROLL_TOKEN_MS))
                 .signWith(key)
                 .compact();
     }

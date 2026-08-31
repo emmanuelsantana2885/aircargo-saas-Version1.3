@@ -33,6 +33,32 @@ fi
 
 export JWT_SECRET RABBITMQ_PASSWORD POSTGRES_PASSWORD POSTGRES_DB POSTGRES_USER RABBITMQ_USER
 
+# ── Java: prefer a JDK 21 (el proyecto compila a release 21) ────
+# El `java` por defecto del sistema puede ser 25 (Fedora/Arch) mientras
+# el javac es 21 → Maven falla con "release version 21 not supported".
+# Detectamos JAVA_HOME si no está ya fijado.
+if [ -z "${JAVA_HOME:-}" ]; then
+  for jdk in \
+    "$HOME/.sdkman/candidates/java/21" \
+    /usr/lib/jvm/java-21-amazon-corretto \
+    /usr/lib/jvm/java-21-openjdk* \
+    /usr/lib/jvm/temurin-21* \
+    /usr/lib/jvm/jdk-21*; do
+    if [ -x "$jdk/bin/javac" ]; then JAVA_HOME="$jdk"; break; fi
+  done
+  if [ -z "${JAVA_HOME:-}" ]; then
+    # Fallback: derivar JAVA_HOME del java de PATH
+    JAVAC_BIN="$(command -v javac 2>/dev/null || true)"
+    if [ -n "$JAVAC_BIN" ]; then
+      JAVA_HOME="$(cd "$(dirname "$JAVAC_BIN")/.." && pwd)"
+    fi
+  fi
+fi
+if [ -n "${JAVA_HOME:-}" ] && [ -x "$JAVA_HOME/bin/java" ]; then
+  export JAVA_HOME
+  export PATH="$JAVA_HOME/bin:$PATH"
+fi
+
 # ── Maven: locate a usable mvn binary ───────────────────────────
 # 1) MAVEN_BIN already set (env var)
 # 2) mvn on PATH

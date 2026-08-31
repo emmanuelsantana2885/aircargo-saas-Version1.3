@@ -49,11 +49,14 @@ public class LoginCommandHandler {
     private final ActiveSessionTracker sessionTracker;
     private final SiteRepository siteRepository;
     private final MfaService mfaService;
+    /** Si true (default), TODO usuario debe tener MFA configurado para iniciar sesión. */
+    private final boolean mfaMandatory;
 
     public LoginCommandHandler(AppUserRepository userRepository, JwtUtil jwtUtil,
                                PasswordEncoder passwordEncoder, AuditService auditService,
                                ActiveSessionTracker sessionTracker, SiteRepository siteRepository,
-                               MfaService mfaService) {
+                               MfaService mfaService,
+                               @org.springframework.beans.factory.annotation.Value("${app.mfa.mandatory:true}") boolean mfaMandatory) {
         this.userRepository = userRepository;
         this.jwtUtil = jwtUtil;
         this.passwordEncoder = passwordEncoder;
@@ -61,6 +64,7 @@ public class LoginCommandHandler {
         this.sessionTracker = sessionTracker;
         this.siteRepository = siteRepository;
         this.mfaService = mfaService;
+        this.mfaMandatory = mfaMandatory;
     }
 
     @Transactional
@@ -107,7 +111,19 @@ public class LoginCommandHandler {
             user.setLockedUntil(null);
         }
 
-        // MFA check — all roles with MFA enabled must verify (no role bypass)
+        // MFA check — obligatorio para TODOS los usuarios (sin bypass por rol)
+        if (mfaMandatory && !Boolean.TRUE.equals(user.getMfaEnabled())) {
+            // El usuario aún no configuró MFA → forzar enrolamiento ANTES de emitir sesión.
+            String enrollToken = jwtUtil.generateEnrollToken(
+                    user.getId().toString(), user.getRole().name(), user.getEmail(), user.getFullName());
+            return LoginOutcome.failure(LoginOutcome.Status.MFA_ENROLLMENT_REQUIRED,
+                    Map.of(
+                            "mfaEnrollmentRequired", true,
+                            "enrollToken", enrollToken,
+                            "email", user.getEmail(),
+                            "message", "Debe configurar la autenticación de dos factores (MFA) antes de continuar"
+                    ));
+        }
         if (mfaService.isMfaRequired(user)) {
             if (Boolean.TRUE.equals(user.getMfaLocked())) {
                 return LoginOutcome.failure(LoginOutcome.Status.MFA_LOCKED,

@@ -14,4 +14,7 @@ export const authApi = {
   me: () => api.get('/auth/me'),
   mfaSetup: () => api.post('/auth/mfa/setup'),
   mfaEnable: (secret, totpCode) => api.post('/auth/mfa/enable', { secret, totpCode }),
+  mfaEnrollSetup: (enrollToken) => api.post('/auth/mfa/enroll/setup', { enrollToken }),
+  mfaEnrollEnable: (enrollToken, secret, totpCode) =>
+    api.post('/auth/mfa/enroll/enable', { enrollToken, secret, totpCode }),
 }

@@ -21,6 +21,12 @@ info() { echo -e "${BLUE}[INFO]${NC} $*"; }
 CLUSTER_NAME="aircargo-local"
 NAMESPACE="aircargo"
 
+# Auto-generate passwords (no hardcoded credentials)
+LOCAL_POSTGRES_PASSWORD="$(openssl rand -base64 24)"
+LOCAL_RABBITMQ_PASSWORD="$(openssl rand -base64 24)"
+LOCAL_JWT_SECRET="$(openssl rand -base64 64)"
+LOCAL_ENCRYPTION_KEY="$(openssl rand -base64 32)"
+
 check_prereqs() {
   log "Verificando prerequisitos..."
   command -v docker >/dev/null || { error "Docker no instalado"; exit 1; }
@@ -84,10 +90,10 @@ install_local_postgres() {
   helm repo add bitnami https://charts.bitnami.com/bitnami
   helm repo update
   
-  cat > /tmp/postgres-values.yaml <<'EOF'
+  cat > /tmp/postgres-values.yaml <<EOF
 auth:
   username: aircargo_user
-  password: aircargo_pass_2024
+  password: ${LOCAL_POSTGRES_PASSWORD}
   database: aircargo_db
 primary:
   persistence:
@@ -116,10 +122,10 @@ EOF
 install_local_rabbitmq() {
   log "Instalando RabbitMQ local..."
   
-  cat > /tmp/rabbitmq-values.yaml <<'EOF'
+  cat > /tmp/rabbitmq-values.yaml <<EOF
 auth:
   username: aircargo
-  password: aircargo_pass_2024
+  password: ${LOCAL_RABBITMQ_PASSWORD}
 replicaCount: 1
 clustering:
   enabled: false
@@ -149,17 +155,17 @@ create_secrets() {
   log "Creando secrets locales..."
   
   kubectl create secret generic aircargo-secrets -n "$NAMESPACE" \
-    --from-literal=JWT_SECRET="$(openssl rand -base64 64)" \
+    --from-literal=JWT_SECRET="${LOCAL_JWT_SECRET}" \
     --from-literal=POSTGRES_HOST="postgres.$NAMESPACE.svc.cluster.local" \
     --from-literal=POSTGRES_PORT="5432" \
     --from-literal=POSTGRES_DB="aircargo_db" \
     --from-literal=POSTGRES_USER="aircargo_user" \
-    --from-literal=POSTGRES_PASSWORD="aircargo_pass_2024" \
+    --from-literal=POSTGRES_PASSWORD="${LOCAL_POSTGRES_PASSWORD}" \
     --from-literal=RABBITMQ_HOST="rabbitmq.$NAMESPACE.svc.cluster.local" \
     --from-literal=RABBITMQ_PORT="5672" \
     --from-literal=RABBITMQ_USER="aircargo" \
-    --from-literal=RABBITMQ_PASSWORD="aircargo_pass_2024" \
-    --from-literal=APP_ENCRYPTION_KEY="$(openssl rand -base64 32)" \
+    --from-literal=RABBITMQ_PASSWORD="${LOCAL_RABBITMQ_PASSWORD}" \
+    --from-literal=APP_ENCRYPTION_KEY="${LOCAL_ENCRYPTION_KEY}" \
     --from-literal=SMTP_HOST="smtp.example.com" \
     --from-literal=SMTP_PORT="587" \
     --from-literal=SMTP_USERNAME="noreply@example.com" \

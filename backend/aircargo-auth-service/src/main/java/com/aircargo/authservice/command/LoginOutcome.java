@@ -18,6 +18,7 @@ public record LoginOutcome(Status status, LoginResponse body, Map<String, Object
         BLOCKED,
         PASSWORD_REQUIRED,
         MFA_REQUIRED,
+        MFA_ENROLLMENT_REQUIRED,
         MFA_INVALID,
         MFA_LOCKED
     }

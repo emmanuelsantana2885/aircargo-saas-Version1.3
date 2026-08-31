@@ -80,6 +80,22 @@ public class BackupDTOs {
         }
     }
 
+    /** Petición de restauración de la BD. source = 'local' (filePath) o 'url' (url, http/https). */
+    @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    public static class RestoreRequest {
+        private String source;      // "local" | "url"
+        private String filePath;    // ruta del dump local (source=local)
+        private String url;         // https://.../backup.dump (source=url)
+    }
+
+    @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    public static class RestoreResult {
+        private boolean success;
+        private String message;
+        private String dumpPath;
+        private Integer exitCode;
+    }
+
     @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
     public static class BackupStatsDTO {
         private Long totalBackups;

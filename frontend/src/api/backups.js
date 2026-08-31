@@ -7,4 +7,5 @@ export const backupsApi = {
   getHistory: (page = 0, size = 20) => client.get('/backup/history', { params: { page, size } }),
   getLatest: () => client.get('/backup/latest'),
   trigger: (type = 'MANUAL') => client.post('/backup/trigger', null, { params: { type } }),
+  restore: (payload) => client.post('/backup/restore', payload),
 }

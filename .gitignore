@@ -26,3 +26,7 @@ k8s/secret*.yml
 .local-pg/
 .local-rabbitmq/
 graphify-out/
+
+# Backups/restores locales de BD (contienen datos reales — no subir)
+backups/
+scripts/.backups/

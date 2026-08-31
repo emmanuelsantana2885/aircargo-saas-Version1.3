@@ -18,6 +18,7 @@ public record PasswordOutcome(Status status, Map<String, Object> body) {
         UNEXPECTED_CURRENT_PASSWORD,
         MFA_NOT_CONFIGURED,
         MFA_ACCOUNT_LOCKED,
+        MFA_ENROLLMENT_REQUIRED,
         TOTP_INVALID
     }
 

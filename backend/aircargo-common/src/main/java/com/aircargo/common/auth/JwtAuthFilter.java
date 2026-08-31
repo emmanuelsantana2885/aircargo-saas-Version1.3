@@ -72,6 +72,14 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 return;
             }
             Claims claims = jwtUtil.parseToken(token);
+            String tokenType = claims.get("tokenType", String.class);
+            // Solo tokens de acceso/servicio pueden autenticar APIs. Un token
+            // "enroll" o "refresh" jamás debe autorizar endpoints protegidos.
+            if (tokenType != null && !"access".equals(tokenType) && !"service".equals(tokenType)) {
+                SecurityContextHolder.clearContext();
+                writeUnauthorized(response, "Token type not allowed for API access");
+                return;
+            }
             String role = claims.get("role", String.class);
             if (role == null) {
                 SecurityContextHolder.clearContext();

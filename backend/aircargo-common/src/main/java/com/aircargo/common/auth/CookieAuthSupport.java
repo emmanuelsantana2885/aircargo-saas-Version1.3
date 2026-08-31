@@ -9,8 +9,12 @@ import org.springframework.http.ResponseCookie;
  * Soporte de autenticación por cookies httpOnly (mitigación de XSS:
  * el token deja de ser legible por JavaScript).
  *
- * · aircargo_at → access token,  Path=/            , vida corta
- * · aircargo_rt → refresh token, Path=/api/auth    , larga vida
+ * · aircargo_at → access token,  Path=/          , cookie de sesión (vida del navegador)
+ * · aircargo_rt → refresh token, Path=/api/auth  , cookie de sesión (vida del navegador)
+ *
+ * Ambas son cookies de sesión (maxAge -1): se borran al cerrar el navegador,
+ * de modo que reabrir la app exige login de nuevo (y por tanto MFA cuando
+ * está habilitado). No sobreviven al cierre del navegador.
  *
  * SameSite=Lax bloquea el envío cross-site en POST; CORS restringe orígenes.
  */
@@ -19,6 +23,9 @@ public final class CookieAuthSupport {
     public static final String ACCESS_COOKIE = "aircargo_at";
     public static final String REFRESH_COOKIE = "aircargo_rt";
     public static final String REFRESH_PATH = "/api/auth";
+
+    /** maxAge -1 = cookie de sesión: se elimina al cerrar el navegador. */
+    public static final long SESSION_MAX_AGE = -1;
 
     private CookieAuthSupport() {
     }

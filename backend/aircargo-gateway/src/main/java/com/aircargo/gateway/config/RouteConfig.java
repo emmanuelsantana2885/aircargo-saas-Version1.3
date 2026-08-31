@@ -85,14 +85,17 @@ public class RouteConfig {
                         .uri(svc("SERVICE_MAWB_URL", "http://localhost:9095")))
 
                 .route("warehouse-service", r -> r
-		     .path("/api/warehouse/**", "/api/receipts/**")
-		     .filters(f -> f
-			 .retry(config -> config
-			     .setRetries(2)
-			     .setBackoff(java.time.Duration.ofMillis(500),
-					  java.time.Duration.ofSeconds(2), 2, true))
-		     )
-		     .uri(svc("SERVICE_WAREHOUSE_URL", "http://localhost:9096")))
+                        .path("/api/warehouse/**", "/api/receipts/**")
+                        .filters(f -> f
+                                .circuitBreaker(config -> config
+                                        .setName("warehouse-service")
+                                        .setFallbackUri("forward:/fallback/warehouse"))
+                                .retry(config -> config
+                                        .setRetries(2)
+                                        .setBackoff(java.time.Duration.ofMillis(500),
+                                                     java.time.Duration.ofSeconds(2), 2, true))
+                        )
+                        .uri(svc("SERVICE_WAREHOUSE_URL", "http://localhost:9096")))
 
                 .route("uld-service", r -> r
                         .path("/api/ulds/**", "/api/uld-awbs/**",

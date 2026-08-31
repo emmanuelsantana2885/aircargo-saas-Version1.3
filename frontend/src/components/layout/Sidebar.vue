@@ -97,6 +97,7 @@ import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../../stores/auth'
 import { useIcons } from '../../composables/useIcons'
 import PasswordChangeModal from '../PasswordChangeModal.vue'
+import { captureForms, saveDraft, setReturnTo } from '../../utils/formDraft'
 
 const route = useRoute()
 const router = useRouter()
@@ -143,7 +144,13 @@ function checkViewport() {
   isTablet.value = w >= 768 && w < 1024
   if (isMobile.value || isTablet.value) mobileOpen.value = false
 }
-function handleLogout() { auth.logout(); router.push('/login') }
+function handleLogout() {
+  try {
+    saveDraft({ route: router.currentRoute.value.fullPath, forms: captureForms() })
+    setReturnTo(router.currentRoute.value.fullPath)
+  } catch {}
+  auth.logout(); router.push('/login')
+}
 defineExpose({ mobileOpen, isMobile })
 onMounted(() => { checkViewport(); window.addEventListener('resize', checkViewport) })
 onUnmounted(() => { window.removeEventListener('resize', checkViewport) })

@@ -23,6 +23,8 @@ services:
       dockerfile: aircargo-gateway/Dockerfile
     container_name: aircargo-gateway
     restart: unless-stopped
+    mem_limit: 1g
+    cpus: 1
     environment:
       <<: *common-env
       SERVICE_AUTH_URL: http://aircargo-auth-service:9092
@@ -43,6 +45,8 @@ services:
       dockerfile: aircargo-auth-service/Dockerfile
     container_name: aircargo-auth-service
     restart: unless-stopped
+    mem_limit: 1g
+    cpus: 1
     environment:
       <<: *common-env
     ports:
@@ -57,6 +61,8 @@ services:
       dockerfile: aircargo-flight-service/Dockerfile
     container_name: aircargo-flight-service
     restart: unless-stopped
+    mem_limit: 1g
+    cpus: 1
     environment:
       <<: *common-env
     ports:
@@ -71,6 +77,8 @@ services:
       dockerfile: aircargo-booking-service/Dockerfile
     container_name: aircargo-booking-service
     restart: unless-stopped
+    mem_limit: 1g
+    cpus: 1
     environment:
       <<: *common-env
     ports:
@@ -85,6 +93,8 @@ services:
       dockerfile: aircargo-mawb-service/Dockerfile
     container_name: aircargo-mawb-service
     restart: unless-stopped
+    mem_limit: 1g
+    cpus: 1
     environment:
       <<: *common-env
     ports:
@@ -99,6 +109,8 @@ services:
       dockerfile: aircargo-warehouse-service/Dockerfile
     container_name: aircargo-warehouse-service
     restart: unless-stopped
+    mem_limit: 1g
+    cpus: 1
     environment:
       <<: *common-env
     ports:
@@ -115,6 +127,8 @@ services:
       dockerfile: aircargo-uld-service/Dockerfile
     container_name: aircargo-uld-service
     restart: unless-stopped
+    mem_limit: 1g
+    cpus: 1
     environment:
       <<: *common-env
     ports:
@@ -129,6 +143,8 @@ services:
       dockerfile: aircargo-load-planning-service/Dockerfile
     container_name: aircargo-load-planning-service
     restart: unless-stopped
+    mem_limit: 1g
+    cpus: 1
     environment:
       <<: *common-env
     ports:
@@ -143,6 +159,8 @@ services:
       dockerfile: aircargo-export-service/Dockerfile
     container_name: aircargo-export-service
     restart: unless-stopped
+    mem_limit: 1g
+    cpus: 1
     environment:
       <<: *common-env
     ports:
@@ -157,6 +175,8 @@ services:
       dockerfile: aircargo-notification-service/Dockerfile
     container_name: aircargo-notification-service
     restart: unless-stopped
+    mem_limit: 1g
+    cpus: 1
     environment:
       <<: *common-env
     ports:

@@ -121,11 +121,7 @@ public class BookingServiceImpl implements BookingService {
                         f.setId(dto.getFlightId());
                         existing.setFlight(f);
                     }
-                    if (dto.getMawbId() != null) {
-                        com.aircargo.bookingservice.entity.Mawb m = new com.aircargo.bookingservice.entity.Mawb();
-                        m.setId(dto.getMawbId());
-                        existing.setMawb(m);
-                    }
+                    if (dto.getMawbId() != null) existing.setMawbId(dto.getMawbId());
                     if (dto.getClientName() != null) existing.setClientName(dto.getClientName());
                     if (dto.getContactName() != null) existing.setContactName(dto.getContactName());
                     if (dto.getCnee() != null) existing.setCnee(dto.getCnee());

@@ -2,7 +2,6 @@ package com.aircargo.bookingservice.entity;
 
 import com.aircargo.common.entity.Airline;
 import com.aircargo.bookingservice.entity.Flight;
-import com.aircargo.bookingservice.entity.Mawb;
 import com.aircargo.common.entity.CommodityType;
 import jakarta.persistence.*;
 import lombok.*;
@@ -36,9 +35,8 @@ public class Booking {
     @JoinColumn(name = "flight_id")
     private Flight flight;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "mawb_id")
-    private Mawb mawb;
+    @Column(name = "mawb_id")
+    private UUID mawbId;
 
     @Column(name = "client_name", length = 200)
     private String clientName;

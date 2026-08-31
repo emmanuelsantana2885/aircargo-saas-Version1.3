@@ -215,6 +215,7 @@ find_pg_bins() {
   for dir in /usr/lib/postgresql/*/bin; do
     [ -x "$dir/initdb" ] && [ -x "$dir/pg_ctl" ] && { PG_INITDB="$dir/initdb"; PG_CTL="$dir/pg_ctl"; return 0; }
   done
+  return 0
 }
 
 wait_health() {

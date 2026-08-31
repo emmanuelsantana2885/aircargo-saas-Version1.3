@@ -3,7 +3,6 @@ package com.aircargo.bookingservice.dto;
 import com.aircargo.bookingservice.entity.Booking;
 import com.aircargo.common.entity.Airline;
 import com.aircargo.bookingservice.entity.Flight;
-import com.aircargo.bookingservice.entity.Mawb;
 import com.aircargo.common.entity.CommodityType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -56,7 +55,7 @@ public class BookingDTO {
                 .id(booking.getId())
                 .airlineId(booking.getAirline() != null ? booking.getAirline().getId() : null)
                 .flightId(booking.getFlight() != null ? booking.getFlight().getId() : null)
-                .mawbId(booking.getMawb() != null ? booking.getMawb().getId() : null)
+                .mawbId(booking.getMawbId())
                 .clientName(booking.getClientName())
                 .contactName(booking.getContactName())
                 .cnee(booking.getCnee())
@@ -98,11 +97,7 @@ public class BookingDTO {
             f.setId(dto.getFlightId());
             entity.setFlight(f);
         }
-        if (dto.getMawbId() != null) {
-            Mawb m = new Mawb();
-            m.setId(dto.getMawbId());
-            entity.setMawb(m);
-        }
+        entity.setMawbId(dto.getMawbId());
         entity.setClientName(dto.getClientName());
         entity.setContactName(dto.getContactName());
         entity.setCnee(dto.getCnee());

@@ -69,6 +69,9 @@ public class AuthController {
     private boolean cookieSecure;
     private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
+    @org.springframework.beans.factory.annotation.Value("${app.mfa.mandatory:true}")
+    private boolean mfaMandatory;
+
     public AuthController(LoginCommandHandler loginHandler,
                           SetPasswordCommandHandler setPasswordHandler,
                           com.aircargo.authservice.command.ChangePasswordCommandHandler changePasswordHandler,
@@ -105,7 +108,8 @@ public class AuthController {
             case INVALID_CREDENTIALS -> ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(outcome.errorBody());
             case INACTIVE, LOCKED, BLOCKED, MFA_LOCKED -> ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(outcome.errorBody());
-            case PASSWORD_REQUIRED, MFA_REQUIRED -> ResponseEntity.status(HttpStatus.PRECONDITION_REQUIRED)
+            case PASSWORD_REQUIRED, MFA_REQUIRED, MFA_ENROLLMENT_REQUIRED ->
+                    ResponseEntity.status(HttpStatus.PRECONDITION_REQUIRED)
                     .body(outcome.errorBody());
             case MFA_INVALID -> ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(outcome.errorBody());
         };
@@ -222,6 +226,18 @@ public class AuthController {
                 com.aircargo.authservice.event.AuditEventType.PASSWORD_SET, "USER",
                 user.getId().toString(), null, request.getRemoteAddr());
 
+        // MFA obligatorio: sin MFA configurado NO se emite sesión — flujo de enrolamiento
+        if (mfaMandatory && !Boolean.TRUE.equals(user.getMfaEnabled())) {
+            String enrollToken = jwtUtil.generateEnrollToken(
+                    user.getId().toString(), user.getRole().name(), user.getEmail(), user.getFullName());
+            return ResponseEntity.status(HttpStatus.PRECONDITION_REQUIRED).body(java.util.Map.of(
+                    "mfaEnrollmentRequired", true,
+                    "enrollToken", enrollToken,
+                    "email", user.getEmail(),
+                    "message", "Configura la autenticación de dos factores (MFA) para continuar"
+            ));
+        }
+
         String jwt = jwtUtil.generateToken(
                 user.getId().toString(),
                 user.getRole().name(),
@@ -243,6 +259,97 @@ public class AuthController {
             @jakarta.validation.constraints.NotBlank @com.aircargo.common.validation.StrongPassword String newPassword) {}
 
 
+    /**
+     * PASO 1 del enrolamiento forzado de MFA (pú个blico, sin sesión activa):
+     * valida el enroll token y devuelve el secreto base32 + URL otpauth para el QR.
+     * El enrollToken viaja en el BODY, no como Authorization, y su tokenType es
+     * exclusivamente "enroll" (los filtros rechazan ese tipo como acceso general).
+     */
+    @PostMapping("/mfa/enroll/setup")
+    public ResponseEntity<?> enrollMfaSetup(@RequestBody Map<String, String> body) {
+        String enrollToken = body.get("enrollToken");
+        boolean validEnroll = isValidEnrollToken(enrollToken);
+        if (!validEnroll) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Enlace de enrolamiento inválido o expirado. Inicie sesión nuevamente."));
+        }
+        AppUser user = userRepository.findById(UUID.fromString(parseSubject(enrollToken))).orElse(null);
+        if (user == null || !Boolean.TRUE.equals(user.getIsActive())) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Usuario no encontrado o inactivo"));
+        }
+        if (Boolean.TRUE.equals(user.getMfaEnabled())) {
+            return ResponseEntity.badRequest().body(Map.of("error", "MFA ya está habilitado para este usuario"));
+        }
+        String secret = mfaService.generateSecret();
+        String otpAuthUrl = mfaService.getOtpAuthUrl(user.getEmail(), secret);
+        return ResponseEntity.ok(Map.of(
+                "secret", secret,
+                "otpAuthUrl", otpAuthUrl,
+                "email", user.getEmail()
+        ));
+    }
+
+    /**
+     * PASO 2 del enrolamiento forzado (público): valida el enroll token, verifica
+     * el código TOTP contra el secreto, habilita MFA y revoca el enroll token
+     * (un solo uso). Devuelve un enrollSuccess para que el frontend reinicie login.
+     */
+    @PostMapping("/mfa/enroll/enable")
+    public ResponseEntity<?> enrollMfaEnable(@RequestBody Map<String, String> body,
+                                             HttpServletRequest servletRequest) {
+        String enrollToken = body.get("enrollToken");
+        String secret = body.get("secret");
+        String totpCode = body.get("totpCode");
+        boolean validEnroll = isValidEnrollToken(enrollToken);
+        if (!validEnroll) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Enlace de enrolamiento inválido o expirado. Inicie sesión nuevamente."));
+        }
+        if (secret == null || secret.isBlank() || totpCode == null || totpCode.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "secret y totpCode son requeridos"));
+        }
+        AppUser user = userRepository.findById(UUID.fromString(parseSubject(enrollToken))).orElse(null);
+        if (user == null || !Boolean.TRUE.equals(user.getIsActive())) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Usuario no encontrado o inactivo"));
+        }
+        if (Boolean.TRUE.equals(user.getMfaEnabled())) {
+            return ResponseEntity.badRequest().body(Map.of("error", "MFA ya está habilitado para este usuario"));
+        }
+        if (!mfaService.verifyCode(secret, totpCode)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Código TOTP inválido"));
+        }
+        mfaService.enableMfa(user.getId(), secret);
+        jwtUtil.revokeToken(enrollToken); // un solo uso
+        auditService.log(user.getId(), user.getEmail(), user.getFullName(),
+                "MFA_ENROLLED", "USER", user.getId().toString(), null, servletRequest.getRemoteAddr());
+        return ResponseEntity.ok(Map.of(
+                "message", "MFA configurado correctamente",
+                "enrollSuccess", true,
+                "email", user.getEmail()
+        ));
+    }
+
+    private boolean isValidEnrollToken(String token) {
+        if (token == null || token.isBlank()) return false;
+        try {
+            if (jwtUtil.isRevoked(token) || !jwtUtil.isValid(token)) return false;
+            Claims claims = jwtUtil.parseToken(token);
+            return "enroll".equals(claims.get("tokenType", String.class));
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private String parseSubject(String token) {
+        try {
+            return jwtUtil.parseToken(token).getSubject();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     private ResponseEntity<?> withCookies(Object body, int status) {
         ResponseEntity.BodyBuilder builder = ResponseEntity.status(status);
         String access = null;
@@ -258,12 +365,14 @@ public class AuthController {
         }
         if (access != null && !access.isBlank()) {
             builder.header("Set-Cookie", CookieAuthSupport.build(
-                    CookieAuthSupport.ACCESS_COOKIE, access, "/", cookieSecure, 3600));
+                    CookieAuthSupport.ACCESS_COOKIE, access, "/", cookieSecure,
+                    CookieAuthSupport.SESSION_MAX_AGE));
         }
         if (refresh != null && !refresh.isBlank()) {
             builder.header("Set-Cookie", CookieAuthSupport.build(
                     CookieAuthSupport.REFRESH_COOKIE, refresh,
-                    CookieAuthSupport.REFRESH_PATH, cookieSecure, 604800));
+                    CookieAuthSupport.REFRESH_PATH, cookieSecure,
+                    CookieAuthSupport.SESSION_MAX_AGE));
         }
         return builder.body(body);
     }
@@ -296,6 +405,8 @@ public class AuthController {
             case USER_NOT_FOUND -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(outcome.body());
             case USER_GONE -> ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             case INACTIVE, MFA_NOT_CONFIGURED, MFA_ACCOUNT_LOCKED -> ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(outcome.body());
+            case MFA_ENROLLMENT_REQUIRED -> ResponseEntity.status(HttpStatus.PRECONDITION_REQUIRED)
                     .body(outcome.body());
             case CURRENT_PASSWORD_INCORRECT, TOTP_INVALID -> ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(outcome.body());

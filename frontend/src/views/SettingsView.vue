@@ -912,6 +912,59 @@
           </p>
         </div>
 
+        <!-- Restaurar BD -->
+        <div class="ds-table-section">
+          <div class="px-4 py-2 border-b border-slate-200 flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-slate-800">{{ t('settings.backups.restoreTitle') }}</h3>
+          </div>
+          <div class="p-4 space-y-3">
+            <p class="text-[11px] text-slate-500 leading-relaxed">{{ t('settings.backups.restoreHelp') }}</p>
+
+            <div class="flex items-center gap-4">
+              <label class="flex items-center gap-1.5 text-[12px] cursor-pointer">
+                <input v-model="restoreSource" value="local" type="radio" class="accent-blue-600" :disabled="restoring">
+                {{ t('settings.backups.restoreLocal') }}
+              </label>
+              <label class="flex items-center gap-1.5 text-[12px] cursor-pointer">
+                <input v-model="restoreSource" value="url" type="radio" class="accent-blue-600" :disabled="restoring">
+                {{ t('settings.backups.restoreUrl') }}
+              </label>
+            </div>
+
+            <div v-if="restoreSource === 'local'">
+              <label class="ds-label block mb-1">{{ t('settings.backups.restoreFilePath') }}</label>
+              <input v-model="restoreFilePath" :disabled="restoring"
+                :placeholder="t('settings.backups.restoreFilePathPlaceholder')"
+                class="ds-input font-mono text-[12px] w-full"
+                @keyup.enter="doRestore">
+            </div>
+            <div v-else>
+              <label class="ds-label block mb-1">{{ t('settings.backups.restoreUrlInput') }}</label>
+              <input v-model="restoreUrl" :disabled="restoring" type="url" inputmode="url"
+                :placeholder="t('settings.backups.restoreUrlPlaceholder')"
+                class="ds-input font-mono text-[12px] w-full"
+                @keyup.enter="doRestore">
+            </div>
+
+            <div class="flex items-center gap-3">
+              <button @click="doRestore" :disabled="restoring ||
+                  (restoreSource === 'local' ? !restoreFilePath.trim() : !restoreUrl.trim())"
+                class="bg-red-600 hover:bg-red-700 text-white text-[12px] whitespace-nowrap rounded-lg px-3 py-1.5 disabled:opacity-50 disabled:cursor-not-allowed">
+                {{ restoring ? t('settings.backups.restoring') : t('settings.backups.restoreBtn') }}
+              </button>
+              <span class="text-[11px] text-slate-400">{{ t('settings.backups.restoreSafety') }}</span>
+            </div>
+
+            <div v-if="restoreResult" :class="restoreResult.success
+                ? 'bg-emerald-50 border border-emerald-200 text-emerald-800'
+                : 'bg-red-50 border border-red-200 text-red-800'"
+              class="rounded p-3 text-[11px] whitespace-pre-line leading-relaxed">
+              <strong>{{ restoreResult.success ? '✓' : '✗' }} {{ restoreResult.message }}</strong>
+              <div v-if="restoreResult.dumpPath" class="font-mono mt-1 text-[10px]">dump: {{ restoreResult.dumpPath }}</div>
+            </div>
+          </div>
+        </div>
+
         <!-- History -->
         <div class="ds-table-section">
           <div class="px-4 py-2 border-b border-slate-200 flex items-center justify-between">
@@ -1268,6 +1321,43 @@ async function triggerManualBackup() {
     toast.error(extractError(e))
   } finally {
     backupTriggering.value = false
+  }
+}
+
+// ── Restauración de BD ──
+const restoreSource = ref('local')
+const restoreFilePath = ref('')
+const restoreUrl = ref('')
+const restoring = ref(false)
+const restoreResult = ref(null)
+
+async function doRestore() {
+  const ok = await confirm({
+    title: t('settings.backups.restoreConfirmTitle'),
+    message: t('settings.backups.restoreConfirmMsg'),
+    confirmText: t('settings.backups.restoreConfirmBtn'),
+    cancelText: t('common.cancel'),
+    danger: true,
+  })
+  if (!ok) return
+  restoring.value = true
+  restoreResult.value = null
+  try {
+    const payload = restoreSource.value === 'url'
+      ? { source: 'url', url: restoreUrl.value.trim() }
+      : { source: 'local', filePath: restoreFilePath.value.trim() }
+    const res = await backupsApi.restore(payload)
+    restoreResult.value = res.data
+    if (res.data.success) {
+      toast.success(t('settings.backups.restoreDone'))
+    } else {
+      toast.error(t('settings.backups.restoreFailed'))
+    }
+    setTimeout(loadBackupHistory, 2500)
+  } catch (e) {
+    toast.error(extractError(e))
+  } finally {
+    restoring.value = false
   }
 }
 

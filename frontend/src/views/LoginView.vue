@@ -119,6 +119,73 @@
         </form>
       </template>
 
+      <template v-if="step === 'mfa-enroll'">
+        <div class="text-center mb-6">
+          <div class="w-12 h-12 rounded-lg flex items-center justify-center mx-auto mb-3" style="background: var(--accent)">
+            <component :is="icons.ShieldLock" :size="28" color="white" :stroke-width="2" />
+          </div>
+          <h1 class="text-xl font-bold" style="color: var(--text)">{{ t('login.mfaEnroll.title') }}</h1>
+          <p class="text-sm mt-1" style="color: var(--muted)">{{ t('login.mfaEnroll.subtitle') }}</p>
+        </div>
+
+        <form @submit.prevent="handleEnrollEnable" class="space-y-4">
+          <div class="text-center">
+            <div class="inline-block p-3 rounded-lg border border-slate-200 bg-white">
+              <img v-if="enrollOtpAuthUrl"
+                :src="`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(enrollOtpAuthUrl)}`"
+                alt="QR Code" class="w-[180px] h-[180px]" />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium mb-1" style="color: var(--text)">{{ t('login.mfaEnroll.secret') }}</label>
+            <code class="block w-full px-3 py-2.5 rounded text-sm font-mono break-all text-center"
+              style="background: var(--bg); color: var(--text); border: 1px solid var(--border)">{{ enrollSecret }}</code>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium mb-1" style="color: var(--text)">{{ t('login.mfa.codeLabel') }}</label>
+            <input
+              v-model="enrollCode"
+              type="text"
+              inputmode="numeric"
+              pattern="[0-9]*"
+              maxlength="6"
+              required
+              placeholder="000000"
+              class="w-full px-3 py-2.5 rounded text-sm text-center font-mono tracking-[0.5em] outline-none transition-all border-slate-300"
+              style="background: var(--bg); color: var(--text); font-size: 18px"
+              :disabled="loading"
+              autofocus
+            />
+          </div>
+
+          <p v-if="errorMsg" class="text-xs text-center" style="color: var(--muted)">{{ errorMsg }}</p>
+
+          <button
+            type="submit"
+            :disabled="loading || enrollCode.length !== 6"
+            class="w-full py-2.5 rounded text-sm font-semibold transition-all"
+            :class="loading ? 'opacity-60' : 'hover:brightness-110 active:scale-[0.98]'"
+            style="background: var(--accent); color: white"
+          >
+            <span v-if="loading" class="inline-flex items-center gap-2">
+              <span class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+              {{ t('login.mfaEnroll.enabling') }}
+            </span>
+            <span v-else>{{ t('login.mfaEnroll.enable') }}</span>
+          </button>
+
+          <button
+            @click="handleBackToLogin"
+            class="w-full py-1.5 rounded text-xs font-medium transition-all hover:brightness-110"
+            style="background: transparent; color: var(--muted)"
+          >
+            {{ t('common.back') }}
+          </button>
+        </form>
+      </template>
+
       <template v-if="step === 'site-select'">
         <div class="text-center mb-6">
           <div class="w-12 h-12 rounded-lg flex items-center justify-center mx-auto mb-3" style="background: var(--accent)">
@@ -170,6 +237,7 @@ import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../stores/auth'
+import { authApi } from '../api/auth'
 import { useIcons } from '../composables/useIcons'
 import { useToastStore } from '../stores/toast'
 
@@ -193,6 +261,10 @@ const step = ref('credentials')
 const selectedSite = ref(null)
 const pendingEmail = ref('')
 const pendingPassword = ref('')
+const enrollToken = ref('')
+const enrollSecret = ref('')
+const enrollOtpAuthUrl = ref('')
+const enrollCode = ref('')
 
 const selectedSiteLabel = computed(() => {
   if (!selectedSite.value) return ''
@@ -222,6 +294,10 @@ async function handleLogin() {
       totpCode.value = ''
       errorMsg.value = ''
       loading.value = false
+      return
+    }
+    if (status === 428 && data?.mfaEnrollmentRequired) {
+      startMfaEnrollment(data.enrollToken)
       return
     }
     toast.error(extractError(e))
@@ -291,6 +367,58 @@ function proceedAfterLogin() {
   step.value = 'site-select'
 }
 
+async function startMfaEnrollment(token) {
+  enrollToken.value = token
+  pendingEmail.value = loginEmail.value
+  pendingPassword.value = password.value || ''
+  loading.value = true
+  errorMsg.value = ''
+  try {
+    const res = await authApi.mfaEnrollSetup(token)
+    enrollSecret.value = res.data.secret
+    enrollOtpAuthUrl.value = res.data.otpAuthUrl
+    step.value = 'mfa-enroll'
+    enrollCode.value = ''
+  } catch (err) {
+    toast.error(extractError(err))
+    errorMsg.value = t('login.mfaEnroll.failed')
+    step.value = 'credentials'
+  } finally {
+    loading.value = false
+  }
+}
+
+async function handleEnrollEnable() {
+  errorMsg.value = ''
+  loading.value = true
+  try {
+    await authApi.mfaEnrollEnable(enrollToken.value, enrollSecret.value, enrollCode.value)
+    // MFA habilitado → re-login con password + código TOTP para obtener sesión
+    await auth.login(pendingEmail.value, pendingPassword.value, enrollCode.value)
+    if (auth.mustChangePassword) {
+      router.push('/change-password')
+      return
+    }
+    proceedAfterLogin()
+  } catch (e) {
+    const status = e.response?.status
+    const data = e.response?.data
+    toast.error(extractError(e))
+    if (status === 401 || status === 428) {
+      errorMsg.value = data?.error || t('login.mfaEnroll.failed')
+      enrollCode.value = ''
+    } else if (status === 403) {
+      errorMsg.value = data?.error || t('login.error.locked')
+      step.value = 'credentials'
+    } else {
+      errorMsg.value = t('login.mfaEnroll.failed')
+      enrollCode.value = ''
+    }
+  } finally {
+    loading.value = false
+  }
+}
+
 import { popReturnTo, loadDraft, restoreForms, clearDraft } from '@/utils/formDraft'
 
 function navigateAfterSiteConfirm() {
@@ -318,6 +446,10 @@ function handleBackToLogin() {
   pendingEmail.value = ''
   pendingPassword.value = ''
   totpCode.value = ''
+  enrollToken.value = ''
+  enrollSecret.value = ''
+  enrollOtpAuthUrl.value = ''
+  enrollCode.value = ''
   errorMsg.value = ''
   needsPassword.value = false
   showSetupLink.value = false

@@ -48,6 +48,9 @@ CREATE INDEX IF NOT EXISTS idx_flight_status ON flight(status);
 CREATE INDEX IF NOT EXISTS idx_flight_airline_date ON flight(airline_id, flight_date);
 
 -- Seed UPS airline (reference UUID; the frontend no longer hardcodes it, it loads from the API)
+-- Usamos ON CONFLICT (code): el auth-service (DataSeeder) puede haber insertado YA la aerolínea
+-- UPS (con otro id, porque Airline usa @GeneratedValue y descarta el id explícito). Si upsertamos
+-- por id, el conflicto real es el UNIQUE de code → falla. Al apuntar a code, es un no-op si existe.
 INSERT INTO airline (id, code, name, iata_code, country, is_active, created_at, updated_at)
 VALUES (
     '00000000-0000-0000-0000-000000000001',
@@ -58,4 +61,4 @@ VALUES (
     TRUE,
     now(),
     now()
-) ON CONFLICT (id) DO NOTHING;
+) ON CONFLICT (code) DO NOTHING;

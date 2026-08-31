@@ -105,6 +105,75 @@ Flyway migrations live in **each microservice** at `backend/aircargo-*-service/s
 
 Full plan: `Documents/MICROSERVICES-MIGRATION-PLAN.md`
 
+## Recent session changes (Aug 30, 2026 (2) — MFA OBLIGATORIO con enrolamiento forzado en el login)
+
+**Requisito de negocio**: todos los usuarios deben tener MFA configurado antes de operar. Antes MFA era opcional (`mfaEnabled`), ahora es **obligatorio** (`app.mfa.mandatory=true`): un usuario con credenciales válidas pero sin MFA NO recibe token — se le fuerza a enrolarse en el login.
+
+**Flujo de enrolamiento (sin sesión previa)**:
+1. `POST /api/auth/login` → password válida + `mfaEnabled=false` → **HTTP 428** `{mfaEnrollmentRequired:true, enrollToken, email, message}` (ERROR, el login no emite cookies).
+2. `enrollToken` = JWT `tokenType="enroll"`, TTL **15 min** (`ENROLL_TOKEN_MS`, un solo uso — se revoca al habilitar).
+3. `POST /api/auth/mfa/enroll/setup` `{enrollToken}` (público, token por BODY) → `{secret, otpAuthUrl, email}`.
+4. `POST /api/auth/mfa/enroll/enable` `{enrollToken, secret, totpCode}` (público, body) → verifica TOTP, `enableMfa()`, revoca el enrollToken, audita `MFA_ENROLLED` → `{enrollSuccess:true, email}`.
+5. Frontend hace **re-login** con email+password+totpCode para obtener la sesión real.
+
+**Puertas aplicadas**:
+- `LoginCommandHandler` ⇢ `LoginOutcome.Status.MFA_ENROLLMENT_REQUIRED` → 428.
+- `SetPasswordCommandHandler` + `AuthController.setPasswordByToken` → si mandatory && sin MFA → 428 enroll **sin emitir JWT** (nadie logra sesión sin MFA).
+- **Seguridad del enrollToken**: `JwtAuthFilter` (common) y `JwtGatewayFilter` ahora validan `tokenType` — solo aceptan `access`/`service`; los `enroll`/`refresh` jamás funcionan como Bearer en ningún servicio (verificado E2E: enrollToken → 401).
+
+| File | Change |
+|------|--------|
+| `common .../auth/JwtUtil.java` | `generateEnrollToken(userId, role, email, fullName)` + `ENROLL_TOKEN_MS = 15min` |
+| `common .../auth/JwtAuthFilter.java` | Check `tokenType` (solo `access`/`service`) — protege TODOS los servicios del enrollToken |
+| `gateway .../filter/JwtGatewayFilter.java` | Ídem + `/api/auth/mfa/enroll/**` en `PUBLIC_PATHS` |
+| `auth .../command/LoginOutcome.java` + `PasswordOutcome.java` | `MFA_ENROLLMENT_REQUIRED` |
+| `auth .../command/LoginCommandHandler.java` | Gate `mfaMandatory` (inyectado) → si `mfaMandatory && !mfaEnabled` → enrollToken |
+| `auth .../command/SetPasswordCommandHandler.java` | Gate `mfaMandatory` → devuelve MFA_ENROLLMENT_REQUIRED si falta |
+| `auth .../controller/AuthController.java` | Mapeo 428 + `POST /mfa/enroll/setup` y `/mfa/enroll/enable` (token por body) + `isValidEnrollToken()`/`parseSubject()` + gate en `setPasswordByToken` |
+| `auth application.properties` | `app.mfa.mandatory=true` |
+| `auth application-test.properties` | `app.mfa.mandatory=false` (tests previos intactos) |
+| `auth MfaMandatoryIntegrationTest.java` | **NEW** — 3 tests: flujo completo enroll→setup→enable→re-login con TOTP, 428 sin enrolamiento, 428 en set-password sin MFA |
+| `frontend src/api/auth.js` | `mfaEnrollSetup(enrollToken)`, `mfaEnrollEnable(enrollToken, secret, totpCode)` |
+| `frontend src/views/LoginView.vue` | **Nuevo step `mfa-enroll`**: QR (api.qrserver.com), secret, input código; en `handleLogin` detecta `data.mfaEnrollmentRequired`; tras habilitar hace re-login con TOTP |
+| `frontend src/i18n/es.js` + `en.js` | Claves `login.mfaEnroll.*` |
+| `frontend src/components/layout/Sidebar.vue` | **Draft en logout MANUAL**: `handleLogout` ahora captura formularios (`captureForms`+`saveDraft`+`setReturnTo`) antes de `auth.logout()` — mismo patrón que `useIdleLogout` |
+
+**Verificación**: common 19 + auth **33** (30 previos + 3 MFA) + gateway 3 BUILD SUCCESS; frontend lint/check-refs/build/vitest 15 OK. **E2E real vía gateway**: login `jsantos@rannik.com` sin MFA → 428 enroll → setup (secret TOTP) → enable (código verificado) → re-login con TOTP → JWT+refresh+cookies ✓ → BD: `mfa_enabled=t, mfa_secret` cifrado ✓ → enrollToken como Bearer en `/api/flights/list` → **401** (gate rechaza) ✓. Usuario `jsantos@rannik.com` quedó con MFA habilitado (secret `3332RESPZ2NOX6TEMISPCPO2IR3ZJRNZ`) — si se necesitara resetar su MFA, borrar `mfa_secret` + `mfa_enabled=false` en BD.
+
+**Nota para tests**: al generar códigos TOTP en Java, `DefaultCodeVerifier` pasa `period = floorDiv(now,30)` al generador (NO el epoch crudo) — en tests usar `new DefaultCodeGenerator().generate(secret, new SystemTimeProvider().getTime() / 30)`.
+
+## Recent session changes (Aug 30, 2026 — Restauración de BD desde Settings + recuperación a prueba de error)
+
+**Problema de fondo resuelto y documentado**: la BD local solo tenía datos de seed (20 usuarios de prueba, 0 MAWBs/Bookings) porque los datos reales vivían en EC2. Al restaurar el dump de EC2, Flyway rompía con checksum mismatch (historial EC2 generado con jars 1.2 vs jars 1.3), abortando el arranque de los servicios. Fix: `flyway:repair` de las 7 tablas de historial + reconstrucción de jars. **Evidencia E2E**: login real (`jsantos@rannik.com` ADMIN) → mawbs 24, bookings 24, flights 2, users 20, receipts 2, airlines 10.
+
+**NUEVA FUNCIONALIDAD — Restaurar BD desde Settings (URL de nube o copia local)**: el admin puede restaurar la BD completa desde la UI (Settings → Backups → "Restaurar base de datos"), sin SSH. Sirve para que las actualizaciones del sistema nunca comprometan la integridad: antes de cada deploy se genera un punto de restauración y, si algo falla, se vuelve atrás con un clic.
+
+| File | Change |
+|------|--------|
+| `scripts/db-restore.sh` | **NEW** — restauración idempotente desde `--file <ruta.dump>` o `--url <https://...>` (URL descargada con curl, solo http/https, timeout 10min). **Siempre crea primero un backup de PROTECCIÓN** de la BD actual vía `db-backup.sh pre-restore` (los datos actuales nunca se pierden: "restore a prueba de error"). Valida magic bytes `PGDMP` (rechaza formatos corruptos/erróneos). Restaura con `pg_restore --clean --if-exists --no-owner --no-privileges`. **Clasifica el error benigno `transaction_timeout`** (dump generado con pg_dump ≥17 vs PG 16): si es el ÚNICO error → éxito real; cualquier otro `ERROR` → fallo reportado. Verifica conteos post-restore y registra la acción en `backup_history` (tipo `RESTORE`, SUCCESS/FAILED) + `rollback.log`. Exige el `.env` raíz (POSTGRES_HOST/PORT/DB/USER/PASSWORD) — probado E2E contra BD temporal y contra la BD real vía gateway |
+| `backend/.../authservice/dto/BackupDTOs.java` | `RestoreRequest` (source `local`/`url`, filePath, url) + `RestoreResult` (success, message, dumpPath, exitCode) |
+| `backend/.../authservice/controller/BackupConfigController.java` | **NEW** `POST /api/backup/restore` (ADMIN/SUPER_USER): valida la fuente (anti-SSRF: URL debe ser http/https, `file://` rechazado), localiza `scripts/db-restore.sh` subiendo directorios desde cwd, ejecuta por ProcessBuilder con salida capturada; devuelve `RestoreResult` con mensajes ✅/⚠️/❌. `resolveScript(name)` genérico (backup + restore). Gateway ruta `/api/backup/**` ya cubría el nuevo endpoint; SecurityConfig idem |
+| `frontend/src/api/backups.js` | `restore(payload)` → `POST /backup/restore` |
+| `frontend/src/views/SettingsView.vue` | Sección **"Restaurar base de datos"** en el tab Backups: radio local/URL, input de ruta o URL con `<Enter>` para enviar, botón rojo "Restaurar BD" deshabilitado si falta la fuente/in-progress, diálogo de confirmación destructivo (useConfirm, danger) en es/en, resultado inline (verde ✅ / rojo ❌ con dumpPath), auto-refresh del historial. Backup history muestra tanto backups como restores (columna tipo `RESTORE`) |
+| `frontend/src/i18n/es.js` + `en.js` | Claves `settings.backups.restore*` (title, help, local, url, filePath, urlInput, btn, restoring, safety, confirm*, done, failed) |
+
+**Procedimiento RECOMENDADO para despliegues seguros** (documentado también en la UI):
+1. `Settings → Backups → Crear backup ahora` (o `./scripts/db-backup.sh pre-deploy`), o confiar en el timer diario + el backup de protección automático que crea cualquier restore.
+2. Desplegar la nueva versión.
+3. Si algo salió mal → `Settings → Backups → Restaurar BD` con el dump de la nube o local. El restore crea un backup de protección del estado post-deploy antes de sobrescribir, así que siempre se puede volver también A delante.
+4. Tras el restore, reiniciar el stack para limpiar cachés/pools: `./start-all.sh --skip-build` (o al menos los servicios afectados). Las migraciones Flyway que ya estén aplicadas en el historial del dump NO se re-ejecutan (checksums intactos en los dumps post-repair).
+
+**Punto de restauración garantizado**: `backups/aircargo_bd_v13_restaurada_20260830-221839.dump` (dump post-repair, congelado tras la corrección de checksums — calza con jars 1.2/1.3). Restore de un comando sin UI:
+```sh
+pg_restore -h 127.0.0.1 -U aircargo_user -d aircargo --clean --if-exists --no-owner --no-privileges \
+  backups/aircargo_bd_v13_restaurada_20260830-221839.dump
+```
+(El aviso `transaction_timeout` es BENIGNO: pg_dump de servidor nuevo emite `SET transaction_timeout=0` que PG 16 ignora; `db-restore.sh` lo reconoce y no lo cuenta como fallo.)
+
+**Estado de la BD local (verificado post-restore)**: app_user 20, airline 10, site 4, mawb 24, hawb 0, booking 24, warehouse_receipt 2, uld 0. Flyway: `flyway_schema_history_auth` (7 filas: 0,18-23), `_flight` 3, `_booking` 3, `_mawb` 4, `_warehouse` 4, `_uld` 8, todas success=true; notification/export usan la tabla default `flyway_schema_history`. **Cookies de sesión activas** (aircargo_at/aircargo_rt sin Max-Age = session cookie, cambios compilados en jars).
+
+Lección clave de la sesión: al restaurar dumps producidos con jars de otra versión, los servicios fallan al arrancar por checksum mismatch de Flyway — el fix es `mvn flyway:repair` (o restaurar el dump post-repair que ya los trae corregidos), NUNCA borrar tablas de historial. Usuarios sin password (login directo): `jsantos@rannik.com`, `jsantos`; con password: admin@aircargo.com, dchestaro@rannik.com, esantana@rannik.com, emmanuelsantanasolano@gmail.com, manolovprimes01@gmail.com, mmejia@rannik.com.
+
 ## Recent session changes (Aug 29, 2026 — Portabilidad multi-SO: Fedora/Ubuntu/Arch + Windows 11)
 Auditoría completa para que el proyecto corra sin tocar código en cualquier Linux + Windows (WSL2). No se modificó código Java — todo son scripts bash, compose y docs. Verificado: `bash -n` x6, `docker compose config` x3 (infra+services+observability) con exit 0 y SIN warnings, frontend lint/guard 39 SFC 0 refs/tests 15/vitest 15, build OK.
 

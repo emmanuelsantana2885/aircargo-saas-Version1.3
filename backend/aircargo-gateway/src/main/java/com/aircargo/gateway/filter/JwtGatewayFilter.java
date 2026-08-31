@@ -27,6 +27,7 @@ public class JwtGatewayFilter implements GlobalFilter, Ordered {
             "/api/auth/set-password-token",
             "/api/auth/reset-password/",
             "/api/auth/refresh",
+            "/api/auth/mfa/enroll/",
             "/api/catalog",
             "/actuator/"
     );
@@ -75,6 +76,12 @@ public class JwtGatewayFilter implements GlobalFilter, Ordered {
             }
 
             Claims claims = jwtUtil.parseToken(token);
+            String tokenType = claims.get("tokenType", String.class);
+            // Solo los tokens de acceso (o de servicio) pueden autenticar APIs.
+            // Un token "enroll" o "refresh" jamás debe autorizar endpoints protegidos.
+            if (!"access".equals(tokenType) && !"service".equals(tokenType)) {
+                return reject(exchange, HttpStatus.UNAUTHORIZED, "Token type not allowed for API access");
+            }
             String userId = claims.getSubject();
             String role = claims.get("role", String.class);
             String airlineId = claims.get("airlineId", String.class);
