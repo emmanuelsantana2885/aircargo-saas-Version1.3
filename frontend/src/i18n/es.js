@@ -1167,6 +1167,9 @@ export default {
       enabling: 'Habilitando...',
       success: 'MFA habilitado correctamente',
       failed: 'No se pudo configurar MFA. Intenta de nuevo.',
+      securityWarning: 'Advertencia de seguridad',
+      reasonReset: 'La aplicación fue actualizada o reiniciada. Por seguridad, debes volver a configurar tu verificación en dos pasos (MFA).',
+      reasonExpired: 'Tu configuración de verificación en dos pasos (MFA) caducó. Por seguridad, debes configurarla nuevamente.',
     },
     stepSite: {
       title: 'Seleccionar sitio',

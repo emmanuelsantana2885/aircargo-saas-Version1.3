@@ -4,6 +4,8 @@ import com.aircargo.authservice.entity.AppUser;
 import com.aircargo.authservice.event.AuditEventType;
 import com.aircargo.authservice.repository.AppUserRepository;
 import com.aircargo.authservice.service.AuditService;
+import com.aircargo.authservice.service.MfaPolicyService;
+import com.aircargo.authservice.service.MfaPolicyService.MfaEligibility;
 import com.aircargo.common.auth.JwtUtil;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -23,15 +25,17 @@ public class SetPasswordCommandHandler {
     private final PasswordEncoder passwordEncoder;
     private final AuditService auditService;
     private final JwtUtil jwtUtil;
+    private final MfaPolicyService mfaPolicyService;
     private final boolean mfaMandatory;
 
     public SetPasswordCommandHandler(AppUserRepository userRepository, PasswordEncoder passwordEncoder,
-                                     AuditService auditService, JwtUtil jwtUtil,
+                                     AuditService auditService, JwtUtil jwtUtil, MfaPolicyService mfaPolicyService,
                                      @org.springframework.beans.factory.annotation.Value("${app.mfa.mandatory:true}") boolean mfaMandatory) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.auditService = auditService;
         this.jwtUtil = jwtUtil;
+        this.mfaPolicyService = mfaPolicyService;
         this.mfaMandatory = mfaMandatory;
     }
 
@@ -68,16 +72,33 @@ public class SetPasswordCommandHandler {
         auditService.log(user.getId(), user.getEmail(), user.getFullName(), AuditEventType.PASSWORD_SET,
                 "USER", user.getId().toString(), null, command.ipAddress());
 
-        // MFA obligatorio: sin MFA configurado NO se emite sesión — flujo de enrolamiento
-        if (mfaMandatory && !Boolean.TRUE.equals(user.getMfaEnabled())) {
-            String enrollToken = jwtUtil.generateEnrollToken(
-                    user.getId().toString(), user.getRole().name(), user.getEmail(), user.getFullName());
-            return PasswordOutcome.failure(PasswordOutcome.Status.MFA_ENROLLMENT_REQUIRED, Map.of(
-                    "mfaEnrollmentRequired", true,
-                    "enrollToken", enrollToken,
-                    "email", user.getEmail(),
-                    "message", "Configura la autenticación de dos factores (MFA) para continuar"
-            ));
+        // MFA obligatorio: si la política exige MFA (nunca enrolado, o caducado
+        // por reinicio/actualización o antigüedad) NO se emite sesión — flujo de
+        // (re)enrolamiento. Sin importar si el usuario ya tenía mfaEnabled: un MFA
+        // antigo quedaría con una config distinta a la esperada.
+        if (mfaMandatory) {
+            MfaEligibility eligibility = mfaPolicyService.evaluate(user);
+            if (eligibility != MfaEligibility.OK) {
+                String enrollToken = jwtUtil.generateEnrollToken(
+                        user.getId().toString(), user.getRole().name(), user.getEmail(), user.getFullName());
+                String reason = switch (eligibility) {
+                    case RESET_REQUIRED -> "reset";
+                    case EXPIRED -> "expired";
+                    default -> "required";
+                };
+                String message = switch (eligibility) {
+                    case RESET_REQUIRED -> "Por seguridad, la autenticación de dos factores fue reiniciada tras una actualización del sistema. Debe configurarla nuevamente.";
+                    case EXPIRED -> "Por seguridad, su configuración de dos factores caducó. Debe configurarla nuevamente para continuar.";
+                    default -> "Configura la autenticación de dos factores (MFA) para continuar";
+                };
+                return PasswordOutcome.failure(PasswordOutcome.Status.MFA_ENROLLMENT_REQUIRED, Map.of(
+                        "mfaEnrollmentRequired", true,
+                        "enrollToken", enrollToken,
+                        "email", user.getEmail(),
+                        "mfaReason", reason,
+                        "message", message
+                ));
+            }
         }
 
         String token = jwtUtil.generateToken(

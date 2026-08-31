@@ -1168,6 +1168,9 @@ export default {
       enabling: 'Enabling...',
       success: 'MFA enabled successfully',
       failed: 'Could not set up MFA. Please try again.',
+      securityWarning: 'Security warning',
+      reasonReset: 'The application was updated or restarted. For security, you must re-configure your two-factor verification (MFA).',
+      reasonExpired: 'Your two-factor verification (MFA) configuration has expired. For security, you must configure it again.',
     },
     stepSite: {
       title: 'Select your site',

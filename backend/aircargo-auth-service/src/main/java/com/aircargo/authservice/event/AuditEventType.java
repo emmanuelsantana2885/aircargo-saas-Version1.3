@@ -33,6 +33,9 @@ public final class AuditEventType {
     public static final String MFA_DISABLED = "MFA_DISABLED";
     public static final String MFA_LOCKED = "MFA_LOCKED";
     public static final String MFA_UNLOCKED = "MFA_UNLOCKED";
+    /** Reinicio/actualización de la app → epoch de MFA movido (los MFA previos caducan). */
+    public static final String MFA_POLICY_RESET = "MFA_POLICY_RESET";
+    public static final String MFA_REENROLLMENT_REQUIRED = "MFA_REENROLLMENT_REQUIRED";
 
     // Service tokens
     public static final String SERVICE_TOKEN_GENERATED = "SERVICE_TOKEN_GENERATED";
@@ -43,7 +46,7 @@ public final class AuditEventType {
             PASSWORD_SET, PASSWORD_CHANGED, PASSWORD_RESET, TEMP_PASSWORD_GENERATED,
             USER_BLOCKED, USER_UNBLOCKED,
             USER_CREATED, USER_DELETED,
-            MFA_ENABLED, MFA_DISABLED,
+            MFA_ENABLED, MFA_DISABLED, MFA_POLICY_RESET, MFA_REENROLLMENT_REQUIRED,
             // legacy names written before event sourcing (kept for historical queries)
             "LOGIN", "CREATE", "DELETE"
     );

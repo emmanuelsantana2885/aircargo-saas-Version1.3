@@ -82,6 +82,7 @@ public class JwtUtil {
         Date now = new Date();
         return Jwts.builder()
                 .subject(userId)
+                .id(java.util.UUID.randomUUID().toString())
                 .claim("role", role)
                 .claim("email", email)
                 .claim("fullName", fullName != null ? fullName : "")

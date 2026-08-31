@@ -3,6 +3,7 @@ package com.aircargo.authservice.controller;
 import com.aircargo.authservice.entity.AppUser;
 import com.aircargo.authservice.entity.UserRole;
 import com.aircargo.authservice.repository.AppUserRepository;
+import com.aircargo.authservice.service.MfaPolicyService;
 import com.aircargo.common.entity.Airline;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -51,6 +52,12 @@ class MfaMandatoryIntegrationTest {
 
     @Autowired
     private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private MfaPolicyService mfaPolicyService;
+
+    @Autowired
+    private com.aircargo.common.auth.JwtUtil jwtUtil;
 
     private Airline airline;
 
@@ -169,6 +176,109 @@ class MfaMandatoryIntegrationTest {
                 .andExpect(jsonPath("$.mfaEnrollmentRequired").value(true))
                 .andExpect(jsonPath("$.enrollToken").isNotEmpty())
                 .andExpect(jsonPath("$.token").doesNotExist());
+    }
+
+    @Test
+    void login_conMFAVigente_trasReinicio_pideReEnrolamientoConReasonReset() throws Exception {
+        String email = "resetme@aircargo.com";
+        userRepository.save(user(email, UserRole.OPERATIONS));
+        String secret = enrollUser(email);
+
+        // Usuario tiene MFA vigente → login actual pide código (no re-enrolamiento)
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"" + email + "\"}"))
+                .andExpect(status().isPreconditionRequired())
+                .andExpect(jsonPath("$.mfaRequired").value(true))
+                .andExpect(jsonPath("$.mfaEnrollmentRequired").doesNotExist());
+
+        // Reinicio de la aplicación → epoch adelantado → mismo login ahora exige re-enrolar
+        mfaPolicyService.resetNow();
+
+        JsonNode resetBody = readBody(mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"" + email + "\"}"))
+                .andExpect(status().isPreconditionRequired())
+                .andExpect(jsonPath("$.mfaEnrollmentRequired").value(true))
+                .andExpect(jsonPath("$.mfaReason").value("reset"))
+                .andExpect(jsonPath("$.enrollToken").isNotEmpty())
+                .andReturn().getResponse().getContentAsString());
+        String reEnrollToken = resetBody.get("enrollToken").asText();
+
+        // Re-enrolamiento permitido aun con mfaEnabled=true (está caducado por reinicio)
+        JsonNode reSetup = readBody(mockMvc.perform(post("/api/auth/mfa/enroll/setup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(java.util.Map.of("enrollToken", reEnrollToken))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.secret").isNotEmpty())
+                .andReturn().getResponse().getContentAsString());
+        String newSecret = reSetup.get("secret").asText();
+
+        String newCode = totpCode(newSecret);
+        mockMvc.perform(post("/api/auth/mfa/enroll/enable")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(java.util.Map.of(
+                                "enrollToken", reEnrollToken, "secret", newSecret, "totpCode", newCode))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.enrollSuccess").value(true));
+    }
+
+    @Test
+    void login_conMFA_antiguo_pideReEnrolamientoConReasonExpired() throws Exception {
+        String email = "expired@aircargo.com";
+        userRepository.save(user(email, UserRole.OPERATIONS));
+        enrollUser(email);
+
+        // Retrasar mfa_enrolled_at más allá de max-age-days (7) → caduca
+        AppUser stale = userRepository.findByEmail(email).orElseThrow();
+        stale.setMfaEnrolledAt(java.time.OffsetDateTime.now().minusDays(8));
+        userRepository.save(stale);
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"" + email + "\"}"))
+                .andExpect(status().isPreconditionRequired())
+                .andExpect(jsonPath("$.mfaEnrollmentRequired").value(true))
+                .andExpect(jsonPath("$.mfaReason").value("expired"))
+                .andExpect(jsonPath("$.enrollToken").isNotEmpty());
+    }
+
+    @Test
+    void login_sinMFA_siempreReportaReasonRequired() throws Exception {
+        userRepository.save(user("first@aircargo.com", UserRole.OPERATIONS));
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"first@aircargo.com\"}"))
+                .andExpect(status().isPreconditionRequired())
+                .andExpect(jsonPath("$.mfaEnrollmentRequired").value(true))
+                .andExpect(jsonPath("$.mfaReason").value("required"));
+    }
+
+    /** Completa el flujo completo de enrolamiento para un usuario y devuelve el secreto. */
+    private String enrollUser(String email) throws Exception {
+        JsonNode first = readBody(mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"" + email + "\"}"))
+                .andExpect(status().isPreconditionRequired())
+                .andExpect(jsonPath("$.enrollToken").isNotEmpty())
+                .andReturn().getResponse().getContentAsString());
+        String enrollToken = first.get("enrollToken").asText();
+
+        JsonNode setup = readBody(mockMvc.perform(post("/api/auth/mfa/enroll/setup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(java.util.Map.of("enrollToken", enrollToken))))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString());
+        String secret = setup.get("secret").asText();
+
+        mockMvc.perform(post("/api/auth/mfa/enroll/enable")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(java.util.Map.of(
+                                "enrollToken", enrollToken, "secret", secret, "totpCode", totpCode(secret)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.enrollSuccess").value(true));
+        return secret;
     }
 
     private JsonNode readBody(String json) throws Exception {

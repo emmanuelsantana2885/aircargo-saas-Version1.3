@@ -61,6 +61,10 @@ public class AppUser {
     @Column(name = "mfa_locked", nullable = false, columnDefinition = "boolean default false")
     private Boolean mfaLocked = false;
 
+    /** Cuándo se configuró el MFA por última vez (para el epoch de re-enrolamiento). */
+    @Column(name = "mfa_enrolled_at")
+    private OffsetDateTime mfaEnrolledAt;
+
     @Builder.Default
     @Column(name = "must_change_password", nullable = false, columnDefinition = "boolean default false")
     private Boolean mustChangePassword = true;

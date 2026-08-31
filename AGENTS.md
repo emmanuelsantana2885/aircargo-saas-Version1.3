@@ -1140,6 +1140,37 @@ npm run build         # Vite build succeeds
 
 **Infrastructure**: PostgreSQL (port 5432, user `aircargo_user`, password `aircargo_pass_2024`) and RabbitMQ (port 5672, user `aircargo`, password from `.env`) running via Docker Compose.
 
+## Recent session changes (Aug 31, 2026 — MFA obligatorio con re-enrolamiento forzado en cada reinicio)
+
+**Requisito de negocio**: en cada arranque del auth-service (local, EC2, k8s, etc.) se debe forzar la re-configuración de MFA para que ningún usuario quede enrolado con una configuración distinta a la esperada.
+
+| File | Change |
+|------|--------|
+| `backend/.../authservice/db/migration/V24__add_mfa_policy.sql` ≡ raíz `V57__add_mfa_policy.sql` | **NEW** — tabla singleton `mfa_policy(id=1, last_reset_at, reset_on_startup, max_age_days)` + columna `app_user.mfa_enrolled_at`; seed idempotente con `reset_on_startup=true`, `max_age_days=7` |
+| `backend/.../entity/MfaPolicy.java` | **NEW** — entidad JPA para la tabla singleton |
+| `backend/.../repository/MfaPolicyRepository.java` | **NEW** — repo para la tabla |
+| `backend/.../service/MfaPolicyService.java` | **NEW** — evalúa elegibilidad MFA: `OK` / `REQUIRED` (nunca enrolado o legacy sin timestamp) / `RESET_REQUIRED` (enrolado antes del último reinicio) / `EXPIRED` (> max_age_days); `policy()` crea singleton lazy con sentinel `lastResetAt = now-3650d` (evita invalidar enrolamientos actuales al arrancar en BD vacía); `resetNow()` adelanta epoch global; `requiresReenrollment()` usado en gates |
+| `backend/.../config/MfaStartupResetRunner.java` | **NEW** — `ApplicationRunner` (`@Profile("!test")`): en cada arranque llama `resetNow()`, revoca sesiones de usuarios MFA (`tokens_valid_from`), audita `MFA_POLICY_RESET`; no aborta arranque si falla |
+| `backend/.../entity/AppUser.java` | Añadido `mfaEnrolledAt` (TIMESTAMPTZ) |
+| `backend/.../repository/AppUserRepository.java` | Añadido `revokeSessionsForMfaUsers(OffsetDateTime)` — actualiza `tokens_valid_from` |
+| `backend/.../command/LoginCommandHandler.java` | Gate MFA: si `requiresReenrollment(user)` → `LoginOutcome.MFA_ENROLLMENT_REQUIRED` con `mfaReason` (required/reset/expired) |
+| `backend/.../command/SetPasswordCommandHandler.java` | Igual gate MFA |
+| `backend/.../controller/AuthController.java` | `setPasswordByToken` con gate MFA; inyecta `MfaPolicyService`; endpoints enroll `setup/enable` relajados (permiten re-enrolar si la política lo exige) |
+| `backend/.../service/MfaService.java` | `enableMfa()` setea `mfaEnrolledAt=now()`; `disableMfa()` limpia |
+| `backend/.../common/auth/JwtUtil.java` | `generateEnrollToken()` ahora incluye `jti=UUID` (fix: JJWT serializa iat/exp en segundos → dos tokens en el mismo segundo eran byte-idénticos y el único-uso revocaba el token fresco) |
+| `backend/.../controller/MfaMandatoryIntegrationTest.java` | Ampliado a 6 tests: flujo completo enroll→setup→enable→re-login TOTP; 428 con reason `reset` tras reinicio; 428 con reason `expired` tras antigüedad; 428 en set-password sin MFA |
+| `frontend/src/views/LoginView.vue` | Paso `mfa-enroll` muestra banner ámbar con icono `ShieldAlert` y mensaje según `mfaReason` (`reset`/`expired`/`required`); i18n es/en |
+| `frontend/src/composables/useIcons.js` | Añadido `IconShieldAlert` (lucide) |
+| `frontend/src/i18n/es.js` + `en.js` | Claves `login.mfaEnroll.*` actualizadas |
+
+**Verificación E2E real vía gateway**:
+1. Arranque auth-service → runner adelanta epoch (`last_reset_at=now`), migración V24 aplicada
+2. Usuario `jsantos@rannik.com` (MFA previo legacy, `mfa_enrolled_at=NULL`) → login → **428** `mfaReason=required` (legacy) → setup/enable → MFA nuevo con timestamp
+3. Login normal → pide TOTP (no re-enrolar)
+4. Simular reinicio (adelantar epoch en BD) → login → **428** `mfaReason=reset` con mensaje "Por seguridad, la autenticación de dos factores fue reiniciada tras una actualización del sistema..."
+5. Re-enrolamiento completo → login con TOTP OK
+6. Tests: auth-service **36/36** pass; reactor completo **102/102** pass; frontend lint/build/vitest OK
+
 ## Import paths
 
 Frontend uses `@/` → `./src/` (configured in `vite.config.js`).

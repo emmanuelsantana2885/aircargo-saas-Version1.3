@@ -20,6 +20,8 @@ import com.aircargo.authservice.repository.AppUserRepository;
 import com.aircargo.authservice.repository.SiteRepository;
 import com.aircargo.authservice.service.ActiveSessionTracker;
 import com.aircargo.authservice.service.AuditService;
+import com.aircargo.authservice.service.MfaPolicyService;
+import com.aircargo.authservice.service.MfaPolicyService.MfaEligibility;
 import com.aircargo.authservice.service.MfaService;
 import com.aircargo.authservice.service.PasswordResetService;
 import com.aircargo.authservice.service.TokenRevocationService;
@@ -61,6 +63,7 @@ public class AuthController {
     private final ActiveSessionTracker sessionTracker;
     private final SiteRepository siteRepository;
     private final MfaService mfaService;
+    private final MfaPolicyService mfaPolicyService;
     private final CacheManager cacheManager;
     private final PasswordResetService passwordResetService;
     private final TokenRevocationService tokenRevocationService;
@@ -78,6 +81,7 @@ public class AuthController {
                           AppUserRepository userRepository, JwtUtil jwtUtil,
                           AuditService auditService, ActiveSessionTracker sessionTracker,
                           SiteRepository siteRepository, MfaService mfaService,
+                          MfaPolicyService mfaPolicyService,
                           CacheManager cacheManager,
                           PasswordResetService passwordResetService,
                           TokenRevocationService tokenRevocationService,
@@ -91,6 +95,7 @@ public class AuthController {
         this.sessionTracker = sessionTracker;
         this.siteRepository = siteRepository;
         this.mfaService = mfaService;
+        this.mfaPolicyService = mfaPolicyService;
         this.cacheManager = cacheManager;
         this.passwordResetService = passwordResetService;
         this.tokenRevocationService = tokenRevocationService;
@@ -226,16 +231,31 @@ public class AuthController {
                 com.aircargo.authservice.event.AuditEventType.PASSWORD_SET, "USER",
                 user.getId().toString(), null, request.getRemoteAddr());
 
-        // MFA obligatorio: sin MFA configurado NO se emite sesión — flujo de enrolamiento
-        if (mfaMandatory && !Boolean.TRUE.equals(user.getMfaEnabled())) {
-            String enrollToken = jwtUtil.generateEnrollToken(
-                    user.getId().toString(), user.getRole().name(), user.getEmail(), user.getFullName());
-            return ResponseEntity.status(HttpStatus.PRECONDITION_REQUIRED).body(java.util.Map.of(
-                    "mfaEnrollmentRequired", true,
-                    "enrollToken", enrollToken,
-                    "email", user.getEmail(),
-                    "message", "Configura la autenticación de dos factores (MFA) para continuar"
-            ));
+        // MFA obligatorio: si la política exige MFA NO se emite sesión — flujo de
+        // (re)enrolamiento (también para MFA caducado por reinicio o antigüedad).
+        if (mfaMandatory) {
+            MfaEligibility eligibility = mfaPolicyService.evaluate(user);
+            if (eligibility != MfaEligibility.OK) {
+                String enrollToken = jwtUtil.generateEnrollToken(
+                        user.getId().toString(), user.getRole().name(), user.getEmail(), user.getFullName());
+                String reason = switch (eligibility) {
+                    case RESET_REQUIRED -> "reset";
+                    case EXPIRED -> "expired";
+                    default -> "required";
+                };
+                String message = switch (eligibility) {
+                    case RESET_REQUIRED -> "Por seguridad, la autenticación de dos factores fue reiniciada tras una actualización del sistema. Debe configurarla nuevamente.";
+                    case EXPIRED -> "Por seguridad, su configuración de dos factores caducó. Debe configurarla nuevamente para continuar.";
+                    default -> "Configura la autenticación de dos factores (MFA) para continuar";
+                };
+                return ResponseEntity.status(HttpStatus.PRECONDITION_REQUIRED).body(java.util.Map.of(
+                        "mfaEnrollmentRequired", true,
+                        "enrollToken", enrollToken,
+                        "email", user.getEmail(),
+                        "mfaReason", reason,
+                        "message", message
+                ));
+            }
         }
 
         String jwt = jwtUtil.generateToken(
@@ -278,8 +298,12 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("error", "Usuario no encontrado o inactivo"));
         }
-        if (Boolean.TRUE.equals(user.getMfaEnabled())) {
-            return ResponseEntity.badRequest().body(Map.of("error", "MFA ya está habilitado para este usuario"));
+        // Se permite re-enrolar aunque el usuario ya tenga MFA si la política lo exige
+        // (reinicio/actualización de la app o antigüedad superada). Un MFA vigente NO
+        // puede re-enrolarse por esta vía — el enrollToken se emite solo cuando la
+        // política exige re-configuración, nunca en un login normal.
+        if (Boolean.TRUE.equals(user.getMfaEnabled()) && !mfaPolicyService.requiresReenrollment(user)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "MFA ya está habilitado y vigente para este usuario"));
         }
         String secret = mfaService.generateSecret();
         String otpAuthUrl = mfaService.getOtpAuthUrl(user.getEmail(), secret);
@@ -314,8 +338,9 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("error", "Usuario no encontrado o inactivo"));
         }
-        if (Boolean.TRUE.equals(user.getMfaEnabled())) {
-            return ResponseEntity.badRequest().body(Map.of("error", "MFA ya está habilitado para este usuario"));
+        // Re-enrolamiento permitido también con MFA previo (solo cuando la política lo exige).
+        if (Boolean.TRUE.equals(user.getMfaEnabled()) && !mfaPolicyService.requiresReenrollment(user)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "MFA ya está habilitado y vigente para este usuario"));
         }
         if (!mfaService.verifyCode(secret, totpCode)) {
             return ResponseEntity.badRequest().body(Map.of("error", "Código TOTP inválido"));

@@ -8,6 +8,8 @@ import com.aircargo.authservice.repository.AppUserRepository;
 import com.aircargo.authservice.repository.SiteRepository;
 import com.aircargo.authservice.service.ActiveSessionTracker;
 import com.aircargo.authservice.service.AuditService;
+import com.aircargo.authservice.service.MfaPolicyService;
+import com.aircargo.authservice.service.MfaPolicyService.MfaEligibility;
 import com.aircargo.authservice.service.MfaService;
 import com.aircargo.common.auth.JwtUtil;
 import org.slf4j.Logger;
@@ -49,13 +51,14 @@ public class LoginCommandHandler {
     private final ActiveSessionTracker sessionTracker;
     private final SiteRepository siteRepository;
     private final MfaService mfaService;
+    private final MfaPolicyService mfaPolicyService;
     /** Si true (default), TODO usuario debe tener MFA configurado para iniciar sesión. */
     private final boolean mfaMandatory;
 
     public LoginCommandHandler(AppUserRepository userRepository, JwtUtil jwtUtil,
                                PasswordEncoder passwordEncoder, AuditService auditService,
                                ActiveSessionTracker sessionTracker, SiteRepository siteRepository,
-                               MfaService mfaService,
+                               MfaService mfaService, MfaPolicyService mfaPolicyService,
                                @org.springframework.beans.factory.annotation.Value("${app.mfa.mandatory:true}") boolean mfaMandatory) {
         this.userRepository = userRepository;
         this.jwtUtil = jwtUtil;
@@ -64,6 +67,7 @@ public class LoginCommandHandler {
         this.sessionTracker = sessionTracker;
         this.siteRepository = siteRepository;
         this.mfaService = mfaService;
+        this.mfaPolicyService = mfaPolicyService;
         this.mfaMandatory = mfaMandatory;
     }
 
@@ -111,17 +115,34 @@ public class LoginCommandHandler {
             user.setLockedUntil(null);
         }
 
-        // MFA check — obligatorio para TODOS los usuarios (sin bypass por rol)
-        if (mfaMandatory && !Boolean.TRUE.equals(user.getMfaEnabled())) {
-            // El usuario aún no configuró MFA → forzar enrolamiento ANTES de emitir sesión.
+        // MFA check — obligatorio para TODOS los usuarios (sin bypass por rol).
+        // La política decide entre enrolamiento inicial y re-enrolamiento
+        // (reinicio/actualización de la app o antigüedad superada).
+        MfaEligibility mfaEligibility = mfaPolicyService.evaluate(user);
+        if (mfaMandatory && mfaEligibility != MfaEligibility.OK) {
             String enrollToken = jwtUtil.generateEnrollToken(
                     user.getId().toString(), user.getRole().name(), user.getEmail(), user.getFullName());
+            String reason = switch (mfaEligibility) {
+                case RESET_REQUIRED -> "reset";
+                case EXPIRED -> "expired";
+                default -> "required";
+            };
+            String message = switch (mfaEligibility) {
+                case RESET_REQUIRED -> "Por seguridad, la autenticación de dos factores fue reiniciada tras una actualización del sistema. Debe configurarla nuevamente.";
+                case EXPIRED -> "Por seguridad, su configuración de dos factores caducó. Debe configurarla nuevamente para continuar.";
+                default -> "Debe configurar la autenticación de dos factores (MFA) antes de continuar";
+            };
+            auditService.log(user.getId(), user.getEmail(), user.getFullName(),
+                    com.aircargo.authservice.event.AuditEventType.MFA_REENROLLMENT_REQUIRED,
+                    "USER", user.getId().toString(),
+                    "{\"reason\":\"" + reason + "\"}", command.ipAddress());
             return LoginOutcome.failure(LoginOutcome.Status.MFA_ENROLLMENT_REQUIRED,
                     Map.of(
                             "mfaEnrollmentRequired", true,
                             "enrollToken", enrollToken,
                             "email", user.getEmail(),
-                            "message", "Debe configurar la autenticación de dos factores (MFA) antes de continuar"
+                            "mfaReason", reason,
+                            "message", message
                     ));
         }
         if (mfaService.isMfaRequired(user)) {

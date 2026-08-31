@@ -128,6 +128,26 @@
           <p class="text-sm mt-1" style="color: var(--muted)">{{ t('login.mfaEnroll.subtitle') }}</p>
         </div>
 
+        <div
+          v-if="mfaReason !== 'required'"
+          class="mb-4 px-3 py-2.5 rounded-lg border text-xs leading-relaxed"
+          :style="{
+            background: 'var(--warn-bg, rgba(245,158,11,0.12))',
+            borderColor: 'rgba(245,158,11,0.4)',
+            color: 'var(--warn-text, #92610a)'
+          }"
+        >
+          <div class="flex items-start gap-2">
+            <component :is="icons.ShieldAlert" :size="18" color="#d97706" :stroke-width="2" class="shrink-0 mt-px" />
+            <div>
+              <p class="font-semibold mb-0.5" style="color: #92400e">{{ t('login.mfaEnroll.securityWarning') }}</p>
+              <p>
+                {{ mfaReason === 'reset' ? t('login.mfaEnroll.reasonReset') : t('login.mfaEnroll.reasonExpired') }}
+              </p>
+            </div>
+          </div>
+        </div>
+
         <form @submit.prevent="handleEnrollEnable" class="space-y-4">
           <div class="text-center">
             <div class="inline-block p-3 rounded-lg border border-slate-200 bg-white">
@@ -265,6 +285,7 @@ const enrollToken = ref('')
 const enrollSecret = ref('')
 const enrollOtpAuthUrl = ref('')
 const enrollCode = ref('')
+const mfaReason = ref('required')
 
 const selectedSiteLabel = computed(() => {
   if (!selectedSite.value) return ''
@@ -297,6 +318,7 @@ async function handleLogin() {
       return
     }
     if (status === 428 && data?.mfaEnrollmentRequired) {
+      mfaReason.value = data?.mfaReason || 'required'
       startMfaEnrollment(data.enrollToken)
       return
     }
@@ -450,6 +472,7 @@ function handleBackToLogin() {
   enrollSecret.value = ''
   enrollOtpAuthUrl.value = ''
   enrollCode.value = ''
+  mfaReason.value = 'required'
   errorMsg.value = ''
   needsPassword.value = false
   showSetupLink.value = false
