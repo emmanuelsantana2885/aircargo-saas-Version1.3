@@ -1,12 +1,10 @@
 import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import vueDevTools from 'vite-plugin-vue-devtools'
 
 export default defineConfig({
   plugins: [
     vue(),
-    vueDevTools(),
   ],
   server: {
     host: process.env.VITE_HOST || '127.0.0.1', // no exponer a la LAN por defecto

@@ -117,9 +117,12 @@
                   </div>
                   <div>
                     <label class="ds-label block mb-1">{{ t('ulds.form.configType') }}</label>
-                    <select v-model="uld.uldType" class="ds-input">
-                      <option v-for="ut in uldTypes" :key="ut" :value="ut">{{ ut }}</option>
-                    </select>
+                    <UldTypeDropdown
+                      v-model="uld.uldType"
+                      :items="uldCatalogItems"
+                      :title="t('ulds.form.configType')"
+                      :placeholder="t('common.selectType')"
+                    />
                   </div>
                   <div>
                     <label class="ds-label block mb-1">{{ t('ulds.form.position') }}</label>
@@ -159,24 +162,21 @@
                   </div>
                   <div class="divide-y divide-slate-100 max-h-[240px] overflow-y-auto scrollbar-none">
                     <div v-for="(mawb, mIdx) in uld.mawbs" :key="mawb._rowId" class="ds-table-row grid grid-cols-13 gap-2 text-sm">
-                      <div class="col-span-3 relative">
-                        <input v-model="mawb.awbNumber" @input="onMawbInput(uld, mIdx)" @focus="onMawbInput(uld, mIdx)" @blur="onMawbBlur(uld, mIdx)"
-                          :placeholder="t('ulds.writeMawb')"
-                          class="w-full border-b border-slate-200 focus:outline-none focus:border-slate-950 py-1 bg-transparent font-bold tracking-tight text-slate-950 text-[13px]" />
-                        <div v-if="mawb._showSuggestions && mawb._suggestions.length"
-                          class="absolute top-full left-0 right-0 z-50 bg-white border border-slate-300 rounded shadow-lg max-h-[160px] overflow-y-auto">
-                          <div v-for="s in mawb._suggestions" :key="s.id"
-                            @mousedown.prevent="selectMawbSuggestion(uld, mIdx, s)"
-                            class="px-2 py-1.5 text-[13px] font-mono cursor-pointer hover:bg-slate-50 border-b border-slate-100 last:border-0"
-                            :class="s.availablePieces > 0 ? 'text-slate-950' : 'text-slate-300'">
-                            <span class="w-2 h-2 rounded-full inline-block mr-1" :class="mawbStatusDotClass(s.awbNumber)"></span>
-                            <span class="font-bold">{{ s.awbNumber }}</span>
-                            <span class="text-slate-400 ml-1">— {{ s.shipperName || s.consigneeName || '' }}</span>
-                            <span class="text-slate-400 text-sm ml-1">[{{ s.commodityType }}]</span>
-                            <span v-if="s.availablePieces > 0" class="text-slate-600 ml-1">{{ t('ulds.availablePiecesShort', { n: s.availablePieces }) }}</span>
-                            <span v-else class="text-slate-400 ml-1">{{ t('ulds.noPieces') }}</span>
-                          </div>
-                        </div>
+                      <div class="col-span-3 min-w-0">
+                        <select
+                          v-model="mawb.awbNumber"
+                          @change="onMawbDropdownChange(uld, mIdx)"
+                          class="w-full border-b border-slate-200 focus:outline-none focus:border-slate-950 py-1 bg-transparent font-bold tracking-tight text-slate-950 text-[13px] uppercase"
+                        >
+                          <option value="" disabled>{{ t('ulds.form.selectMawb') }}</option>
+                          <template v-for="g in mawbSelectGroups(uld, mIdx)" :key="g.label">
+                            <optgroup :label="g.label">
+                              <option v-for="o in g.options" :key="o.awbNumber" :value="o.awbNumber">
+                                {{ mawbOptionLabel(o) }}
+                              </option>
+                            </optgroup>
+                          </template>
+                        </select>
                         <div v-if="mawb.awbNumber && !mawb._isSpecial && !mawbInBookings(mawb.awbNumber)"
                           class="mt-0.5 text-[10px] text-amber-600 font-mono flex items-center gap-0.5">
                           &#9888; {{ t('ulds.notInBookings') }}
@@ -193,9 +193,15 @@
                         <input v-model="mawb.commodityType" type="text" :placeholder="mawb.commodityHint || t('ulds.dryCargoHint')"
                           class="w-full border-b border-slate-200 focus:outline-none focus:border-slate-950 py-1 bg-transparent font-medium text-slate-950 text-[13px]" />
                       </div>
-                      <div class="col-span-1 flex items-center gap-1">
+                      <div class="col-span-1 flex flex-col items-end gap-0.5">
                         <input v-model.number="mawb.pieces" type="number" min="0"
+                          @focus="onPiecesFocus(uld, mIdx)"
+                          @change="onPiecesChange(uld, mIdx)"
                           class="w-full border-b border-slate-200 focus:border-slate-950 py-1 text-right bg-transparent font-bold text-[13px]" />
+                        <span v-if="overPrealertInfo(mawb)" class="text-[9px] leading-none font-mono font-bold text-amber-600 whitespace-nowrap"
+                          :title="t('ulds.overPrealertTooltip', overPrealertInfo(mawb))">
+                          &#9888; {{ t('ulds.overPrealertBadge') }}
+                        </span>
                       </div>
                       <div class="col-span-1 text-right font-mono text-[13px] flex items-center justify-end gap-1"
                         :class="mawb.receivedPieces != null ? 'text-slate-600' : 'text-slate-400'">
@@ -397,6 +403,7 @@ import { useToastStore } from '../stores/toast'
 import { extractError } from '../utils/error'
 import { useI18n } from 'vue-i18n'
 import ScanPanel from '../components/ScanPanel.vue'
+import UldTypeDropdown from '../components/UldTypeDropdown.vue'
 import LabelPrintModal from '../components/labels/LabelPrintModal.vue'
 import { useCommodities } from '../composables/useCommodities'
 import { useConfirm } from '../composables/useConfirm'
@@ -425,12 +432,17 @@ function airlineCodeById(airlineId) {
 // Tipos ULD desde el catálogo dinámico (normas IATA); fallback a lista legacy
 const LEGACY_ULD_TYPES = ['PMC','PAH','PAG','PAJ','AAY','AAZ','AAD','PIP','BULK','AMP','AMJ']
 const uldTypes = ref([...LEGACY_ULD_TYPES])
+const uldCatalogItems = ref(LEGACY_ULD_TYPES.map(code => ({ code, description: '' })))
 
 async function loadUldCatalog() {
   try {
     const res = await uldTypeCatalogApi.getAll(true)
-    const codes = (res.data || []).map(x => x.code)
-    if (codes.length) uldTypes.value = codes
+    const items = (res.data || []).map(x => ({ code: x.code, description: x.description || '' }))
+    const codes = items.map(x => x.code)
+    if (codes.length) {
+      uldTypes.value = codes
+      uldCatalogItems.value = items
+    }
   } catch {
     // se conserva el fallback legacy
   }
@@ -620,10 +632,11 @@ function onScanPieceAdded(result) {
       mawbId: mawbData?.id || null,
       hasReceipt: false,
       receivedPieces: 0,
-      reservedPieces: 0,
+      reservedPieces: mawbData?.pieces || 0,
       availablePieces: 0,
-      _showSuggestions: false,
-      _suggestions: [],
+      _isSpecial: false,
+      _prevPieces: 0,
+      _ackOverPrealert: false,
     }
     uld.mawbs.push(mawbRow)
   }
@@ -671,48 +684,92 @@ async function onUldNumberScanned(code) {
 }
 
 // MAWB availability computation
+// Piezas disponibles = prealertadas o recibidas, menos lo ya asignado en ULDs
+function totalAssignedForAwb(awbNumber, excludeRowId) {
+  return (localUlds.value || []).flatMap(u =>
+    (u.mawbs || []).filter(mw => mw.awbNumber === awbNumber && mw._rowId !== excludeRowId)
+  ).reduce((s, mw) => s + (mw.pieces || 0), 0)
+}
+
 const availableMawbs = computed(() => {
-  const mawbsWithAvailability = (appStore.mawbs || []).map(m => {
-    const receipt = (appStore.receipts || []).find(r => (r.mawb && r.mawb.id === m.id) || r.mawbId === m.id)
-    const reserved = m.pieces || 0
-    const assignedInUlDs = localUlds.value.flatMap(u =>
-      (u.mawbs || []).filter(mw => mw.awbNumber === m.awbNumber)
-    ).reduce((s, mw) => s + (mw.pieces || 0), 0)
-    const receiptPieces = receipt ? (receipt.pieceCount || receipt.receivedPieces || 0) : 0
-    const available = Math.max(0, (reserved > 0 ? reserved : receiptPieces) - assignedInUlDs)
-    return { ...m, availablePieces: available }
-  })
-  return [...specialItems, ...mawbsWithAvailability]
+  const mawbsWithAvailability = (appStore.mawbs || []).map(m => ({
+    ...m,
+    availablePieces: mawbReceiptInfo(m.awbNumber).availablePieces,
+  }))
+  return [...mawbsWithAvailability, ...specialItems]
 })
 
-function onMawbInput(uld, mIdx) {
+function mawbOptionLabel(o) {
+  const name = (o.shipperName || o.consigneeName || '').slice(0, 18)
+  const comm = o.commodityType ? ` [${o.commodityType}]` : ''
+  const avail = o.isSpecial ? '' : ` · ${t('ulds.availablePiecesShort', { n: o.availablePieces })}`
+  return `${o.awbNumber} — ${name}${comm}${avail}`
+}
+
+function mawbSelectGroups(uld, mIdx) {
   const mawb = uld.mawbs[mIdx]
-  const q = (mawb.awbNumber || '').toUpperCase().trim()
-  if (!q) {
-    mawb._showSuggestions = false
-    mawb._suggestions = []
-    return
-  }
-  mawb._suggestions = availableMawbs.value.filter(m => {
-    const label = m.awbNumber || ''
-    return label.toUpperCase().includes(q)
-  }).slice(0, 15)
-  mawb._showSuggestions = mawb._suggestions.length > 0
-}
-
-function onMawbBlur(uld, mIdx) {
-  setTimeout(() => {
-    if (uld.mawbs && uld.mawbs[mIdx]) {
-      uld.mawbs[mIdx]._showSuggestions = false
+  const groups = []
+  const available = availableMawbs.value.filter(m => !m.isSpecial && Number(m.availablePieces) > 0)
+  if (available.length) groups.push({ label: t('ulds.form.mawbAvailableGroup'), options: available })
+  if (specialItems.length) groups.push({ label: t('ulds.form.mawbSpecialGroup'), options: specialItems })
+  const current = mawb?.awbNumber
+  if (current) {
+    const seen = groups.some(g => g.options.some(o => o.awbNumber === current))
+    if (!seen) {
+      const m = (appStore.mawbs || []).find(x => x.awbNumber === current)
+      groups.unshift({
+        label: t('ulds.form.mawbCurrentGroup'),
+        options: [m || { awbNumber: current, shipperName: '', consigneeName: '', commodityType: '' }],
+      })
     }
-  }, 200)
+  }
+  return groups
 }
 
-function selectMawbSuggestion(uld, mIdx, selected) {
-  uld.mawbs[mIdx].awbNumber = selected.awbNumber
-  uld.mawbs[mIdx]._showSuggestions = false
-  uld.mawbs[mIdx]._isSpecial = !!selected.isSpecial
+function onMawbDropdownChange(uld, mIdx) {
+  const mawb = uld.mawbs[mIdx]
+  if (!mawb?.awbNumber) return
+  const selected = availableMawbs.value.find(m => m.awbNumber === mawb.awbNumber)
+  mawb._isSpecial = !!selected?.isSpecial
   onMawbSelect(uld, mIdx)
+}
+
+function overPrealertInfo(mawb) {
+  if (!mawb || !mawb.awbNumber || mawb._isSpecial) return null
+  const preAlerted = mawb.reservedPieces || 0
+  if (preAlerted <= 0) return null
+  const assignedElsewhere = totalAssignedForAwb(mawb.awbNumber, mawb._rowId)
+  const total = assignedElsewhere + (mawb.pieces || 0)
+  return total > preAlerted ? { total, preAlerted } : null
+}
+
+function onPiecesFocus(uld, mIdx) {
+  const mawb = uld.mawbs[mIdx]
+  if (mawb) mawb._prevPieces = mawb.pieces ?? 0
+}
+
+async function onPiecesChange(uld, mIdx) {
+  const mawb = uld.mawbs[mIdx]
+  if (!mawb?.awbNumber || mawb._isSpecial) return
+  const preAlerted = mawb.reservedPieces || 0
+  if (preAlerted <= 0 || mawb._ackOverPrealert) return
+  const assignedElsewhere = totalAssignedForAwb(mawb.awbNumber, mawb._rowId)
+  const total = assignedElsewhere + (mawb.pieces || 0)
+  if (total <= preAlerted) return
+  const ok = await confirm({
+    title: t('ulds.overPrealertTitle'),
+    message: t('ulds.overPrealertConfirm', { awb: mawb.awbNumber, pre: preAlerted, assigned: total }),
+    confirmText: t('common.yes'),
+    cancelText: t('common.no'),
+    danger: true,
+  })
+  if (ok) {
+    mawb._ackOverPrealert = true
+  } else {
+    const prev = mawb._prevPieces
+    const remaining = Math.max(0, preAlerted - assignedElsewhere)
+    mawb.pieces = prev != null ? Math.min(prev, remaining) : remaining
+  }
 }
 
 const pendingReceiptCount = computed(() => {
@@ -721,17 +778,16 @@ const pendingReceiptCount = computed(() => {
   return uniqueAwbs.filter(awb => !mawbHasReceipt(awb)).length
 })
 
-function mawbReceiptInfo(awbNumber) {
-  const m = appStore.mawbs.find(x => x.awbNumber === awbNumber)
+function mawbReceiptInfo(awbNumber, excludeRowId) {
+  const m = (appStore.mawbs || []).find(x => x.awbNumber === awbNumber)
   const receipt = (appStore.receipts || []).find(r => (r.mawb && r.mawb.id === m?.id) || r.mawbId === m?.id)
   const reservedPieces = m ? (m.pieces || 0) : 0
-  const assignedInUlDs = localUlds.value.flatMap(u =>
-    (u.mawbs || []).filter(mw => mw.awbNumber === awbNumber)
-  ).reduce((s, mw) => s + (mw.pieces || 0), 0)
-  const availablePieces = Math.max(0, (reservedPieces > 0 ? reservedPieces : (receipt ? (receipt.pieceCount || receipt.receivedPieces || 0) : 0)) - assignedInUlDs)
+  const receivedPieces = receipt ? (receipt.pieceCount || receipt.receivedPieces || 0) : 0
+  const reference = reservedPieces > 0 ? reservedPieces : receivedPieces
+  const availablePieces = Math.max(0, reference - totalAssignedForAwb(awbNumber, excludeRowId))
   return {
     hasReceipt: !!receipt,
-    receivedPieces: receipt ? (receipt.pieceCount || receipt.receivedPieces || 0) : 0,
+    receivedPieces: receivedPieces,
     reservedPieces: reservedPieces,
     availablePieces: availablePieces,
     mawbId: m?.id || null,
@@ -816,9 +872,9 @@ function rebuildLocalList() {
         return {
           _rowId: m.id || Math.random().toString(36).slice(2),
           awbNumber: m.mawbLabel || '',
-          _showSuggestions: false,
-          _suggestions: [],
           _isSpecial: false,
+          _prevPieces: m.pieces || 0,
+          _ackOverPrealert: false,
           commodityType: m.description || 'DRY_CARGO',
           commodityHint: m.description || '',
           pieces: m.pieces || 0,
@@ -1061,8 +1117,8 @@ function addMawbRow(uld) {
     reservedPieces: 0,
     availablePieces: 0,
     _isSpecial: false,
-    _showSuggestions: false,
-    _suggestions: [],
+    _prevPieces: 0,
+    _ackOverPrealert: false,
   })
 }
 
@@ -1071,24 +1127,34 @@ function removeMawbRow(uld, index) {
 }
 
 function onMawbSelect(uld, mIdx) {
-  const selected = availableMawbs.value.find(m => m.awbNumber === uld.mawbs[mIdx].awbNumber)
-  if (selected) {
-    uld.mawbs[mIdx].commodityType = normalizeCommodity(selected.commodityType)
-    uld.mawbs[mIdx].commodityHint = selected.commodityType || ''
-    uld.mawbs[mIdx].destination = selected.destination || 'MIA'
-    uld.mawbs[mIdx].mawbId = selected.isSpecial ? null : selected.id
-    if (!selected.isSpecial) {
-      const info = mawbReceiptInfo(selected.awbNumber)
-      uld.mawbs[mIdx].hasReceipt = info.hasReceipt
-      uld.mawbs[mIdx].receivedPieces = info.receivedPieces
-      uld.mawbs[mIdx].reservedPieces = info.reservedPieces
-      // Auto-fill pieces from reserved/received
-      if (info.receivedPieces > 0) {
-        uld.mawbs[mIdx].pieces = info.receivedPieces
-      } else if (info.reservedPieces > 0) {
-        uld.mawbs[mIdx].pieces = info.reservedPieces
-      }
-    }
+  const mawb = uld.mawbs[mIdx]
+  const selected = availableMawbs.value.find(m => m.awbNumber === mawb.awbNumber)
+  if (!selected) return
+  mawb.commodityType = normalizeCommodity(selected.commodityType)
+  mawb.commodityHint = selected.commodityType || ''
+  mawb.destination = selected.destination || 'MIA'
+  mawb.mawbId = selected.isSpecial ? null : selected.id
+  mawb._ackOverPrealert = false
+  if (selected.isSpecial) {
+    mawb.pieces = 0
+    mawb.hasReceipt = false
+    mawb.receivedPieces = 0
+    mawb.reservedPieces = 0
+    mawb.availablePieces = 0
+    return
+  }
+  const info = mawbReceiptInfo(selected.awbNumber, mawb._rowId)
+  mawb.hasReceipt = info.hasReceipt
+  mawb.receivedPieces = info.receivedPieces
+  mawb.reservedPieces = info.reservedPieces
+  mawb.availablePieces = info.availablePieces
+  // Auto-fill piezas: las que quedan disponibles (no se excede la prealerta)
+  if (info.availablePieces > 0) {
+    mawb.pieces = info.availablePieces
+  } else if (info.receivedPieces > 0) {
+    mawb.pieces = info.receivedPieces
+  } else if (info.reservedPieces > 0) {
+    mawb.pieces = info.reservedPieces
   }
 }
 

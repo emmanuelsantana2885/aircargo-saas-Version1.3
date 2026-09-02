@@ -62,6 +62,8 @@ configMapGenerator:
       - GATEWAY_RATE_LIMIT_ENABLED=true
       - GATEWAY_RATE_LIMIT_PER_MINUTE=200
       - GATEWAY_RATE_LIMIT_TIMEOUT_MS=50
+      - MFA_RESET_ON_STARTUP=false
+      - MFA_MAX_AGE_DAYS=7
 
 # Production replica counts (higher)
 patches:

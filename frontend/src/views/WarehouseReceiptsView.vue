@@ -52,7 +52,7 @@
 
     <section class="ds-table-section mb-1.5">
       <div class="overflow-x-auto shrink-0">
-      <div class="ds-table-header border-b border-slate-600" style="min-width: 700px">
+      <div class="ds-table-header border-b border-slate-600 receipt-list-header" style="min-width: 700px">
         <div class="col-span-1 text-left flex items-center gap-1">
           <input type="checkbox" :checked="selectedMawbIds.size === filteredMawbs.length && filteredMawbs.length > 0"
             @change="toggleSelectAll"
@@ -71,7 +71,7 @@
               class="px-3 py-1.5 cursor-pointer hover:bg-slate-100 truncate" :class="columnFilters.mawb === v ? 'bg-slate-50 text-slate-700 font-bold' : ''">{{ v }}</div>
           </div>
         </div>
-        <div class="col-span-2 text-left relative">
+        <div class="col-span-2 text-left relative receipt-list-cell" data-col="shipper">
           <span @click="toggleHeaderFilter('shipper')"
             class="cursor-pointer select-none transition-all duration-150"
             :class="columnFilters.shipper ? 'text-slate-300' : 'hover:text-white/80'">
@@ -86,7 +86,7 @@
         </div>
         <div class="col-span-1 text-center">{{ t('common.pieces') }}</div>
         <div class="col-span-2 text-right pr-2">Peso (kg)</div>
-        <div class="col-span-1 text-center relative">
+        <div class="col-span-1 text-center relative receipt-list-cell" data-col="dest">
           <span @click="toggleHeaderFilter('dest')"
             class="cursor-pointer select-none transition-all duration-150"
             :class="columnFilters.dest ? 'text-slate-300' : 'hover:text-white/80'">
@@ -99,7 +99,7 @@
               class="px-3 py-1.5 cursor-pointer hover:bg-slate-100 truncate" :class="columnFilters.dest === v ? 'bg-slate-50 text-slate-700 font-bold' : ''">{{ v }}</div>
           </div>
         </div>
-        <div class="col-span-1 text-center">Docs</div>
+        <div class="col-span-1 text-center receipt-list-cell" data-col="docs">Docs</div>
         <div class="col-span-2 text-center relative">
           <span @click="toggleHeaderFilter('status')"
             class="cursor-pointer select-none transition-all duration-150 inline-flex items-center gap-1"
@@ -158,7 +158,7 @@
               <span v-else-if="receiptHawbs[m.id] && receiptHawbs[m.id].length === 1"
                 class="text-[13px] font-black text-slate-950 bg-slate-100 px-1.5 py-0.5 rounded leading-none">1 HAWB</span>
             </div>
-            <div class="col-span-2 text-slate-950 font-semibold relative z-10 truncate pr-3">{{ m.shipperName || '—' }}</div>
+            <div class="col-span-2 text-slate-950 font-semibold relative z-10 truncate pr-3 receipt-list-cell" data-col="shipper">{{ m.shipperName || '—' }}</div>
             <div class="col-span-1 text-center font-mono font-bold relative z-10"
               :class="receiptTotals[m.id]?.pieces > 0 ? 'text-slate-700' : 'text-slate-950'">
               {{ receiptTotals[m.id]?.pieces || m.pieces || '—' }}
@@ -169,8 +169,8 @@
               {{ receiptTotals[m.id]?.weightKg ? Number(receiptTotals[m.id].weightKg).toLocaleString() : (m.reportedWeightKg ? Number(m.reportedWeightKg).toLocaleString() : '—') }}
               <span v-if="receiptTotals[m.id]?.weightKg > 0 && receiptTotals[m.id]?.weightKg !== Number(m.reportedWeightKg)" class="text-[13px] text-slate-500 block leading-tight">recibo</span>
             </div>
-            <div class="col-span-1 text-center font-mono font-bold text-slate-950 relative z-10">{{ m.destination || '—' }}</div>
-            <div class="col-span-1 flex items-center justify-center gap-1 relative z-10">
+            <div class="col-span-1 text-center font-mono font-bold text-slate-950 relative z-10 receipt-list-cell" data-col="dest">{{ m.destination || '—' }}</div>
+            <div class="col-span-1 flex items-center justify-center gap-1 relative z-10 receipt-list-cell" data-col="docs">
               <button @click.stop="editOrExpandReceipt(m)" title="Editar/Crear recibo"
                 class="text-[16px] px-1 py-0.5 rounded transition font-bold leading-none shadow-sm"
                 :class="receiptById[m.id] ? 'bg-amber-500 text-white hover:bg-amber-600' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'">&#9998;</button>
@@ -2637,4 +2637,15 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick))
 .thin-scrollbar::-webkit-scrollbar-thumb:hover { background: #64748b; }
 .thin-scrollbar { scrollbar-width: thin; scrollbar-color: #94a3b8 transparent; }
 .overscroll-contain { overscroll-behavior: contain; }
+
+/* ── Responsive móvil: la lista MAWB principal fuerza min-width:700px con
+   scroll horizontal. En <=640px dejamos que el grid colapse (wrap) para
+   mostrar las columnas esenciales apiladas, y ocultamos las secundarias. */
+@media (max-width: 640px) {
+  .receipt-list-header { min-width: 0 !important; }
+  .receipt-list-cell[data-col="shipper"],
+  .receipt-list-cell[data-col="dest"],
+  .receipt-list-cell[data-col="docs"] { display: none !important; }
+  .receipt-list-cell { font-size: 11px; }
+}
 </style>

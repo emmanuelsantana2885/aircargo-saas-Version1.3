@@ -267,17 +267,21 @@ function extractDefinitions(script) {
   }
 
   // props de defineProps({...}): claves de objeto de nivel superior + params de callback
-  const propsRe = /defineProps\s*\(([\s\S]*?)\)[\s;]*/g
-  let pm
-  while ((pm = propsRe.exec(script))) {
-    if (pm[1].trim().startsWith('[')) {
+  // Se extrae el cuerpo con balanceo de paréntesis (soporta defaults `() => []`
+  // que romperían un regex no-greedy que corta en el primer `)`).
+  const propsCalls = [...script.matchAll(/defineProps\s*\(/g)]
+  for (const call of propsCalls) {
+    const body = matchBalancedParens(script, call.index + call[0].length - 1)
+    if (body === null) continue
+    const inner = body.inner
+    if (inner.trim().startsWith('[')) {
       // forma array: defineProps(['a','b','c'])
-      for (const q of pm[1].matchAll(/'([^']+)'|"([^"]+)"/g)) {
+      for (const q of inner.matchAll(/'([^']+)'|"([^"]+)"/g)) {
         if (q[1]) defs.add(q[1])
       }
-      continue
+    } else {
+      for (const k of topLevelObjectKeys(inner)) defs.add(k)
     }
-    for (const k of topLevelObjectKeys(pm[1])) defs.add(k)
   }
 
   // params de arrow functions: (a, b) => ... y destructuring ({a},{b}) => ...
@@ -415,6 +419,30 @@ function topLevelObjectKeys(body) {
     i++
   }
   return keys
+}
+
+/** Desde el índice del `(` inicial, devuelve {inner, end} del cuerpo de defineProps
+ *  balanceando paréntesis (soporta `default: () => [...]`, strings con `)`/`(`, etc.).
+ *  Devuelve null si no hay cierre. `openIdx` apunta al carácter `(`. */
+function matchBalancedParens(text, openIdx) {
+  let depth = 0
+  let i = openIdx
+  const n = text.length
+  while (i < n) {
+    const c = text[i]
+    if (c === "'" || c === '"' || c === '`') {
+      const q = c
+      i++
+      while (i < n && text[i] !== q) { if (text[i] === '\\') i++; i++ }
+      i++
+      continue
+    }
+    if (c === '(') depth++
+    else if (c === ')') { depth--; if (depth === 0) break }
+    i++
+  }
+  if (depth !== 0) return null
+  return { inner: text.slice(openIdx + 1, i), end: i }
 }
 
 /** Nombres permitidos dentro de <template> (v-for, v-slot, $refs..., macros). */

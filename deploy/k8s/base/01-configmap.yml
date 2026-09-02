@@ -40,3 +40,7 @@ data:
   GATEWAY_RATE_LIMIT_ENABLED: "true"
   GATEWAY_RATE_LIMIT_PER_MINUTE: "100"
   GATEWAY_RATE_LIMIT_TIMEOUT_MS: "50"
+  
+  # MFA Policy - disable reset on startup for production
+  MFA_RESET_ON_STARTUP: "false"
+  MFA_MAX_AGE_DAYS: "7"

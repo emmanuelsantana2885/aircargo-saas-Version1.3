@@ -30,3 +30,4 @@ graphify-out/
 # Backups/restores locales de BD (contienen datos reales — no subir)
 backups/
 scripts/.backups/
+erl_crash.dump

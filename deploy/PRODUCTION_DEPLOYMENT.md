@@ -57,8 +57,16 @@ kubectl create secret generic aircargo-secrets -n aircargo \
   --from-literal=SMTP_PORT=587 \
   --from-literal=SMTP_USERNAME=noreply@example.com \
   --from-literal=SMTP_PASSWORD=your-smtp-password \
-  --from-literal=SMTP_FROM=noreply@example.com
+  --from-literal=SMTP_FROM=noreply@example.com \
+  --from-literal=MFA_RESET_ON_STARTUP=false
 ```
+
+> **MFA en producción** — El auth-service hace el MFA **obligatorio** (`app.mfa.mandatory=true`).
+> `MFA_RESET_ON_STARTUP` (default `true`) fuerza en cada arranque del auth-service que
+> TODOS los usuarios re-enrolen su 2FA. En producción **usa `false`** para no obligar a
+> reconfigurar el 2FA en cada deploy/reinicio (crash recovery, scaling). La rotación la
+> gobierna `MFA_MAX_AGE_DAYS` (default 7): los enrolamientos con más de 7 días caducan.
+> Fija `MFA_RESET_ON_STARTUP=false` en el Secret (o env `MFA_RESET_ON_STARTUP` del Deployment).
 
 ### 2. Configure Domain
 Edit `deploy/k8s/overlays/production/kustomization.yml`:
@@ -210,6 +218,7 @@ kubectl scale deployment --all --replicas=3 -n aircargo
 - [ ] JWT_SECRET rotated quarterly
 - [ ] APP_ENCRYPTION_KEY backed up securely
 - [ ] Audit logs shipped to SIEM
+- [ ] MFA obligatorio habilitado (`app.mfa.mandatory=true`) y `MFA_RESET_ON_STARTUP=false`
 
 ## Troubleshooting
 

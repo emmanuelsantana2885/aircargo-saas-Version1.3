@@ -4,8 +4,8 @@
       <h1 class="ds-title">{{ t('settings.title') }}</h1>
     </div>
 
-    <!-- Tabs -->
-    <div class="flex gap-1 mb-4">
+    <!-- Tabs: en móvil scroll horizontal (evita desbordar/amontonar) -->
+    <div class="flex gap-1 mb-4 settings-tabs">
       <button v-if="auth.role !== 'BI_USER'" @click="activeTab = 'users'"
         :class="activeTab === 'users' ? 'ds-btn-primary' : 'ds-btn-secondary'">
         {{ t('settings.tabs.users') }}
@@ -1973,3 +1973,17 @@ onMounted(async () => {
   }
 })
 </script>
+
+<style scoped>
+/* Tabs responsivos: en <=640px, scroll horizontal en vez de wrap/overflow visual.
+   En tablet, se permiten wrap (filas) para no forzar scroll. */
+@media (max-width: 640px) {
+  .settings-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap !important;
+    padding-bottom: 4px;
+  }
+  .settings-tabs > button { flex: 0 0 auto; white-space: nowrap; }
+}
+</style>

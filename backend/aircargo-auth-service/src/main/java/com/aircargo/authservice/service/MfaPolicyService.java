@@ -65,7 +65,15 @@ public class MfaPolicyService {
     /** Fila singleton (id=1), creada bajo demanda con defaults si no existe (tests/BD sin migración). */
     @Transactional
     public MfaPolicy policy() {
-        return policyRepository.findById(1).orElseGet(() -> {
+        return policyRepository.findById(1).map(existing -> {
+            // Sync DB value from config property (allows env var to override existing DB value)
+            if (existing.getResetOnStartup() != defaultResetOnStartup) {
+                existing.setResetOnStartup(defaultResetOnStartup);
+                policyRepository.save(existing);
+                log.info("MfaPolicy reset_on_startup sincronizado desde config: {}", defaultResetOnStartup);
+            }
+            return existing;
+        }).orElseGet(() -> {
             MfaPolicy p = MfaPolicy.builder()
                     .id(1)
                     // below sentinel distante: no implica "reinicio reciente"; solo la regla

@@ -249,7 +249,14 @@ input:focus, select:focus, textarea:focus {
 @media (max-width: 640px) {
   .p-5, .p-6 { padding: 12px !important; }
   .p-4 { padding: 10px !important; }
-  .h-screen { height: auto !important; min-height: 100vh; }
+  /* iOS seguro: usa 100dvh (dynamic viewport) para que la barra inferior
+     del navegador/URL no oculte contenido; fallback vh + dvh para soporte. */
+  .h-screen {
+    height: auto !important;
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+  .app-layout { min-height: 100dvh; }
   .max-h-screen { max-height: none !important; }
 
   /* Header wraps gracefully */
@@ -257,6 +264,26 @@ input:focus, select:focus, textarea:focus {
 
   /* Hide verbose labels */
   .hide-mobile { display: none !important; }
+
+  /* Colapso de columnas secundarias: marcar <th>/<td> con data-col="hide-sm" */
+  [data-col="hide-sm"] { display: none !important; }
+
+  /* Modales a pantalla completa (< 640px) para que nunca desborden */
+  .ds-modal-panel, .ds-modal-panel-lg {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    height: 100vh;
+    height: 100dvh;
+    max-height: 100dvh;
+  }
+  .ds-modal-backdrop { padding: 0 !important; align-items: stretch !important; }
+}
+
+/* Breakpoint tablet/desktop estrecho (NFO de columnas secundarias) */
+@media (min-width: 641px) and (max-width: 1023px) {
+  [data-col="hide-md"] { display: none !important; }
 }
 
 /* ══════════════════════════════════════════════════════════════════

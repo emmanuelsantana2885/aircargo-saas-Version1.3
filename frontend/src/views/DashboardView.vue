@@ -51,7 +51,7 @@
     <section class="ds-table-section mb-1.5">
       <div ref="tableWrapper" class="overflow-auto flex-1 min-h-0 scrollbar-none">
         <div class="table-scroll-wrapper h-full">
-        <table class="w-full border-collapse text-[13px] font-mono" :style="{ minWidth: tableMinWidth + 'px' }">
+        <table class="w-full border-collapse text-[13px] font-mono flight-table" :style="{ minWidth: tableMinWidth + 'px' }">
           <thead class="sticky top-0 z-20">
             <tr class="bg-slate-800 text-white text-[13px] font-bold uppercase tracking-wider border-b border-slate-200 shadow-sm font-mono [&>th]:px-2 [&>th]:py-2.5 [&>th]:whitespace-nowrap">
               <th class="text-center px-2 py-2.5 whitespace-nowrap w-8 sticky left-0 z-10 bg-slate-800">#</th>
@@ -521,7 +521,8 @@ const visibleCommodities = computed(() => {
 
 // Table min-width for horizontal scroll
 const tableMinWidth = computed(() => {
-  const base = 1100 // fixed columns
+  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 640
+  const base = isMobile ? 720 : 1100 // fixed columns (menos en móvil: sin sticky)
   const commodityCols = visibleCommodities.value.length * 80 // 80px per commodity col
   return base + commodityCols
 })
@@ -676,6 +677,15 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* ── Responsive móvil: la tabla de vuelos tiene columnas sticky que en pantallas
+   chicas fijan ~230px (64% de 360px) y dejan casi nada a la derecha. En <=640px
+   las desactivamos para permitir scroll horizontal natural por todo el contenido,
+   y reducimos el min-width de la tabla para que las filas no requieran doble scroll. */
+@media (max-width: 640px) {
+  .flight-table th.sticky, .flight-table td.sticky {
+    position: static !important;
+  }
+}
 @keyframes slideDown {
   from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: translateY(0); }

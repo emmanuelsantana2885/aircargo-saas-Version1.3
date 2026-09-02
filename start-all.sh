@@ -147,7 +147,7 @@ free_port_if_unhealthy() {
   curl -s "http://localhost:${port}/actuator/health" 2>/dev/null | grep -q '"status":"UP"' && return 0
   # Ocupado y NO healthy → liberar matando al proceso que escucha
   local pids
-  pids=$(ss -tlnp 2>/dev/null | grep ":${port} " | grep -oP 'pid=\K[0-9]+' | sort -u || true)
+  pids=$(ss -tlnp 2>/dev/null | grep ":${port} " | grep -oE 'pid=[0-9]+' | sed 's/pid=//' | sort -u || true)
   if [ -n "$pids" ]; then
     echo "  ⚠️  Puerto :$port ocupado por proceso NO healthy (PID $pids) — liberando..."
     # shellcheck disable=SC2086
@@ -205,17 +205,27 @@ docker_ok() { command -v docker >/dev/null 2>&1 && timeout 10 docker info >/dev/
 
 # Detecta initdb/pg_ctl (establece PG_INITDB y PG_CTL globales).
 # En Debian/Ubuntu los binarios PostgreSQL NO están en PATH: viven en
-# /usr/lib/postgresql/<ver>/bin/ (Fedora/Arch sí usan /usr/bin).
+# /usr/lib/postgresql/<ver>/bin/ (Fedora/Arch sí usan /usr/bin, aunque a veces
+# sin initdb/pg_ctl — ahí el datadir del sistema lo gestiona systemd y no se
+# debe lanzar una instancia propia).
 find_pg_bins() {
-  PG_INITDB="" PG_CTL=""
-  if command -v initdb >/dev/null 2>&1 && command -v pg_ctl >/dev/null 2>&1; then
-    PG_INITDB="$(command -v initdb)"; PG_CTL="$(command -v pg_ctl)"
-    return 0
-  fi
-  for dir in /usr/lib/postgresql/*/bin; do
-    [ -x "$dir/initdb" ] && [ -x "$dir/pg_ctl" ] && { PG_INITDB="$dir/initdb"; PG_CTL="$dir/pg_ctl"; return 0; }
+  PG_INITDB="" PG_CTL="" PG_BIN=""
+  if command -v initdb >/dev/null 2>&1; then PG_INITDB="$(command -v initdb)"; fi
+  if command -v pg_ctl >/dev/null 2>&1; then PG_CTL="$(command -v pg_ctl)"; fi
+  if command -v postgres >/dev/null 2>&1; then PG_BIN="$(command -v postgres)"; fi
+  for dir in /usr/lib/postgresql/*/bin /usr/bin /usr/local/bin; do
+    [ -x "$dir/initdb" ]  && [ -z "$PG_INITDB" ] && PG_INITDB="$dir/initdb"
+    [ -x "$dir/pg_ctl" ]  && [ -z "$PG_CTL" ] && PG_CTL="$dir/pg_ctl"
+    [ -x "$dir/postgres" ] && [ -z "$PG_BIN" ] && PG_BIN="$dir/postgres"
   done
-  return 0
+  # Si hay un Postgres del sistema activo (systemd), preferirlo y no tocar nada:
+  # el fallback nativo propio solo debe usarse cuando no exista ningún Postgres.
+  if command -v systemctl >/dev/null 2>&1 && systemctl is-active postgresql >/dev/null 2>&1; then
+    PG_SYSTEMD=1
+  else
+    PG_SYSTEMD=0
+  fi
+  export PG_INITDB PG_CTL PG_BIN PG_SYSTEMD
 }
 
 wait_health() {
@@ -223,7 +233,9 @@ wait_health() {
   echo "  ⏳ $name → http://localhost:${port}/actuator/health (timeout ${timeout}s)"
   local start_time=$(date +%s)
   local elapsed=0
-  while ! curl -s "http://localhost:${port}/actuator/health" 2>/dev/null | grep -q '"status":"UP"'; do
+  # -sf: en silencio ante fallos transitorios (curl rc 7 = connection refused) para
+  # que bajo `set -o pipefail` el bucle no salga prematuramente por un error puntual.
+  while ! curl -sf "http://localhost:${port}/actuator/health" 2>/dev/null | grep -q '"status":"UP"'; do
     elapsed=$(( $(date +%s) - start_time ))
     if [ "$elapsed" -gt "$timeout" ]; then
       echo "    ❌ $name no healthy after ${timeout}s"
@@ -332,6 +344,22 @@ if [ "$NO_INFRA" = "false" ] && [ "$ONLY_FRONTEND" = "false" ]; then
   port_up "$PG_PORT" && pg_up=true
   port_up "$RMQ_PORT" && rmq_up=true
 
+  # RabbitMQ en el puerto. Prioridad:
+  #   1) Si hay un contenedor 'aircargo-rabbitmq' corriendo → usarlo (no tocar nada).
+  #   2) Si hay un RabbitMQ nativo (systemd o proceso) SANO → usarlo TAL CUAL (no detenerlo):
+  #      compartimos credenciales vía .env y no queremos tirar un broker que funciona
+  #      para "ceder" el puerto a un contenedor que quizá no se levante.
+  #   Solo se detiene un nativo si existe realmente un contenedor rabbitmq que lo
+  #   reemplace de forma inmediata (caso de migración explícita).
+  rmq_container=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -x 'aircargo-rabbitmq' || true)
+  if [ "$rmq_up" = "true" ] && [ -n "$rmq_container" ] && docker_ok; then
+    echo "🔄 RabbitMQ por contenedor Docker ('aircargo-rabbitmq') — deteniendo instancia nativa que ocupa :$RMQ_PORT..."
+    # Solo detener systemd si existe un contenedor que ya está sirviendo (no dejar hueco).
+    systemctl stop rabbitmq-server 2>/dev/null || true
+    sleep 2
+    port_up "$RMQ_PORT" || rmq_up=false
+  fi
+
   # Si :5432 lo tiene nuestra instancia nativa vacía pero Docker está
   # disponible, detenerla y dejar que Docker sirva la BD real (volumen pgdata)
   find_pg_bins
@@ -349,20 +377,27 @@ if [ "$NO_INFRA" = "false" ] && [ "$ONLY_FRONTEND" = "false" ]; then
       docker compose -f "$AIR_ROOT/docker/docker-compose.infrastructure.yml" up -d postgres 2>/dev/null || \
       docker compose -f "$AIR_ROOT/docker/docker-compose.infrastructure.yml" up -d
     else
-      # Los binarios ya fueron detectados por find_pg_bins (ver arriba)
-      if [ -z "$PG_INITDB" ] || [ -z "$PG_CTL" ]; then
-        echo "❌ Ni Docker ni PostgreSQL nativo están disponibles." >&2
-        echo "   Instala PostgreSQL o inicia el daemon de Docker." >&2
-        exit 1
+      # Docker no disponible. Si hay un Postgres del sistema activo (systemd),
+      # usarlo directamente en lugar de lanzar una instancia .local-pg propia
+      # (evita conflictos de puerto/datos con el datadir real del SO).
+      if [ "$PG_SYSTEMD" = "1" ]; then
+        echo "🐘 Docker no responde — usando PostgreSQL del SISTEMA (systemd), ya activo en :$PG_PORT..."
+      else
+        # Los binarios ya fueron detectados por find_pg_bins (ver arriba)
+        if [ -z "$PG_INITDB" ] || [ -z "$PG_CTL" ]; then
+          echo "❌ Ni Docker ni PostgreSQL nativo están disponibles." >&2
+          echo "   Instala PostgreSQL o inicia el daemon de Docker." >&2
+          exit 1
+        fi
+        echo "🐘 Docker no responde — usando PostgreSQL NATIVO (datadir: $PG_DATA)..."
+        if [ ! -f "$PG_DATA/PG_VERSION" ]; then
+          rm -rf "$PG_DATA"
+          mkdir -p "$PG_DATA"
+          "$PG_INITDB" -D "$PG_DATA" -U "${POSTGRES_USER:-aircargo_user}" -A trust >/dev/null
+        fi
+        "$PG_CTL" -D "$PG_DATA" -l "$PG_DATA/postgres.log" \
+          -o "-p $PG_PORT -c max_connections=150 -c unix_socket_directories=/tmp" -w start
       fi
-      echo "🐘 Docker no responde — usando PostgreSQL NATIVO (datadir: $PG_DATA)..."
-      if [ ! -f "$PG_DATA/PG_VERSION" ]; then
-        rm -rf "$PG_DATA"
-        mkdir -p "$PG_DATA"
-        "$PG_INITDB" -D "$PG_DATA" -U "${POSTGRES_USER:-aircargo_user}" -A trust >/dev/null
-      fi
-      "$PG_CTL" -D "$PG_DATA" -l "$PG_DATA/postgres.log" \
-        -o "-p $PG_PORT -c max_connections=150 -c unix_socket_directories=/tmp" -w start
     fi
     echo "⏳ Esperando Postgres :$PG_PORT..."
     for _ in $(seq 1 30); do
@@ -620,7 +655,8 @@ echo "   📡 Backend (Gateway) : http://localhost:8080"
 echo ""
 echo "🛠️  Utilidades:"
 echo "   • Logs en tiempo real: tail -f $LOG_DIR/<servicio>.log"
-echo "   • Detener todo: Ctrl+C (limpieza garantizada)"
+echo "   • Detener todo: Ctrl+C (detiene solo los servicios arrancados por esta sesión;"
+echo "     los que ya estaban healthy de otra sesión/launcher se dejan intactos)"
 echo "   • Build logs: ls $LOG_DIR/build-*.log"
 echo ""
 

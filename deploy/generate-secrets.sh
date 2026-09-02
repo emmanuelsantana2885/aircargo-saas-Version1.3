@@ -35,6 +35,9 @@ stringData:
   SMTP_PASSWORD: "CHANGE_ME_SMTP_PASSWORD"
   SMTP_FROM: "noreply@example.com"
   
+  # MFA - disable reset on startup for production
+  MFA_RESET_ON_STARTUP: "false"
+  
   # Optional: S3 for backups
   AWS_ACCESS_KEY_ID: ""
   AWS_SECRET_ACCESS_KEY: ""
