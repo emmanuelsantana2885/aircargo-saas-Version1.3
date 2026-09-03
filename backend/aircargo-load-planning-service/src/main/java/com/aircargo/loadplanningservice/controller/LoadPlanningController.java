@@ -98,8 +98,22 @@ public class LoadPlanningController {
             String html = buildPalletSheetsHtml(plan);
             byte[] pdf = generatePdf(html);
 
-            String flightNum = plan.getFlightNumber() != null ? plan.getFlightNumber().replaceAll("[^a-zA-Z0-9]", "_") : flightId.toString().substring(0, 8);
-            String filename = String.format("PALLET_SHEETS_%s.pdf", flightNum);
+            String flightNum = plan.getFlightNumber() != null ? plan.getFlightNumber() : "";
+            String airline = plan.getAirlineCode() != null
+                    ? plan.getAirlineCode()
+                    : (plan.getAirlineName() != null ? plan.getAirlineName() : "");
+            String date = plan.getFlightDate() != null
+                    ? plan.getFlightDate().toString() : "";
+            java.util.function.Function<String, String> sanitize = (String s) -> s.replaceAll("[^a-zA-Z0-9]", "_").replaceAll("_+", "_");
+            String segFlight = flightNum.isEmpty() ? "" : sanitize.apply(flightNum);
+            String segAirline = airline.isEmpty() ? "" : sanitize.apply(airline);
+            String segDate = date.isEmpty() ? "" : sanitize.apply(date);
+            String stem = String.join("_",
+                    java.util.Arrays.stream(new String[]{segAirline, segFlight, segDate})
+                            .filter(s -> !s.isEmpty())
+                            .toArray(String[]::new));
+            if (stem.isEmpty()) stem = flightId.toString().substring(0, 8);
+            String filename = String.format("PALLET_SHEETS_%s.pdf", stem);
 
             ByteArrayInputStream in = new ByteArrayInputStream(pdf);
             InputStreamResource resource = new InputStreamResource(in);
@@ -134,6 +148,7 @@ public class LoadPlanningController {
         // ── Header: airline name dynamic ──
         sb.append(".hdr { text-align: center; padding: 12pt 0 6pt 0; border-bottom: 2px solid #000; }");
         sb.append(".hdr-airline { font-size: 24pt; font-weight: bold; letter-spacing: 3pt; margin: 0; }");
+        sb.append(".hdr-operator { font-size: 11pt; font-weight: bold; letter-spacing: 2pt; margin: 2pt 0 0 0; color: #333; }");
         sb.append(".hdr-sub { font-size: 14pt; font-weight: bold; letter-spacing: 1.5pt; margin: 3pt 0 0 0; text-transform: uppercase; }");
         // ── Info form: single language fields ──
         sb.append("table.info { width: 100%; border-collapse: collapse; border-bottom: 1.5px solid #000; }");
@@ -145,6 +160,13 @@ public class LoadPlanningController {
         sb.append(".pair-label { font-size: 8pt; text-transform: uppercase; color: #333; margin-right: 3pt; }");
         sb.append(".pair-value { font-size: 13pt; font-weight: bold; border-bottom: 1.5px solid #000; padding: 4pt 2pt 5pt 2pt; }");
         sb.append(".pair-sep { margin: 0 6pt; color: #666; }");
+        // ── Weights group (Tare / Gross / Net): dedicated, prominent ──
+        sb.append("table.weights { width: 100%; border-collapse: collapse; border: 1.5px solid #000; margin-top: 8pt; }");
+        sb.append("table.weights td { width: 33.33%; padding: 6pt 6pt; vertical-align: bottom; border-right: 1px solid #000; }");
+        sb.append("table.weights td:last-child { border-right: none; }");
+        sb.append("table.weights .fl { font-size: 8pt; text-transform: uppercase; color: #333; display: block; margin-bottom: 3pt; }");
+        sb.append("table.weights .fw { font-size: 16pt; font-weight: bold; border-bottom: 1.5px solid #000; padding: 4pt 2pt 5pt 2pt; text-align: center; }");
+        sb.append("table.weights .fw.tare { background: #f2f2f2; }");
         // ── AWB table ──
         sb.append("table.awb { width: 100%; border-collapse: collapse; margin-top: 6pt; }");
         sb.append("table.awb th { font-size: 8.5pt; font-weight: bold; padding: 5pt 5pt; text-align: left; border-bottom: 2px solid #000; border-top: 1px solid #000; text-transform: uppercase; }");
@@ -181,8 +203,13 @@ public class LoadPlanningController {
                 // ── Header ──
                 String airlineName = plan.getAirlineName();
                 if (airlineName == null || airlineName.isBlank()) airlineName = "AIR CARGO";
+                String airlineCode = plan.getAirlineCode() != null ? plan.getAirlineCode().toUpperCase()
+                        : (plan.getAirlineCode() == null ? "" : plan.getAirlineCode());
+                String hdrFlight = plan.getFlightNumber() != null ? plan.getFlightNumber() : "";
+                String hdrDate = plan.getFlightDate() != null ? plan.getFlightDate().toString() : "";
                 sb.append("<div class='hdr'>");
                 sb.append("<div class='hdr-airline'>").append(xmlEscape(airlineName)).append("</div>");
+                sb.append("<div class='hdr-operator'>").append(xmlEscape(airlineCode)).append(" &#183; ").append(xmlEscape(hdrFlight)).append(" &#183; ").append(xmlEscape(hdrDate)).append("</div>");
                 sb.append("<div class='hdr-sub'>Unit Load Device</div>");
                 sb.append("<div class='hdr-sub'>I.D. Tag and Manifest</div>");
                 sb.append("</div>");
@@ -198,6 +225,10 @@ public class LoadPlanningController {
                 String tare = bd(uld.getTareLbs());
                 String seal = v(uld.getSealNumber());
                 String sts = v(uld.getStatus());
+                String operator = plan.getAirlineCode() != null && !plan.getAirlineCode().isBlank()
+                        ? plan.getAirlineCode().toUpperCase() : airlineName;
+                String statusSeal = seal != null && !seal.isEmpty() && !seal.isBlank()
+                        ? sts + " \u2022 " + seal : sts;
                 String builtBy = v(uld.getBuiltBy());
                 String confirmedWith = v(uld.getConfirmedWith());
                 String completedAt = v(uld.getCompletedAt());
@@ -209,30 +240,27 @@ public class LoadPlanningController {
                 sb.append("<td style='width:33%'><span class='fl'>Flight Number</span><span class='fv'>").append(fn).append("</span></td>");
                 sb.append("<td style='width:29%'><span class='fl'>Date</span><span class='fv'>").append(dt).append("</span></td>");
                 sb.append("</tr>");
-                // Row 2: Destination | ULD Type | ULD Number + Tare
+                // Row 2: Destination | Airline/Operator | ULD Number
                 sb.append("<tr>");
                 sb.append("<td><span class='fl'>Destination Station</span><span class='fv fv-wide'>").append(d).append("</span></td>");
-                sb.append("<td><span class='fl'>ULD Type</span><span class='fv'>").append(ut).append("</span></td>");
-                sb.append("<td>");
-                sb.append("<span class='pair-label'>ULD Number</span>");
-                sb.append("<span class='pair-value'>").append(un).append("</span>");
-                sb.append("<span class='pair-sep'>|</span>");
-                sb.append("<span class='pair-label'>Tare (Lbs)</span>");
-                sb.append("<span class='pair-value'>").append(tare).append("</span>");
-                sb.append("</td>");
+                sb.append("<td><span class='fl'>Airline / Operator</span><span class='fv'>").append(xmlEscape(operator)).append("</span></td>");
+                sb.append("<td><span class='fl'>ULD Number</span><span class='fv'>").append(un).append("</span></td>");
                 sb.append("</tr>");
-                // Row 3: ULD Position | Status + Seal
+                // Row 3: ULD Type | ULD Position | Status
                 sb.append("<tr>");
-                sb.append("<td><span class='fl'>ULD Position</span><span class='fv fv-wide'>").append(pos).append("</span></td>");
-                sb.append("<td colspan='2'>");
-                sb.append("<span class='pair-label'>Status</span>");
-                sb.append("<span class='pair-value'>").append(sts).append("</span>");
-                sb.append("<span class='pair-sep'>|</span>");
-                sb.append("<span class='pair-label'>Seal No.</span>");
-                sb.append("<span class='pair-value'>").append(seal).append("</span>");
-                sb.append("</td>");
+                sb.append("<td><span class='fl'>ULD Type</span><span class='fv'>").append(ut).append("</span></td>");
+                sb.append("<td><span class='fl'>ULD Position</span><span class='fv'>").append(pos).append("</span></td>");
+                sb.append("<td><span class='fl'>Status / Seal No.</span><span class='fv'>").append(xmlEscape(statusSeal)).append("</span></td>");
                 sb.append("</tr>");
                 sb.append("</table>");
+
+                // ── Weights block: Tare / Gross / Net (prominent) ──
+                sb.append("<table class='weights'>");
+                sb.append("<tr>");
+                sb.append("<td><span class='fl'>Tare (Lbs)</span><span class='fw tare'>").append(tare).append("</span></td>");
+                sb.append("<td><span class='fl'>Gross (Lbs)</span><span class='fw'>").append(bd(uld.getGrossWeightLbs())).append("</span></td>");
+                sb.append("<td><span class='fl'>Net (Lbs)</span><span class='fw'>").append(bd(uld.getNetWeightLbs())).append("</span></td>");
+                sb.append("</tr></table>");
 
                 // ── AWB breakdown table ──
                 List<UldAwbDTO> awbs = uld.getAwbs();
@@ -271,7 +299,9 @@ public class LoadPlanningController {
                 sb.append("<td colspan='2' style='text-align:right;'>Total</td>");
                 sb.append("<td class='c'>").append(totalPieces).append("</td>");
                 sb.append("<td class='r'>").append(gross).append("</td>");
-                sb.append("<td colspan='2'>Gross: ").append(gross).append(" &#160; Tare: ").append(tare).append(" &#160; Net: ").append(net).append("</td>");
+                sb.append("<td colspan='2' style='font-size:10pt;'>Gross: ").append(gross)
+                        .append(" &#160;|&#160; <span style='background:#f2f2f2;padding:1pt 4pt;border:1px solid #000;'>Tare: ").append(tare)
+                        .append("</span> &#160;|&#160; Net: ").append(net).append("</td>");
                 sb.append("</tr>");
                 sb.append("</tbody></table>");
 

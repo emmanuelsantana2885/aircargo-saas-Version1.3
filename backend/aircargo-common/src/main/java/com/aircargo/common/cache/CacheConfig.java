@@ -36,6 +36,9 @@ public class CacheConfig {
             @Value("${spring.cache.caffeine.spec:maximumSize=500,expireAfterWrite=300s}") String caffeineSpec) {
         CaffeineCacheManager manager = new CaffeineCacheManager();
         manager.setCaffeineSpec(CaffeineSpec.parse(caffeineSpec));
-        return manager;
+        // Envolver en cache type-safe: valida el tipo del valor al leer y trata como miss
+        // cualquier valor de tipo inconsistente (evita ClassCastException por colisión de
+        // tipos en una misma caché).
+        return new TypeSafeCacheManager(manager);
     }
 }

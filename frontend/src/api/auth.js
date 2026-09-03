@@ -17,4 +17,5 @@ export const authApi = {
   mfaEnrollSetup: (enrollToken) => api.post('/auth/mfa/enroll/setup', { enrollToken }),
   mfaEnrollEnable: (enrollToken, secret, totpCode) =>
     api.post('/auth/mfa/enroll/enable', { enrollToken, secret, totpCode }),
+  generateServiceToken: (email) => api.post('/auth/service-token', { email }),
 }

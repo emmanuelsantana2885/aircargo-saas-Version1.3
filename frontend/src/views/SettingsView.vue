@@ -1058,15 +1058,22 @@
             <div>
               <label class="ds-label block mb-1">{{ t('settings.apiBi.serviceName') }}</label>
               <div class="flex items-center gap-2">
-                <input :value="biToken" readonly
+                <input :value="biToken || ''" readonly placeholder="Genera el token para conectarte a Power BI"
                   class="ds-input font-mono text-[10px] flex-1 bg-slate-50 select-all">
-                <button @click="copyToClipboard(biToken, 'token')"
-                  class="ds-btn-secondary text-[12px] whitespace-nowrap">
+                <button :disabled="!biToken || biTokenLoading" @click="copyToClipboard(biToken, 'token')"
+                  class="ds-btn-secondary text-[12px] whitespace-nowrap disabled:opacity-30">
                   {{ copied && copiedEndpoint === 'token' ? t('common.copied', {text:''}) : t('common.copy') }}
                 </button>
+                <button @click="loadServiceToken" :disabled="biTokenLoading"
+                  class="ds-btn-secondary text-[12px] whitespace-nowrap disabled:opacity-40">{{ biTokenLoading ? 'Generando...' : 'Regenerar' }}</button>
               </div>
-              <p class="text-[11px] text-slate-400 mt-1">
-                Cuenta: <span class="font-mono">bi@rannik.com</span> (BI_USER) — Expira: 2027-08-18
+              <p v-if="biTokenError" class="text-[11px] text-red-600 mt-1">{{ biTokenError }}</p>
+              <p v-else-if="biToken" class="text-[11px] text-slate-400 mt-1">
+                Cuenta: <span class="font-mono">bi@rannik.com</span> (BI_USER) — Generado
+                <template v-if="biTokenExpiry">· Expira: {{ biTokenExpiry }}</template>
+              </p>
+              <p v-else class="text-[11px] text-slate-400 mt-1">
+                Cuenta: <span class="font-mono">bi@rannik.com</span> (BI_USER) — Pulsa "Regenerar" para emitir un token de servicio.
               </p>
             </div>
 
@@ -1105,9 +1112,10 @@
                 <div>
                   <p>Copia esta URL y pegala:</p>
                   <div class="flex items-center gap-2 mt-1 bg-slate-900 rounded px-3 py-2">
-                    <code class="text-green-400 font-mono text-[11px] flex-1 overflow-x-auto whitespace-nowrap">{{ gatewayUrl }}/api/bi/dashboard?api_key={{ biToken.substring(0, 20) }}...</code>
-                    <button @click="copyToClipboard(`${gatewayUrl}/api/bi/dashboard?api_key=${biToken}`, 'pbi-url')"
-                      class="text-[10px] text-blue-400 hover:text-blue-300 whitespace-nowrap">
+                    <code class="text-green-400 font-mono text-[11px] flex-1 overflow-x-auto whitespace-nowrap">{{ gatewayUrl }}/api/bi/dashboard?api_key={{ biToken ? biToken.substring(0, 20) : 'TOKEN_AQUI' }}...</code>
+                    <button @click="copyToClipboard(biToken ? `${gatewayUrl}/api/bi/dashboard?api_key=${biToken}` : '', 'pbi-url')"
+                      class="text-[10px] text-blue-400 hover:text-blue-300 whitespace-nowrap disabled:opacity-30"
+                      :disabled="!biToken">
                       {{ copied && copiedEndpoint === 'pbi-url' ? t('common.copied', {text:''}) : t('settings.apiBi.copyUrl') }}
                     </button>
                   </div>
@@ -1131,7 +1139,7 @@
             <label class="ds-label block mb-2">{{ t('settings.apiBi.endpointsTitle') }}</label>
             <div class="grid grid-cols-1 gap-1.5">
               <div v-for="ep in biEndpoints" :key="ep.path"
-                @click="copyToClipboard(`${gatewayUrl}${ep.path}?api_key=${biToken}`, ep.path)"
+                @click="copyToClipboard(biToken ? `${gatewayUrl}${ep.path}?api_key=${biToken}` : '', ep.path)"
                 class="flex items-center justify-between bg-slate-50 rounded px-3 py-2 border border-slate-100 hover:border-blue-300 hover:bg-blue-50/30 cursor-pointer transition-all group">
                 <div class="min-w-0 flex-1">
                   <code class="text-[11px] font-mono text-slate-900 block truncate">GET {{ ep.path }}</code>
@@ -1227,7 +1235,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usersApi } from '../api/users'
 
@@ -1243,6 +1251,7 @@ import { useToastStore } from '../stores/toast'
 import { useConfirm } from '../composables/useConfirm'
 import { extractError } from '../utils/error'
 import client from '../api/client'
+import { authApi } from '../api/auth'
 
 const toast = useToastStore()
 const { confirm } = useConfirm()
@@ -1497,13 +1506,51 @@ const commodityForm = ref({ code: '', label: '', description: '', color: '#94a3b
 const commodityCreateForm = ref({ code: '', label: '', description: '', color: '#94a3b8', sortOrder: 0, isActive: true })
 const commodityTotpCode = ref('')
 
-const biToken = 'eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiI5MjYyZTE4Ny1lZGY3LTQ2YWMtODllNy1lYmEyZmRjMTY2YWUiLCJyb2xlIjoiQklfVVNFUiIsImFpcmxpbmVJZCI6IjAwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAwMSIsImVtYWlsIjoiYmlAcmFubmlrLmNvbSIsImZ1bGxOYW1lIjoiQkkgVXNlciIsInRva2VuVHlwZSI6InNlcnZpY2UiLCJpYXQiOjE3ODcxMTEzMjUsImV4cCI6MTgxODY0NzMyNX0.-JobVlHpmcRAW6wmJ_kpQhAHe9zB1Ty5gdqveidy1qzU9P2D-YYKtNPtNLIydaOCDfl4gHyRNbpYkF6TB4ie2w'
+/* El token de servicio BI no se hardcodea en el bundle. Se obtiene bajo
+   demanda desde el backend (POST /auth/service-token, solo ADMIN/SUPER_USER)
+   y se expone en el cliente únicamente para copiarlo a Power BI. */
+const biToken = ref(null)
+const biTokenLoading = ref(false)
+const biTokenError = ref('')
+const biTokenExpiry = computed(() => {
+  if (!biToken.value) return ''
+  const d = decodeJwtExpiry(biToken.value)
+  return d ? d.toISOString().slice(0, 10) : ''
+})
 const currentOrigin = window.location.origin
 const copied = ref(false)
 const copiedEndpoint = ref('')
 const customUrl = ref('')
 const connectionStatus = ref(null)
 const connectionTesting = ref(false)
+
+function decodeJwtExpiry(token) {
+  try {
+    const payload = token.split('.')[1]
+    const json = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')))
+    if (json.exp) return new Date(json.exp * 1000)
+  } catch { /* noop */ }
+  return null
+}
+
+async function loadServiceToken() {
+  if (!canManageSettings.value) {
+    biToken.value = null
+    return
+  }
+  biTokenLoading.value = true
+  biTokenError.value = ''
+  try {
+    const res = await authApi.generateServiceToken('bi@rannik.com')
+    biToken.value = res?.data?.token || null
+    if (!biToken.value) biTokenError.value = 'El backend no devolvió token de servicio'
+  } catch (e) {
+    biToken.value = null
+    biTokenError.value = extractError(e, 'No se pudo generar el token de servicio')
+  } finally {
+    biTokenLoading.value = false
+  }
+}
 
 const biEndpoints = [
   { path: '/api/bi/dashboard', desc: 'Resumen general (KPIs, totales, % completado)' },
@@ -1533,11 +1580,15 @@ function copyToClipboard(text, label) {
 }
 
 async function testConnection() {
+  if (!biToken.value) {
+    connectionStatus.value = { ok: false, msg: 'No hay token de servicio. Regénéralo antes de probar la conexión.' }
+    return
+  }
   connectionTesting.value = true
   connectionStatus.value = null
   try {
     const res = await client.get('/api/bi/dashboard', {
-      params: { api_key: biToken }
+      params: { api_key: biToken.value }
     })
     if (res.status === 200 && res.data) {
       const keys = Object.keys(res.data)
@@ -1952,6 +2003,13 @@ async function restoreCommodityDefaults() {
     await loadCommodities()
   } catch (e) { toast.error(extractError(e, t('settings.commodities.toast.error'))) }
 }
+
+watch(
+  () => activeTab.value,
+  (tab) => {
+    if (tab === 'api') loadServiceToken()
+  }
+)
 
 onMounted(async () => {
   if (auth.role === 'BI_USER') {

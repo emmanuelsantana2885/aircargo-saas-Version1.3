@@ -9,7 +9,9 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -80,5 +82,20 @@ class WarehouseReceiptServiceImplTest {
         service.delete(id);
 
         verify(receiptRepository).deleteById(id);
+    }
+
+    @Test
+    void updateReceipt_mustBeTransactional() throws Exception {
+        // Guard de regresión: updateReceipt borra piezas con deleteByReceiptId
+        // (una operación de borrado derivada de Spring Data) que REQUIERE una
+        // transacción activa. Sin @Transactional el runtime lanza
+        // TransactionRequiredException (500 en PUT /api/warehouse/receipts/{id}).
+        Method m = WarehouseServiceImpl.class.getMethod(
+                "updateReceipt",
+                UUID.class, WarehouseReceiptDTO.class,
+                com.aircargo.common.auth.UserPrincipal.class,
+                jakarta.servlet.http.HttpServletRequest.class);
+        Transactional tx = m.getAnnotation(Transactional.class);
+        assertNotNull(tx, "updateReceipt debe ser @Transactional para permitir deleteByReceiptId");
     }
 }

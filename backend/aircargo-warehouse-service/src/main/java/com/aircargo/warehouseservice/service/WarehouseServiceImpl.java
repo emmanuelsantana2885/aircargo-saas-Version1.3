@@ -59,7 +59,7 @@ public class WarehouseServiceImpl implements WarehouseService {
 
     @Override
     @Transactional
-    @CacheEvict(value = "warehouse-receipts", allEntries = true)
+    @CacheEvict(value = {"warehouse-receipts", "receipt-pieces"}, allEntries = true)
     public WarehouseReceiptDTO emitReceipt(WarehouseReceiptDTO dto, UserPrincipal principal, jakarta.servlet.http.HttpServletRequest request) {
         // Set audit fields
         dto.setCreatedByUserId(principal != null ? principal.getUserIdAsUuid() : null);
@@ -111,7 +111,8 @@ public class WarehouseServiceImpl implements WarehouseService {
     }
 
     @Override
-    @CacheEvict(value = "warehouse-receipts", allEntries = true)
+    @Transactional
+    @CacheEvict(value = {"warehouse-receipts", "receipt-pieces"}, allEntries = true)
     public Optional<WarehouseReceiptDTO> updateReceipt(UUID receiptId,
                                                         WarehouseReceiptDTO dto,
                                                         UserPrincipal principal,
@@ -199,7 +200,7 @@ public class WarehouseServiceImpl implements WarehouseService {
     }
 
     @Override
-    @Cacheable("warehouse-receipts")
+    @Cacheable("receipt-pieces")
     public List<ReceiptPieceDTO> getPieces(UUID receiptId) {
         return pieceRepository.findByReceiptId(receiptId).stream()
                 .map(ReceiptPieceDTO::fromEntity)

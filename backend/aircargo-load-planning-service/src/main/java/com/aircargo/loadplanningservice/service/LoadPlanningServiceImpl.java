@@ -72,9 +72,14 @@ public class LoadPlanningServiceImpl implements LoadPlanningService {
                     .collect(Collectors.toList());
 
             String airlineName = null;
+            String airlineCode = null;
             try {
                 var airline = flightClient.getAirlineById(flight.getAirlineId());
-                if (airline != null) airlineName = airline.getName();
+                if (airline != null) {
+                    airlineName = airline.getName();
+                    airlineCode = airline.getCode() != null ? airline.getCode()
+                            : (airline.getIataCode() != null ? airline.getIataCode() : null);
+                }
             } catch (Exception ignored) {}
 
             LoadPlanningDTO result = new LoadPlanningDTO();
@@ -89,6 +94,7 @@ public class LoadPlanningServiceImpl implements LoadPlanningService {
                     ? java.math.BigDecimal.valueOf(flight.getMaxPayloadKg()) : null);
             result.setUlds(uldDtos);
             result.setAirlineName(airlineName);
+            result.setAirlineCode(airlineCode);
             return Optional.of(result);
         } catch (Exception e) {
             return Optional.empty();

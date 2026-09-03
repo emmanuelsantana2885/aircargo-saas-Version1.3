@@ -121,11 +121,11 @@ const biLoading = ref(false)
 
 const biEndpoints = [
   { label: 'Dashboard KPIs', path: '/api/bi/dashboard', fn: () => biApi.getDashboard() },
-  { label: 'Summary', path: '/api/bi/summary', fn: () => catalogApi.getBiSummary() },
-  { label: 'By Location', path: '/api/bi/by-location', fn: () => catalogApi.getBiByLocation() },
-  { label: 'Timeline', path: '/api/bi/timeline', fn: () => catalogApi.getBiTimeline() },
-  { label: 'Top MAWBs', path: '/api/bi/top-mawbs', fn: () => catalogApi.getBiTopMawbs() },
-  { label: 'Flight Performance', path: '/api/bi/flight-performance', fn: () => catalogApi.getBiFlightPerformance() },
+  { label: 'Summary', path: '/api/bi/summary', fn: () => biApi.getSummary() },
+  { label: 'By Location', path: '/api/bi/by-location', fn: () => biApi.getByLocation() },
+  { label: 'Timeline', path: '/api/bi/timeline', fn: () => biApi.getTimeline() },
+  { label: 'Top MAWBs', path: '/api/bi/top-mawbs', fn: () => biApi.getTopMawbs() },
+  { label: 'Flight Performance', path: '/api/bi/flight-performance', fn: () => biApi.getFlightPerformance() },
   { label: 'Daily Data', path: '/api/bi/daily', fn: () => biApi.getDaily() },
   { label: 'Flights', path: '/api/bi/flights', fn: () => biApi.getFlights() },
 ]

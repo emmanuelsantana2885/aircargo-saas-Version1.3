@@ -45,9 +45,11 @@ public class RedisCacheConfig {
                         .fromSerializer(new StringRedisSerializer()))
                 .serializeValuesWith(RedisSerializationContext.SerializationPair
                         .fromSerializer(new GenericJackson2JsonRedisSerializer()));
-        return RedisCacheManager.builder(connectionFactory)
+        CacheManager redis = RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(config)
                 .transactionAware()
                 .build();
+        // Misma protección type-safe que en Caffeine (ver TypeSafeCacheManager).
+        return new TypeSafeCacheManager(redis);
     }
 }

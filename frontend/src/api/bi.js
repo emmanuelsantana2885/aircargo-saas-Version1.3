@@ -10,4 +10,9 @@ export const biApi = {
   getDaily:     (params = {}) => api.get('/bi/daily', { params }),
   getWeightReport: (params = {}) => api.get('/bi/weight-report', { params }),
   getWeightSummary: (params = {}) => api.get('/bi/weight-summary', { params }),
+  getSummary:   (params = {}) => api.get('/bi/summary', { params }),
+  getByLocation: () => api.get('/bi/by-location'),
+  getTimeline:  (params = {}) => api.get('/bi/timeline', { params }),
+  getTopMawbs:  (limit = 10) => api.get('/bi/top-mawbs', { params: { limit } }),
+  getFlightPerformance: (params = {}) => api.get('/bi/flight-performance', { params }),
 }

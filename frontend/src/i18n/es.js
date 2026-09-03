@@ -260,6 +260,7 @@ export default {
     title: 'Load Planning',
     subtitle: 'SDQ Load Control // Planificación de armado de vuelo',
     colDate: 'Fecha',
+    airline: 'Aerolínea / Operador',
     colFlightNumber: 'Flight Number',
     colAircraftTail: 'Aircraft-Tail',
     colRoute: 'Ruta',

@@ -205,9 +205,10 @@
           </div>
 
           <div v-if="expandedId === m.id && receiptForms[m.id]" class="bg-slate-100 border-b border-slate-400">
-            <div class="p-2 md:p-3 flex flex-col" style="height: calc(100vh - 240px); min-height: 300px;">
+            <div class="p-1.5 md:p-2.5 flex flex-col receipt-form"
+              style="min-height: 240px; height: var(--receipt-form-h, 58dvh); max-height: calc(100dvh - 150px);">
               <!-- Step progress bar -->
-              <div class="mb-2 shrink-0">
+              <div class="mb-1.5 shrink-0">
                 <div class="flex items-center justify-between">
                   <div v-for="(step, si) in steps" :key="si" class="flex items-center flex-1">
                     <div @click="localStep = si + 1"
@@ -238,10 +239,10 @@
 
               <!-- ═══ Scrollable step content ═══ -->
               <div class="flex-1 min-h-0 overflow-y-auto pr-1 overscroll-contain">
-              <div v-if="localStep === 1" class="space-y-2">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2">
+              <div v-if="localStep === 1" class="space-y-1.5">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-1.5">
                   <!-- Left column -->
-                  <div class="space-y-3">
+                  <div class="space-y-2">
                     <div>
                       <label class="ds-label">Gateway / CFS Name</label>
                       <input v-model="receiptForms[m.id].gatewayCfs" type="text" placeholder="SDQ"
@@ -390,7 +391,7 @@
               </div>
 
               <!-- ═══ STEP 2: PIECES ═══ -->
-              <div v-if="localStep === 2" class="space-y-2">
+              <div v-if="localStep === 2" class="space-y-1.5">
                 <div class="text-[12px] font-mono font-bold text-slate-950 uppercase tracking-wider flex items-center gap-2">
                   <span>Loose Tender — Dimensiones y Pesos</span>
                   <span class="text-[12px] font-mono font-normal text-slate-950 normal-case tracking-normal">
@@ -637,14 +638,14 @@
               </div>
 
               <!-- ═══ STEP 3: REMARKS ═══ -->
-              <div v-if="localStep === 3" class="space-y-2">
+              <div v-if="localStep === 3" class="space-y-1.5">
                 <label class="ds-label">Remarks / Observaciones</label>
                 <textarea v-model="receiptForms[m.id].remarks" rows="3" placeholder="Notas, observaciones, instrucciones especiales..."
                   class="ds-input resize-none"></textarea>
               </div>
 
               <!-- ═══ STEP 4: EVIDENCE ═══ -->
-              <div v-if="localStep === 4" class="space-y-2">
+              <div v-if="localStep === 4" class="space-y-1.5">
                 <p class="text-[12px] font-mono text-slate-950">Adjuntar fotos, documentos u otras evidencias</p>
 
                 <!-- Evidencias del MAWB (desde base de datos) -->
@@ -694,7 +695,7 @@
               </div>
 
               <!-- ═══ STEP 5: SIGNATURES ═══ -->
-              <div v-if="localStep === 5" class="space-y-2">
+              <div v-if="localStep === 5" class="space-y-1.5">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label class="ds-label">Dock Signature</label>
@@ -2637,6 +2638,13 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick))
 .thin-scrollbar::-webkit-scrollbar-thumb:hover { background: #64748b; }
 .thin-scrollbar { scrollbar-width: thin; scrollbar-color: #94a3b8 transparent; }
 .overscroll-contain { overscroll-behavior: contain; }
+
+/* ── Formulario de recibo: distribución vertical compacta y responsiva.
+   La altura se adapta al viewport (dvh, funciona en móvil con barras de
+   navegador) pero nunca se vuelve minúscula ni se estira a toda la pantalla. */
+.receipt-form { --receipt-form-h: 50dvh; }
+@media (min-width: 768px) { .receipt-form { --receipt-form-h: 58dvh; } }
+@media (min-height: 800px) { .receipt-form { --receipt-form-h: 56dvh; } }
 
 /* ── Responsive móvil: la lista MAWB principal fuerza min-width:700px con
    scroll horizontal. En <=640px dejamos que el grid colapse (wrap) para

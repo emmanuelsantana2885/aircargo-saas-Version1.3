@@ -6,7 +6,6 @@ export const receiptsApi = {
   delete:   (id) => api.delete(`/receipts/${id}`),
   getPieces: (id) => api.get(`/warehouse/receipts/${id}/pieces`),
   export:   (id) => api.get(`/warehouse/receipts/${id}/export`, { params: { t: Date.now() }, responseType: 'blob' }),
-  getExportUrl: (id) => api.get(`/warehouse/receipts/${id}/export-url`),
   getFullPdf: (id) => api.get(`/warehouse/receipts/${id}/pdf`, { responseType: 'blob' }),
   update: (receiptId, payload) => api.put(`/warehouse/receipts/${receiptId}`, payload),
   validate: (payload) => api.post('/warehouse/receipts/validate', payload),

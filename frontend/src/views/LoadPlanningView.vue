@@ -19,6 +19,11 @@
         </div>
         <div class="h-8 w-[1px] bg-slate-200"></div>
         <div class="flex flex-col justify-center">
+           <span class="ds-label">{{ t('loadPlanning.airline') }}</span>
+          <span class="text-[14px] font-black text-slate-950 uppercase tracking-widest">{{ activeAirlineLabel }}</span>
+        </div>
+        <div class="h-8 w-[1px] bg-slate-200"></div>
+        <div class="flex flex-col justify-center">
            <span class="ds-label">{{ t('loadPlanning.colAircraftTail') }}</span>
           <span class="text-[14px] font-black text-slate-950 uppercase tracking-wider">{{ activeFlightMeta.aircraftReg || '-' }}</span>
         </div>
@@ -440,6 +445,14 @@ function flightOptionsFor(currentFlightId) {
 }
 
 const activeFlightMeta = computed(() => uldsStore.selectedFlight || {})
+
+const activeAirlineLabel = computed(() => {
+  const f = activeFlightMeta.value
+  if (!f?.id) return '-'
+  const a = appStore.airlines.find(x => x.id === f.airlineId)
+  const code = a?.code || 'AIR'
+  return `${code} ${f.flightNumber || ''}`.trim()
+})
 
 const aircraftType = computed(() => {
   const reg = activeFlightMeta.value.aircraftReg || ''
