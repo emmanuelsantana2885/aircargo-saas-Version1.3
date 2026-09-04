@@ -105,6 +105,25 @@ Flyway migrations live in **each microservice** at `backend/aircargo-*-service/s
 
 Full plan: `Documents/MICROSERVICES-MIGRATION-PLAN.md`
 
+## Recent session changes (Sep 4, 2026 — Entrega a Version1.4 + Tipografía global Bodoni/Cascadia/combo + limpieza de Dashboard Builder en Version1.3)
+
+**Contexto**: el commit `2fd5341` con el Dashboard Builder (tabla/pivot/gráficos) se subió por error a `aircargo-saas-Version1.3`. Se decidió: (1) **quitar el Builder de Version1.3** (conservando EA type, header filters y el fix visual de DashboardView) y (2) **entregar el proyecto completo CON builder en `aircargo-saas-Version1.4`** (repo nuevo, estaba vacío). Además se aplicó un cambio de tipografía global (Bodoni / Cascadia Code SemiBold / combo).
+
+**Operación de repos** (verificada por API de GitHub): Version1.3 `main` sin builder @ `96f4f14`; Version1.4 `main` CON builder @ `dc1e964` = `2fd5341` + commit de tipografía (cherry-pick de `96f4f14` sobre `2fd5341`; el revert NO se replica). Remote local `v14` configurado hacia `aircargo-saas-Version1.4.git` (URL derivada de `origin` incluye token `ghp_...` — no exponerlo).
+
+| File | Change |
+|------|--------|
+| Commit revert `c9ebfa8` (Version1.3) | **DEL** Dashboard Builder completo: `DashboardBuilderController/Servicio/FormulaEngine`, 7 DTOs (FieldDef/CalculatedField/Pivot*/Evaluate/Filter/ReportConfig), `DashboardReportEntity/Repository`, `V2__create_dashboard_report.sql`, `DashboardBuilderServiceTest`, `DashboardBuilderPanel.vue`, `FieldPicker.vue`, `dashboardReports.js`, claves i18n `db.*` (es/en ~105 claves), ruta `/api/dashboard-builder/**` de `RouteConfig`, documento de análisis `...NALISIS-DASHBOARD-BUILDER-REPORTE-CALCULABLE.md` (26 archivos, −3582 líneas). **CONSERVA**: EA type (`V3__add_ea_type.sql`), `useHeaderFilters`, fix visual DashboardView, `useIcons`, `EmptyState.vue` |
+| `frontend/index.html` | Google Fonts: `Cascadia+Code:wght@400;600;700` y `Bodoni+Moda:opsz,wght@6..96,400..900` (verificados 200 OK en el endpoint CSS2; `Bodoni+FLF` no existe → 400) |
+| `frontend/src/assets/main.css` | Selectores `data-font` nuevos: `cascadia` (Cascadia Code, `--font-family-weight:600`), `bodoni` (Bodoni Moda serif), `combo` (Cascadia UI + headings `h1..h4`/`.title`/`.ds-title`/`.ds-modal-title` en Bodoni Moda); body con `font-weight: var(--font-family-weight, 400)` |
+| `frontend/src/utils/font.js` | `VALID = ['consolas','nerd','sans','cascadia','bodoni','combo']`, default **`combo`** |
+| `frontend/src/components/layout/Header.vue` | Ciclo de fuentes ampliado: CMB → CSC → BDN → CON → NRD → SNS (FONT_ORDER/FONT_LABEL) |
+| `frontend/src/components/ToastNotifications.vue` | Fuente hardcodeada `'JetBrains Mono', 'Courier New', monospace` → `var(--font-family)` |
+
+**Verificación**: check:refs ✓ 43 SFC 0 sin resolver, eslint ✓, `npm run build` ✓, vitest **18/18** ✓. Backend compile OK con `JAVA_HOME=/usr/lib/jvm/java-21-amazon-corretto` (el Maven flatpak trae JDK viejo → "release version 21 not supported"; usar JDK 21) — EXIT=0 (export-service + gateway).
+
+Lección git: al pushear la MISMA rama `main` a dos repos, el árbol `96f4f14` NO contiene el builder (el revert está en su historia) — para que un repo conserve contenido que otro revirtió hay que **cherry-pick solo el commit de la feature sobre el ancestro correcto**, no pushear la rama entera. Primer intento dejó V1.4 sin builder; corregido con `git branch v14-fix 2fd5341 && git cherry-pick 96f4f14 && git push -f v14 v14-fix:main`.
+
 ## Recent session changes (Sep 2, 2026 (5) — Fix 500 GET /api/receipts/{id}: colisión de caché Caffeine)
 
 **Bug reportado**: `GET /api/receipts/{id}` (ruta usada al emitir/actualizar un recibo) fallaba con `500 ClassCastException: ImmutableCollections$ListN cannot be cast to WarehouseReceiptDTO` en `WarehouseReceiptController.getById:38` (`Optional.map(ResponseEntity::ok)`).
