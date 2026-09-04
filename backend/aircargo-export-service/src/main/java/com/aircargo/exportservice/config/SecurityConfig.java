@@ -34,12 +34,6 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/exports/**").hasAnyAuthority("READ_ONLY", "ADMIN", "SUPER_USER", "BI_USER")
                 .requestMatchers(HttpMethod.GET, "/api/bi/**").hasAnyAuthority("READ_ONLY", "ADMIN", "SUPER_USER", "BI_USER")
                 .requestMatchers(HttpMethod.GET, "/api/reports/**").hasAnyAuthority("ADMIN", "SUPER_USER", "BI_USER")
-                // Dashboard Builder: lectura/catálogo/evaluación para cualquier rol autenticado;
-                // gestión (crear/editar/eliminar reportes) solo para los 4 roles operativos.
-                .requestMatchers(HttpMethod.GET, "/api/dashboard-builder/**").authenticated()
-                .requestMatchers(HttpMethod.POST, "/api/dashboard-builder/reports").hasAnyAuthority("OPERATIONS", "TRAFFIC", "ADMIN", "SUPER_USER")
-                .requestMatchers(HttpMethod.PUT, "/api/dashboard-builder/reports/**").hasAnyAuthority("OPERATIONS", "TRAFFIC", "ADMIN", "SUPER_USER")
-                .requestMatchers(HttpMethod.DELETE, "/api/dashboard-builder/reports/**").hasAnyAuthority("OPERATIONS", "TRAFFIC", "ADMIN", "SUPER_USER")
                 .anyRequest().authenticated()
             )
             .exceptionHandling(eh -> eh.authenticationEntryPoint(

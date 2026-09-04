@@ -23,9 +23,6 @@
       <button @click="activeTab = 'weight-report'" class="ds-tab" :class="activeTab === 'weight-report' ? 'ds-tab-active' : ''">
         {{ t('dashboard.tabs.weightReport') }}
       </button>
-      <button @click="activeTab = 'builder'" class="ds-tab" :class="activeTab === 'builder' ? 'ds-tab-active' : ''">
-        {{ t('dashboard.tabs.builder') }}
-      </button>
     </div>
 
     <div v-if="activeTab === 'flights'" class="flex-1 min-h-0 flex flex-col gap-2">
@@ -463,10 +460,6 @@
     </section>
     </div>
 
-  <div v-if="activeTab === 'builder'" class="flex-1 min-h-0 overflow-y-auto pr-1">
-        <DashboardBuilderPanel />
-      </div>
-
   </div>
 </template>
 
@@ -479,7 +472,6 @@ import FlightDetail from '../components/FlightDetail.vue'
 import { useCommodities } from '../composables/useCommodities'
 import { biApi } from '../api/bi'
 import FilterBar from '../components/FilterBar.vue'
-import DashboardBuilderPanel from '../components/DashboardBuilderPanel.vue'
 import EmptyState from '../components/EmptyState.vue'
 import { useIcons } from '../composables/useIcons'
 import { useHeaderFilters } from '../composables/useHeaderFilters'
