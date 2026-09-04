@@ -9,9 +9,10 @@
       </div>
       <div class="flex items-center gap-2 flex-wrap">
         <span v-if="pendingReceiptCount > 0"
-          class="text-[14px] font-mono font-bold text-slate-600 bg-slate-50 border border-slate-200 px-2 py-1 rounded">
+          class="text-[13px] font-mono font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-1 rounded-lg">
           &#9888; {{ t('ulds.pendingReceipts', { n: pendingReceiptCount }) }}
         </span>
+        <span class="ds-chip">{{ t('ulds.listCount', filteredUlDs.length) }}</span>
         <FilterBar
           v-model:status="statusFilter"
           v-model:search-text="searchText"
@@ -31,27 +32,26 @@
     </header>
 
     <section class="ds-table-section mb-1.5">
-      <div v-if="appStore.loading && !localUlds.length" class="flex-1 flex items-center justify-center">
-        <span class="text-[14px] font-mono text-slate-400 animate-pulse">{{ t('ulds.loading') }}</span>
-      </div>
+      <EmptyState v-if="appStore.loading && !localUlds.length" :title="t('ulds.loading')" loading />
 
-      <div v-else-if="filteredUlDs.length === 0" class="flex-1 flex items-center justify-center">
-        <p class="text-[14px] font-mono text-slate-400 uppercase tracking-widest">{{ t('ulds.emptyCreate') }}</p>
-      </div>
+      <EmptyState v-else-if="filteredUlDs.length === 0" :title="t('ulds.emptyCreate')" :hint="t('ulds.emptyHint')" :icon="icons.Package">
+        <button @click="createNewBlankUld" class="ds-btn-primary mt-1">
+          <span class="text-[12px] font-sans">&#65291;</span> {{ t('ulds.createUld') }}
+        </button>
+      </EmptyState>
 
-      <template v-else>
-        <!-- Single row per ULD -->
-        <div class="flex flex-col gap-px p-2 overflow-y-auto max-h-[120px] shrink-0 scrollbar-none">
+      <div v-else class="ds-split">
+        <aside class="ds-split-list">
           <div v-for="uld in filteredUlDs" :key="uld.uid"
             @click="toggleUldExpansion(uld.uid)"
-            class="flex items-center gap-3 rounded border cursor-pointer transition-all px-3 py-2 select-none"
+            class="ds-list-card flex-wrap"
             :class="[expandedUldId === uld.uid
               ? 'border-slate-950 ring-1 ring-slate-950 row-selected'
-              : 'border-slate-200 hover:border-slate-400 bg-white hover:shadow-sm',
+              : 'border-slate-200 hover:border-slate-400 hover:shadow-sm',
               uld._isFirstDated ? 'border-t-2 border-t-slate-950 mt-1' : '']"
             :style="uldStatusBorderStyle(uld.status)">
 
-            <span class="text-[13px] font-black text-slate-950 font-mono truncate min-w-[100px] leading-tight flex items-center gap-1.5">
+            <span class="text-[13px] font-black text-slate-950 font-mono truncate min-w-0 leading-tight flex items-center gap-1.5 flex-1">
               {{ uld.uldNumber || t('ulds.newUld') }}
               <span v-if="uldAgeInDays(uld.createdAt) !== null"
                 class="text-[10px] font-bold px-1 py-px rounded leading-none"
@@ -62,35 +62,25 @@
             <span class="text-[10px] font-black px-1 py-px rounded uppercase whitespace-nowrap leading-none shrink-0"
               :class="statusBadgeClass(uld.status)">{{ t('ulds.status.' + uld.status) }}</span>
 
-            <span class="text-[13px] font-mono text-slate-400 font-semibold truncate leading-tight shrink-0 min-w-[80px]">
+            <span class="text-[12px] font-mono text-slate-500 truncate w-full leading-tight">
               {{ flightLabel(uld) }}
+              <span v-if="uld.route"> · {{ uld.route.replace(' -> ', '→') }}</span>
+              · {{ Number(uld.grossWeightLbs || 0).toLocaleString() }} lb
+              · {{ t('ulds.mawbCount', (uld.mawbs || []).length) }}
             </span>
 
-            <span class="text-[13px] font-mono text-slate-500 truncate leading-tight shrink-0 min-w-[60px]">
-              {{ uld.route ? uld.route.replace(' -> ', '&#8594;') : '---' }}
-            </span>
-
-            <span class="text-[13px] font-mono font-bold text-slate-950 leading-tight shrink-0 min-w-[70px]">
-              {{ Number(uld.grossWeightLbs || 0).toLocaleString() }} lb
-            </span>
-
-            <span class="text-[13px] font-mono text-slate-500 leading-tight shrink-0 min-w-[60px]">
-              {{ t('ulds.mawbCount', (uld.mawbs || []).length) }}
-            </span>
-
-            <div class="flex items-center gap-1 ml-auto min-w-[80px]">
-              <div class="flex-1 h-[2px] bg-slate-100 rounded-full overflow-hidden">
+            <div class="flex items-center gap-1 w-full">
+              <div class="flex-1 h-[3px] bg-slate-100 rounded-full overflow-hidden">
                 <div class="h-full rounded-full transition-all duration-300"
                   :class="uld.volumePct >= 90 ? 'bg-slate-600' : 'bg-slate-950'"
                   :style="{ width: uld.volumePct + '%' }"></div>
               </div>
-              <span class="text-[13px] font-mono font-bold text-slate-400 leading-none">{{ uld.volumePct }}%</span>
+              <span class="text-[12px] font-mono font-bold text-slate-400 leading-none">{{ uld.volumePct }}%</span>
             </div>
           </div>
-        </div>
+        </aside>
 
-        <!-- Expanded form area -->
-        <div class="border-t border-slate-200 flex-1 overflow-y-auto scrollbar-none bg-slate-50">
+        <div class="ds-split-detail">
           <div v-for="uld in filteredUlDs" :key="'f-'+uld.uid">
             <div v-show="expandedUldId === uld.uid" class="p-4">
               <div class="bg-white border border-slate-300 rounded shadow-sm max-w-5xl mx-auto p-3 md:p-6 font-mono text-sm relative">
@@ -379,11 +369,9 @@
             </div>
           </div>
 
-          <div v-if="!expandedUldId" class="flex items-center justify-center h-full">
-            <p class="text-[13px] font-mono text-slate-300 uppercase tracking-widest">{{ t('ulds.selectToEdit') }}</p>
-          </div>
+          <EmptyState v-if="!expandedUldId" :title="t('ulds.selectToEdit')" :hint="t('ulds.selectHint')" :icon="icons.Package" />
         </div>
-      </template>
+      </div>
     </section>
 
     <LabelPrintModal v-if="showLabels" type="PALLET" :items="labelIds" @close="showLabels = false" />
@@ -408,11 +396,14 @@ import LabelPrintModal from '../components/labels/LabelPrintModal.vue'
 import { useCommodities } from '../composables/useCommodities'
 import { useConfirm } from '../composables/useConfirm'
 import FilterBar from '../components/FilterBar.vue'
+import EmptyState from '../components/EmptyState.vue'
+import { useIcons } from '../composables/useIcons'
 
 const uldsStore = useUldsStore()
 const appStore = useAppStore()
 const toast = useToastStore()
 const { t, te } = useI18n()
+const icons = useIcons()
 const { confirm } = useConfirm()
 const { commodities: dbCommodities, loadCommodities } = useCommodities()
 

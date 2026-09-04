@@ -11,10 +11,30 @@
   --accent-light: #e0e0e0;
   --border: #999999;
   --sidebar-width: 230px;
+  /* Font selector (data-font on <html>): 'mono' (Nerd/JetBrains Mono) | 'nerd' | 'sans' */
+  --font-family-mono: 'JetBrains Mono', 'Courier New', monospace;
+  --font-family-sans: 'JetBrains Mono', 'Courier New', monospace;
+  --font-family: var(--font-family-mono);
+}
+
+/* Font selector: Consolas */
+:root[data-font='consolas'] {
+  --font-family-mono: Consolas, 'JetBrains Mono', 'Courier New', monospace;
+  --font-family: var(--font-family-mono);
+}
+/* Font selector: Nerd Font (default monospace) */
+:root[data-font='nerd'] {
+  --font-family-mono: 'JetBrains Mono', 'JetBrainsMono Nerd Font', 'Courier New', monospace;
+  --font-family: var(--font-family-mono);
+}
+/* Font selector: Sans Serif */
+:root[data-font='sans'] {
+  --font-family-sans: 'Inter', 'Segoe UI', system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+  --font-family: var(--font-family-sans);
 }
 
 body {
-  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-family: var(--font-family);
   background-color: var(--bg);
   font-size: 14px;
   color: var(--text);
@@ -28,7 +48,7 @@ h1, h2, h3, h4, .title {
 }
 
 .font-mono {
-  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-family: var(--font-family);
 }
 
 .card {
@@ -66,14 +86,14 @@ td, th {
 }
 
 button, .btn {
-  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-family: var(--font-family);
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 input, select, textarea {
-  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-family: var(--font-family);
   font-size: 12px;
   border: 1px solid var(--border);
   background: var(--surface);
@@ -94,14 +114,34 @@ input:focus, select:focus, textarea:focus {
 @layer components {
   /* ── Page wrapper ─────────────────────────── */
   .ds-page {
-    @apply p-3 md:p-5 bg-white h-screen max-h-screen flex flex-col
+    @apply p-3 md:p-5 bg-slate-50/70 h-screen max-h-screen flex flex-col
            text-slate-900 font-sans antialiased overflow-hidden select-none;
+  }
+
+  /* ── Card (surface with subtle elevation) ─── */
+  .ds-card {
+    @apply bg-white border border-slate-200 rounded-xl px-4 py-3
+           shadow-sm shadow-slate-900/5 transition;
+  }
+
+  .ds-card-label {
+    @apply text-[10px] font-mono font-semibold text-slate-500 uppercase tracking-wide mb-1;
+  }
+
+  .ds-card-value {
+    @apply text-[18px] font-mono font-bold text-slate-900;
+  }
+
+  /* ── Small info chip/badge ───────────────── */
+  .ds-chip {
+    @apply text-[10px] font-mono px-1.5 py-0.5 rounded-full
+           bg-slate-100 text-slate-600 border border-slate-200;
   }
 
   /* ── Table section (wraps header + scroll) ── */
   .ds-table-section {
-    @apply flex-1 min-h-0 border border-slate-200 rounded-lg overflow-hidden
-           bg-white flex flex-col;
+    @apply flex-1 min-h-0 border border-slate-200 rounded-xl overflow-hidden
+           bg-white flex flex-col shadow-sm shadow-slate-900/5;
   }
 
   /* ── Table header row (dark bar) ──────────── */
@@ -120,18 +160,28 @@ input:focus, select:focus, textarea:focus {
 
   /* ── Primary button (dark fill) ───────────── */
   .ds-btn-primary {
-    @apply flex items-center gap-1.5 text-[13px] px-4 py-2 rounded-lg
+    @apply flex items-center gap-1.5 text-[13px] px-4 py-2 rounded-xl
            font-mono uppercase tracking-wider font-bold text-white
-           bg-slate-950 hover:bg-slate-800 shadow-sm
-           transition active:scale-95 disabled:opacity-50;
+           bg-slate-950 hover:bg-slate-800 shadow-sm shadow-slate-900/10
+           ring-1 ring-inset ring-black/5
+           transition-all active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none;
   }
 
   /* ── Secondary button (outline) ───────────── */
   .ds-btn-secondary {
-    @apply flex items-center gap-1.5 text-[13px] px-4 py-2 rounded-lg
+    @apply flex items-center gap-1.5 text-[13px] px-4 py-2 rounded-xl
            border border-slate-300 font-mono uppercase tracking-wider
-           font-bold text-slate-950 hover:bg-slate-100
-           transition active:scale-95 disabled:opacity-40;
+           font-bold text-slate-950 hover:bg-slate-100 hover:border-slate-400
+           shadow-sm transition-all active:scale-[0.97] disabled:opacity-40 disabled:pointer-events-none;
+  }
+
+  /* ── Danger button (red, destructive) ─────── */
+  .ds-btn-danger {
+    @apply flex items-center justify-center text-[12px] px-2.5 py-1.5 rounded-lg
+           font-mono font-bold uppercase tracking-wider
+           border border-rose-200 text-rose-700 bg-rose-50
+           hover:bg-rose-100 hover:border-rose-300 transition
+           active:scale-95 disabled:opacity-40;
   }
 
   /* ── Modal backdrop ───────────────────────── */
@@ -142,7 +192,7 @@ input:focus, select:focus, textarea:focus {
 
   /* ── Modal panel ──────────────────────────── */
   .ds-modal-panel {
-    @apply bg-white rounded-xl border border-slate-200 shadow-2xl
+    @apply bg-white rounded-2xl border border-slate-200 shadow-2xl shadow-slate-900/20
            w-full max-w-xl p-6 max-h-[90vh] overflow-y-auto;
   }
 
@@ -159,10 +209,10 @@ input:focus, select:focus, textarea:focus {
 
   /* ── Form input ───────────────────────────── */
   .ds-input {
-    @apply w-full text-[14px] font-mono px-4 py-2.5 rounded-lg
+    @apply w-full text-[14px] font-mono px-4 py-2.5 rounded-xl
            border border-slate-300 bg-white outline-none
            focus:ring-2 focus:ring-slate-950/10 focus:border-slate-950
-           transition;
+           transition shadow-sm;
   }
 
   /* ── Form label ───────────────────────────── */
@@ -202,7 +252,116 @@ input:focus, select:focus, textarea:focus {
     @apply flex-1 flex flex-col items-center justify-center gap-3
            text-[14px] font-mono text-slate-500;
   }
+
+  /* ── Tabs ─────────────────────────────────── */
+  .ds-tabs {
+    @apply flex items-center gap-0.5 border-b border-slate-200 shrink-0;
+  }
+  .ds-tab {
+    @apply relative px-4 py-2 text-[13px] font-mono font-black uppercase
+           tracking-widest text-slate-400 hover:text-slate-700 transition-colors;
+  }
+  .ds-tab-active {
+    @apply text-slate-950;
+  }
+  .ds-tab-active::after {
+    content: '';
+    @apply absolute bottom-0 left-2 right-2 h-0.5 bg-slate-950 rounded-full;
+  }
+
+  /* ── Compact icon button (toolbars) ───────── */
+  .ds-icon-btn {
+    @apply inline-flex items-center justify-center gap-1 min-h-9 min-w-9
+           px-2 py-1.5 rounded-lg border border-slate-200 bg-white
+           text-slate-600 hover:text-slate-950 hover:border-slate-400 hover:bg-slate-50
+           transition-colors disabled:opacity-40;
+  }
+
+  /* ── Search field with icon ───────────────── */
+  .ds-search {
+    @apply relative flex-1 min-w-[140px] max-w-[280px];
+  }
+  .ds-search-icon {
+    @apply pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400;
+  }
+
+  /* ── Ops toolbar (second row of filters) ──── */
+  .ds-toolbar {
+    @apply flex flex-wrap items-center gap-2 shrink-0;
+  }
+
+  /* ── Status strip chips ───────────────────── */
+  .ds-stat-chip {
+    @apply inline-flex items-center gap-1.5 px-2 py-1 rounded-lg
+           bg-white border border-slate-200 text-[12px] font-mono;
+  }
+
+  /* ── Row action cluster ───────────────────── */
+  .ds-row-actions {
+    @apply flex items-center justify-end gap-0.5 opacity-70
+           group-hover:opacity-100 focus-within:opacity-100 transition-opacity;
+  }
+
+  /* ── Loading spinner ──────────────────────── */
+  .ds-spinner {
+    @apply w-5 h-5 rounded-full border-2 border-slate-200 border-t-slate-950 animate-spin;
+  }
+
+  /* ── Master-detail (ULD picker + form) ────── */
+  .ds-split {
+    @apply flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden;
+  }
+  .ds-split-list {
+    @apply shrink-0 flex flex-col gap-1 p-2 overflow-y-auto
+           border-b lg:border-b-0 lg:border-r border-slate-200 bg-slate-50/60;
+    max-height: 38vh;
+  }
+  .ds-split-detail {
+    @apply flex-1 min-h-0 overflow-y-auto bg-slate-50;
+  }
+  .ds-list-card {
+    @apply flex items-center gap-3 rounded-lg border cursor-pointer
+           transition-all px-3 py-2.5 select-none bg-white;
+  }
 }
+
+@media (min-width: 1024px) {
+  .ds-split-list {
+    max-height: none;
+    width: 300px;
+  }
+}
+
+/* ── Density: comfortable (default) / compact ─ */
+:root[data-density='compact'] .ds-page {
+  padding: 8px 10px;
+}
+:root[data-density='compact'] .ds-section-header {
+  padding-bottom: 8px;
+  gap: 6px;
+}
+:root[data-density='compact'] .ds-title { font-size: 14px; }
+:root[data-density='compact'] .ds-subtitle { display: none; }
+:root[data-density='compact'] .ds-table-header { padding: 6px 12px; font-size: 11px; }
+:root[data-density='compact'] .ds-table-row { padding: 4px 12px; }
+:root[data-density='compact'] .ds-btn-primary,
+:root[data-density='compact'] .ds-btn-secondary {
+  padding: 4px 10px;
+  font-size: 11px;
+  border-radius: 8px;
+}
+:root[data-density='compact'] .ds-input { padding: 4px 10px; }
+:root[data-density='compact'] .ds-label { margin-bottom: 2px; font-size: 11px; }
+:root[data-density='compact'] .ds-card { padding: 8px 10px; }
+:root[data-density='compact'] .ds-card-value { font-size: 15px; }
+:root[data-density='compact'] .ds-split-list { max-height: 28vh; }
+:root[data-density='compact'] .ds-list-card { padding: 6px 8px; gap: 6px; }
+:root[data-density='compact'] .ds-empty { padding-top: 1.25rem; padding-bottom: 1.25rem; gap: 0.5rem; }
+:root[data-density='compact'] .ds-tab { padding: 6px 12px; font-size: 12px; }
+:root[data-density='compact'] .ds-icon-btn { min-height: 28px; min-width: 28px; padding: 4px; }
+:root[data-density='compact'] table th,
+:root[data-density='compact'] table td { padding: 4px 8px; }
+:root[data-density='compact'] .ds-modal-panel { padding: 1rem; }
 
 /* ── Table horizontal scroll wrapper ────────── */
 .table-scroll-wrapper {
@@ -306,17 +465,20 @@ input:focus, select:focus, textarea:focus {
 }
 
 /* ── Design system components ─────────────────────────── */
-:root[data-theme='tokyo'] .ds-page { background: #0f172a; color: #e2e8f0; }
+:root[data-theme='tokyo'] .ds-page { background: #0b1220; color: #e2e8f0; }
+:root[data-theme='tokyo'] .ds-card { background: #111827; border-color: #334155; box-shadow: 0 1px 3px rgb(0 0 0 / 0.4); }
 :root[data-theme='tokyo'] .ds-table-section { background: #111827; border-color: #334155; }
 :root[data-theme='tokyo'] .ds-table-row { border-color: #334155; }
 :root[data-theme='tokyo'] .ds-table-row:hover { background: rgb(51 65 85 / 0.45) !important; }
 :root[data-theme='tokyo'] .ds-table-header { background: #1e293b; }
-:root[data-theme='tokyo'] .ds-btn-primary { background: #3b82f6; color: #fff; }
+:root[data-theme='tokyo'] .ds-btn-primary { background: #3b82f6; color: #fff; box-shadow: 0 2px 8px rgb(59 130 246 / 0.35); }
 :root[data-theme='tokyo'] .ds-btn-primary:hover { background: #2563eb; }
 :root[data-theme='tokyo'] .ds-btn-primary:disabled { opacity: 0.4; }
 :root[data-theme='tokyo'] .ds-btn-secondary { border-color: #475569; color: #e2e8f0; }
 :root[data-theme='tokyo'] .ds-btn-secondary:hover { background: #1e293b; border-color: #64748b; }
 :root[data-theme='tokyo'] .ds-btn-secondary:disabled { opacity: 0.4; }
+:root[data-theme='tokyo'] .ds-btn-danger { border-color: #7f1d1d; color: #fca5a5; background: rgb(127 29 29 / 0.2); }
+:root[data-theme='tokyo'] .ds-btn-danger:hover { background: rgb(127 29 29 / 0.35); border-color: #b91c1c; }
 :root[data-theme='tokyo'] .ds-modal-backdrop { background: rgba(0, 0, 0, 0.7); }
 :root[data-theme='tokyo'] .ds-modal-panel { background: #1e293b; border-color: #334155; }
 :root[data-theme='tokyo'] .ds-modal-header { border-color: #334155; }
@@ -327,9 +489,24 @@ input:focus, select:focus, textarea:focus {
 :root[data-theme='tokyo'] .ds-title { color: #f8fafc; }
 :root[data-theme='tokyo'] .ds-subtitle { color: #94a3b8; }
 :root[data-theme='tokyo'] .ds-section-header { border-color: #334155; }
+:root[data-theme='tokyo'] .ds-card-label { color: #94a3b8; }
+:root[data-theme='tokyo'] .ds-card-value { color: #f8fafc; }
+:root[data-theme='tokyo'] .ds-chip { background: #1e293b; color: #cbd5e1; border-color: #334155; }
 :root[data-theme='tokyo'] .ds-stat { color: #f8fafc; }
 :root[data-theme='tokyo'] .ds-divider { background: #334155; }
 :root[data-theme='tokyo'] .ds-empty { color: #94a3b8; }
+:root[data-theme='tokyo'] .ds-tabs { border-color: #334155; }
+:root[data-theme='tokyo'] .ds-tab { color: #64748b; }
+:root[data-theme='tokyo'] .ds-tab:hover { color: #cbd5e1; }
+:root[data-theme='tokyo'] .ds-tab-active { color: #f8fafc; }
+:root[data-theme='tokyo'] .ds-tab-active::after { background: #7aa2f7; }
+:root[data-theme='tokyo'] .ds-icon-btn { background: #1e293b; border-color: #334155; color: #cbd5e1; }
+:root[data-theme='tokyo'] .ds-icon-btn:hover { background: #334155; color: #f8fafc; border-color: #64748b; }
+:root[data-theme='tokyo'] .ds-stat-chip { background: #1e293b; border-color: #334155; }
+:root[data-theme='tokyo'] .ds-spinner { border-color: #334155; border-top-color: #7aa2f7; }
+:root[data-theme='tokyo'] .ds-split-list { background: #0f172a; border-color: #334155; }
+:root[data-theme='tokyo'] .ds-split-detail { background: #0b1220; }
+:root[data-theme='tokyo'] .ds-list-card { background: #1e293b; }
 
 /* ── Backgrounds (light surfaces → dark) ──────────────── */
 :root[data-theme='tokyo'] .bg-white { background-color: #1e293b; }

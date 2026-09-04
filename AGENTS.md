@@ -105,6 +105,106 @@ Flyway migrations live in **each microservice** at `backend/aircargo-*-service/s
 
 Full plan: `Documents/MICROSERVICES-MIGRATION-PLAN.md`
 
+## Recent session changes (Sep 2, 2026 (5) — Fix 500 GET /api/receipts/{id}: colisión de caché Caffeine)
+
+**Bug reportado**: `GET /api/receipts/{id}` (ruta usada al emitir/actualizar un recibo) fallaba con `500 ClassCastException: ImmutableCollections$ListN cannot be cast to WarehouseReceiptDTO` en `WarehouseReceiptController.getById:38` (`Optional.map(ResponseEntity::ok)`).
+
+**Causa raíz**: dos `@Service` distintos compartían el **mismo nombre de caché Caffeine `warehouse-receipts`** guardando valores de tipos distintos bajo la misma clave por defecto:
+- `WarehouseReceiptServiceImpl.getAll()` — `@Cacheable("warehouse-receipts")` (clave default `SimpleKey.EMPTY`), guarda `List<WarehouseReceiptDTO>`.
+- `WarehouseServiceImpl.getPieces(receiptId)` — `@Cacheable("warehouse-receipts")` (también clave default), guarda `List<ReceiptPieceDTO>`.
+
+Al colisionar ambas listas bajo la misma clave default, el método que leía la caché recuperaba una `List` del **otro** tipo; cuando `getById` (misma caché, clave `#id`) entregaba el valor mal tipado al controller, `ResponseEntity::ok` (que espera `WarehouseReceiptDTO`) recibía una `List` → `ClassCastException`. No era problema de token/MFA: login con token válido también fallaba en esa ruta.
+
+| File | Change |
+|------|--------|
+| `backend/.../warehouseservice/service/WarehouseServiceImpl.java` | **FIX** — `getPieces(receiptId)` pasó de `@Cacheable("warehouse-receipts")` a **`@Cacheable("receipt-pieces")`** (caché propia, sin colisión de tipos con la lista de recibos). `emitReceipt` y `updateReceipt` ahora usan `@CacheEvict(value = {"warehouse-receipts", "receipt-pieces"}, allEntries = true)` para invalidar ambas cachés al mutar piezas |
+| `backend/.../common/cache/TypeSafeCacheManager.java` | **NEW** — `CacheManager` decorador: envuelve cada caché en `TypeSafeCache`. Defensa global contra TODA la clase de error (no solo warehouse) |
+| `backend/.../common/cache/TypeSafeCache.java` | **NEW** — wrapper de `Cache` que valida el tipo del valor en `get(key, type)`: si el valor almacenado no es asignable al tipo esperado por el método `@Cacheable`, lo **desaloja** y devuelve `null` (cache-miss) en vez de dejarlo propagarse y romper el controller con `ClassCastException`. `get(key)` sin tipo no valida (no hay tipo esperado) |
+| `backend/.../common/cache/CacheConfig.java` | `cacheManager()` ahora devuelve `new TypeSafeCacheManager(manager)` — protección type-safe activada en el Caffeine compartido de TODOS los servicios |
+| `backend/.../common/cache/RedisCacheConfig.java` | Ídem para el modo Redis (HA): `new TypeSafeCacheManager(redis)` |
+| `backend/.../common/cache/TypeSafeCacheTest.java` | **NEW** — 3 tests del guard: mismatch→miss (lista guardada donde se espera String → null + entrada desalojada, antes ClassCastException), tipo correcto→valor devuelto, manager envuelve/degela |
+
+**Lección para el futuro**: cada tipo de valor distinto que se almacene en caché (lista vs DTO vs Optional) debe usar un **nombre de caché propio**; nunca compartir la misma caché para métodos con tipos de retorno incompatibles, porque Caffeine es type-erased (clave→Object) y cualquier colisión de clave devuelve el valor "tal cual" al método que la lee. Como segunda línea de defensa, la caché ahora es **type-safe globalmente** (TypeSafeCacheManager/TypeSafeCache): cualquier colisión futura deja de lanzar `ClassCastException` y se degrada a cache-miss silencioso.
+
+**Verificación**: `mvn -o test -pl aircargo-warehouse-service -am` → BUILD SUCCESS (common **22** — 19 previos + 3 del guard `TypeSafeCacheTest` — + warehouse 4). Reactor completo `install -DskipTests` reconstruido y servicio reiniciado (PID nuevo 162972, Java 21, arranca en ~8s). No se pudo hacer E2E HTTP por falta de credenciales válidas (los logins con fallback devuelven 401/428 por password desconocida o MFA obligatorio) — la validación queda cubierta por los tests del guard (simulan la colisión exacta del bug y verifican que ahora devuelve miss, no ClassCastException) y el build.
+
+## Recent session changes (Sep 2, 2026 (4) — Dashboard Builder UX: popup de campos, gráficos navegables, filtros/fields mejorados + selector de fuente global)
+
+5 mejoras solicitadas tras el modo pivot (solo frontend; backend /evaluate y /pivot intactos y verificados en :8080): field-picker popup, gráfico mejor distribuido y navegable, mejor selección de filtros/campos, gráfico más factible (export PNG/CSV + etiquetas), y selector global de tipo de letra en todas las vistas.
+
+| File | Change |
+|------|--------|
+| `frontend/src/components/FieldPicker.vue` | **NEW** — popup reutilizable para elegir campos: trigger expansible (muestra el campo actual + ⌄), panel con búsqueda, grupos por fuente (ULD/Flight/Airline/MAWB/Booking/Receipt/Scenario) expandibles/colapsables, botón "Todos" por grupo, modo single o multi-checkbox, muestra hint/unidad en tooltip. Cierra con click-fuera / Escape. Soporte Tokyo Night vía `data-theme`. Props: `fieldsBySource`, `modelValue`, `multi`, `onlyNumeric`, `placeholder`, `labelOf` |
+| `frontend/src/components/DashboardBuilderPanel.vue` | **#1 popup**: pivot rows (multi), pivot column (single), pivot values-field (only numeric) y filter field ahora usan `FieldPicker` en vez de `<select>` nativo. **Panel de campos (columnas) convertido a popup dropdown** (`FieldPicker multi` enlazado a `cfg.fieldSources`): se eliminó el card expandido con todos los checkboxes agrupados por fuente (ahorró ~360px de alto → la gráfica y el config quedan visibles sin zoom; el popup agrupa por fuente con búsqueda, "Todos" por grupo y contador de seleccionados). `#2/#4 gráfico`: contenedor `overflow-x-auto`, SVG con **ancho dinámico** (`chartCanvasW = max(600, 36*2 + n*64)`) para que las barras mantengan ancho cómodo y se haga scroll horizontal con muchos puntos; toolbar con toggle de etiquetas (`showLabels`, movido v-if a `<g>` wrapper por lint), **export PNG** (`exportPng` → clona SVG, inyecta fuente actual, rasteriza a 2x canvas) y **export CSV** (`exportCsv` con BOM + escape)`; `pointsData` ahora incluye coords `x`. Se eliminaron `fieldQuery`/`filteredFieldGroups`/`selectAllGroup`/`fieldUnit`/`sourceColor` (la lógica de agrupación/búsqueda/todos vive ahora en FieldPicker) |
+| `frontend/src/utils/font.js` | **NEW** — `getFont/setFont/applyFont/initFont` con `data-font` en `<html>` y persistencia `localStorage 'aircargo_font'`; valores `consolas`/`nerd`/`sans` (default consolas) |
+| `frontend/src/assets/main.css` | **#5** — CSS vars `--font-family(-mono/-sans)`; `[data-font='consolas'|'nerd'|'sans']` reasigna `--font-family`; `body/.font-mono/button/input` usan `var(--font-family)` |
+| `frontend/tailwind.config.js` | `fontFamily.mono` y `.sans` → `['var(--font-family)', …]` — así TODOS los `font-mono`/`@apply font-mono` de las clases `ds-*` cambian de fuente globalmente |
+| `frontend/src/App.vue` | `initFont()` junto a `initTheme()` |
+| `frontend/src/components/layout/Header.vue` | Botón de fuente junto al tema: cicla `CON → NRD → SNS` (`cycleFont`, `fontLabel`) con tooltip `header.fontHint` |
+| `frontend/src/i18n/es.js` + `en.js` | Claves `db.pickSelected/pickOpen/pickChooseFields/pickSearch/pickClose/pickAll/pickNone/pickNoMatch/pickOn/pickOff/searchFields/points/chartLabels/chartPng/chartCsv/pivotClear` + `header.fontHint` |
+| `frontend/scripts/check-sfc-refs.mjs` | GLOBALS ampliado con `XMLSerializer` (API nativa usada en exportPng) |
+| `frontend/src/views/DashboardView.vue` | **FIX scroll de la gráfica** — el tab builder ahora vive en `<div class="flex-1 min-h-0 overflow-y-auto pr-1">`: el raíz usa `.ds-page` (`h-screen overflow-hidden`), que RECORTABA el contenido vertical del Builder (la gráfica quedaba inalcanzable sin scrollbar). El wrapper da volumen acotado + scroll propio para ver la gráfica sin zoom. |
+| `frontend/src/components/DashboardBuilderPanel.vue` | **FIX gráfica en modo pivot** — la gráfica antes solo existía en flat (`v-if="result.rows"` y todo el pipeline `pointsData/numericColumns/chartDataCol/chartCanvasW` leía `result.value`, que es `null` en pivot). Ahora `chartColumns`/`chartRows` unifican ambas fuentes (flat usa `result`; pivot construye filas `{ rowField: key, measureLabel: cell[__total] }` desde `pivotResult`) → la gráfica se renderiza en AMBOS modos. **Auto-scroll** `scrollToChart()` tras `runEval` lleva la gráfica a la vista (`scrollTo` al scroller `overflow-y-auto`/`main.overflow-auto`). |
+
+**Verificación**: `check:refs` 44 SFC 0 refs, `lint` OK, `build` OK, `vitest` 15/15.
+
+**Problema reportado**: la tabla del builder seguía "sin información" pese a que el backend ya devolvía filas (fix de tabla base de la sesión anterior). Además se pidió un **reporte de consulta abierto tipo pivot table**: que el usuario elija los campos (filas/dimensiones + medidas) y la app calcule la agregación. Se implementó un modo PIVOT completo (filas + medidas + desglose por columna opcional) como segunda vía del builder, además del modo tabla plana.
+
+**Modelo de pivot** (estilo Klipfolio/DashThis): base de origen (`baseSource`), **filas** = 1+ dimensiones que agrupan (tupla), **valores** = 1+ medidas con agregación SUM/AVG/MAX/MIN/COUNT, y **columna** opcional cuyos valores distintos se convierten en grupos de columnas. Cada celda = agregación de una medida restringida a (fila × columna). Gran total por (columna × medida). Reusa las filas crudas de `buildRawRows` (misma unión ULD→Flight→Airline→MAWB→Booking→Recibo) + filtros `chartConfig.filters`.
+
+| File | Change |
+|------|--------|
+| `backend/.../exportservice/service/DashboardBuilderService.java` | **Refactor** — extraída `buildRawRows(String base, …)` (el switch de tabla base de paso "3" de `evaluate`, reutilizable); el `evaluate` la invoca con `baseSourceOf(cfg)`. **NEW** `publish ... pivot(PivotConfig)`: carga las mismas entidades que `evaluate`, agrupa por la tupla de `rows`, desglosa por `column` (valores distintos → `colGroups`), agrega cada `values[i]` por (fila × columna) con `agg(...)` (SUM/AVG/MAX/MIN/COUNT), ordena filas por su total global, produce `PivotResult`. Helpers `agg`, `mergeTotals`, `aggLabel`, `globalTotalOf`. Filtros: `filtersOf` refactorizado a `filtersOfChart(Map)` (sobrecarga para ReportConfigDTO y PivotConfig). Índice de celdas = `colGroup*measureCount + measureIdx` (`PivotResult.cellIndex`) |
+| `backend/.../exportservice/dto/PivotConfig.java` | **NEW** — record `(String baseSource, List<String> rows, List<PivotValue> values, String column, Map chartConfig)` |
+| `backend/.../exportservice/dto/PivotValue.java` | **NEW** — record `(String field, String agg)` con agg default SUM (normaliza a mayúsculas) |
+| `backend/.../exportservice/dto/PivotResult.java` | **NEW** — record `(baseSource, rowFields, colGroups, measures, List<PivotRow> rows, List<Object> totals)` + `cellIndex(col,measure,mCount)` |
+| `backend/.../exportservice/dto/PivotRow.java` | **NEW** — record `(List<String> key, List<Object> cells)` |
+| `backend/.../exportservice/controller/DashboardBuilderController.java` | **NEW** `POST /api/dashboard-builder/pivot` → `service.pivot(PivotConfig)` |
+| `backend/.../exportservice/service/DashboardBuilderServiceTest.java` | **+2 tests (total 11)**: `pivot_groupsByRowDimensionsAndAggregatesMeasures` (agrupa por MawbStatus, SUM=16 de piezas en RECEIVED de 2 mawebs) y `pivot_columnPivotCreatesColumnGroups` (column=MawbStatus → colGroups RECEIVED/BOOKED, celda por vuelo) |
+| `frontend/src/components/DashboardBuilderPanel.vue` | **Modo pivot** — botón toggle `Modo Pivot/Modo Tabla` en el toolbar (`toggleMode`). Card "Configuración de tabla dinámica": selectores de **Filas** (1+ con botón añadir/quitar), **Columnas** (opcional), **Valores** (campo numérico + agregación, 1+). `runEval` bifurca: en pivot envía `POST /pivot` con `{baseSource, rows, values, column, chartConfig.filters}` (payload `rows=...filter(Boolean)`); en flat conserva `/evaluate`. **Resultado** renderiza matriz pivot: cabecera doble (fila de grupos de columna con `colspan=measures.length` sobre fila de medidas) + totales. Persistencia: `chartConfig.mode` + `chartConfig.pivot={rows,column,values}` en save/load. Helpers `labelOf`, `fmtPivot`, `numberFields`, refs `mode/pivotResult/pivotRows/pivotColumn/pivotVals` |
+| `frontend/src/api/dashboardReports.js` | **NEW** `pivot(cfg)` → `POST /dashboard-builder/pivot` |
+| `frontend/src/i18n/es.js` + `en.js` | Claves `db.pivot{Mode,FlatMode,Cfg,Rows,PickRow,AddRow,Cols,NoCol,ColHint,Vals,PickField,AddVal,ValHint,Result,All,Total}` |
+
+**Verificación**:
+- Backend: reactor export → **11/11 tests** BUILD SUCCESS. Jar reconstruido (`install`) y desplegado en :9099.
+- Frontend: `check:refs` 0, `lint` OK, `build` OK, `vitest` 15/15.
+- **E2E real vía gateway** (`baseSource=mawb`, BD real mawb=24/booking=24/receipt=2/uld=0): `rows=[MawbStatus]` value SUM(MawbPieces) → BOOKED 398, RECEIVED 104, total 502; `rows=[FlightNumber]` + `column=MawbStatus` → matriz `{0403: [398,104]}`; 2 medidas + column + filtro `AwbNumber contains 58` → `cells=[BOOKED·Sum=172, BOOKED·Avg=3495, RECEIVED·Sum=4, RECEIVED·Avg=3969]` (índice colGroup×mCount+measure ✓); **filas anidadas** `rows=[AirlineCode,MawbStatus]` → key `["UPS","BOOKED"]/["UPS","RECEIVED"]`.
+
+Nota: la persistencia de `mode`/`pivot` viaja dentro de `chartConfig` (el controller ya guarda `chartConfig` como JSON), así que NO requirió migración de BD. El modo flat sigue intacto (catálogo de campos + fórmulas + filtros + gráficos). Builder sin comitear; SIN push a GitHub.
+
+## Recent session changes (Sep 2, 2026 (2) — Dashboard Builder: tabla base de filas seleccionable)
+
+**Bug reportado por el usuario**: evaluar un reporte generaba SOLO los headers (columnas) pero CERO filas de datos. **Causa raíz diagnosticada**: el motor del builder construía una fila por `uld_awb` (única fuente de filas), y en la BD real `uld`/`uld_awb` están en **cero** (solo MAWBs/Bookings/Recibos populados) → sin `uld_awb` no había filas que renderizar, sin importar cuántos MAWBs existieran.
+
+**Fix — dataset de origen ("tabla base") parametrizable** (`cfg.baseSource`), estilo Klipfolio/DashThis/Looker Studio: el builder ahora emite **una fila por registro de la tabla base elegida**, rompiendo la dependencia exclusiva de `uld_awb`. Cada base resuelve sus columnas con las mismas uniones (vuelo/aerolínea desde el MAWB o ULD; booking por mawbId/awbNumber; recibo no-superseded por mawbId).
+
+| File | Change |
+|------|--------|
+| `backend/.../exportservice/service/DashboardBuilderService.java` | **Reescrito el paso de filas** — carga TODAS las entidades en mapas (`uldById`, `flightById`, `mawbById`, `bookingBy*`, `receiptByMawbId`, `airlineById`) vía `findAll` (antes `findById` por ULD-AWB, solo alcanzaba ULDs ligados a piezas). Índices `awbByUld`/`awbByMawb` por piezas. `baseSourceOf(cfg)` lee `cfg.baseSource()` (fallback a `chartConfig.baseSource`, default `uld-awb`). `switch` por base: `mawb`/`booking`/`receipt` → `buildRowMawb(m,b,r,pieces,…)` (resuelve vuelo/aerolínea por `m.getFlightId()`/`m.getAirlineId()`, piezas = suma de ULD-AWB del MAWB); `flight` → `buildRowFlight`; `uld` → `buildRowUld`; `uld-awb` → `buildRowAwb` (comportamiento histórico). Helpers `baseFields` (columnas ULD+vuelo+aerolínea), `fillMawb/fillBooking/fillReceipt` compartidos |
+| `backend/.../exportservice/dto/ReportConfigDTO.java` | **NEW campo** `String baseSource` (mawb\|booking\|receipt\|flight\|uld\|uld-awb) en el record |
+| `backend/.../exportservice/service/DashboardBuilderServiceTest.java` | **+2 tests (total 9)**: `evaluate_baseSourceMawbReturnsRowsEvenWhenUldAwbEmpty` (uld_awb vacío + base=mawb → 2 filas reales, piezas 0) y `evaluate_baseSourceBookingGroupsByFlight` (1 fila por booking, vuelo resuelto del MAWB, agrupa por FlightNumber). **FIX en tests previos**: los 6 tests que usaban `uldRepo/flightRepo.findById` ahora stubean `findAll` (el motor ya no usa `findById`); constructor del DTO migrado a helper `cfg(...)` por el nuevo campo |
+| `frontend/src/components/DashboardBuilderPanel.vue` | **NEW selector "Tabla base (filas)"** en el toolbar (uld-awb/mawb/booking/receipt/flight/uld); `cfg.baseSource` default `'uld-awb'`, incluido en evaluate/save (se envía por el spread de `cfg`), restaurado en `loadReport` con fallback `'uld-awb'` |
+| `frontend/src/i18n/es.js` + `en.js` | Claves `db.baseSource` + `db.base{UldAwb,Mawb,Booking,Receipt,Flight,Uld}` |
+
+**Verificación**: reactor export **9/9 tests** BUILD SUCCESS (los 7 previos adaptados + 2 nuevos); frontend check:refs 43 SFC 0 refs, lint OK, build OK, vitest 15/15. **E2E real vía gateway** (auth:9092 + export:9099 + gateway:8080, token HS512 real): BD `mawb=24, booking=24, receipt=2, flight=2, uld=0, uld_awb=0` → `evaluate` **sin baseSource → 0 rows (bug reproducido)**; `baseSource=mawb` → **24 filas** (sample `406-05857585 / MawbPieces 12 / FlightNumber 0403 / UPS`); `baseSource=booking` → 24 filas; `baseSource=receipt` → 2 filas; `baseSource=flight` + `dimension=AirlineCode` → 1 fila UPS con `MaxPayloadKg=90000` (commit agregado).
+
+Lección E2E: en esta máquina el arranque manual de servicios tras `./start-all.sh` se hace con `setsid nohup java -jar … </dev/null >log 2>&1 & disown` — sin `setsid` el timeout del runner mata el proceso hijo. La BD real tiene los ULDs/piezas en cero por diseño operativo (los ULDs se registran en el módulo ULDs), por eso la tabla base es obligatoria para ver datos.
+
+## Recent session changes (Sep 2, 2026 — Dashboard Builder: agregaciones de fórmula + Top N + motor de gráficos)
+
+Mejora del Dashboard Builder tras análisis. Dos debilidades principales resueltas: (1) los totales ignoraban la agregación de cada columna calculada, y (2) el gráfico era una sola barra auto-detectada sin configuración. Además el selector "Top N" del frontend se enviaba pero **el backend lo ignoraba**.
+
+| File | Change |
+|------|--------|
+| `backend/.../exportservice/service/DashboardBuilderService.java` | **Totales con agregación** — `totalsFor` ahora respeta `formulas[i].aggregate` (SUM default / AVG / MAX / MIN / COUNT): `Map<String,String> aggByCol` construido desde las fórmulas y aplicado por columna en la fila TOTAL (antes SUM plana siempre). **Top N real** — `topNOf(cfg)` + `chartYOf(cfg, rows)` + `doubleOrZero()`; tras aplicar columnas calculadas, si `chartConfig.topN>0` ordena las filas por el eje Y (chart.y o primera columna numérica sin `__`) descendente y recorta a las N primeras. OJO: al agrupar, `groupBy` NO copia `__uldId`/`__flightId` al mapa agregado (las claves `__` no se propagan), por lo que `chartYOf` recae en la primera numérica del orden de inserción (p.ej. ULD `TareLbs`, no `GrossLbs`) — por eso el front **siempre envía `y`** explícito en `chartConfig`. |
+| `frontend/src/components/DashboardBuilderPanel.vue` | **Motor de gráficos configurables** — selector `chartType` (bar/line/area/pie), `chartX` (eje categorías: columnas no numéricas) y `chartY` (eje magnitud: columnas numéricas, con opción "(auto: primera numérica)"). SVG renderiza por tipo: barras con etiquetas + eje X rotado −30°, línea/área con path + puntos (`seriesPath`/`seriesPoints`), pastel con `arc()` slices + **leyenda con %** y paleta `PALETTE` de 10 colores. Ticks "nice" (`niceMax` con log10 → 4 gradaciones redondas + sufijo `k` para ≥1000). `gridTicks`/`yAt`/`numericColumns`/`xCandidates`. `chartType`/`x`/`y` se persisten en `chartConfig.type/x/y` (runEval + saveReport) y se restauran en `loadReport`. |
+| `frontend/src/i18n/es.js` + `en.js` | Nuevas claves `db.chart{Type,X,Y,AutoY,Bar,Line,Area,Pie,Hint}`. |
+| `backend/.../service/DashboardBuilderServiceTest.java` | 2 tests nuevos (+5 existentes = 7): `evaluate_totalsRespectFormulaAggregation` (AVG de `[Pieces]*2` → media de (10,10)=10, mientras `Pieces` usa SUM=10) y `evaluate_topNKeepsHighestRows` (topN=1 por `y=GrossLbs` → grupo 5Y2000 con Gross 300; **requiere `y` explícito** porque sin `__flightId` en filas agrupadas el auto-detecte cae en `TareLbs` 20 igual en todos → empate estable). |
+
+**Verificación**: reactor export `BUILD SUCCESS` (7/7 tests); frontend `check:refs` 43 SFC 0 refs, `lint` OK, `build` OK, `vitest` 15/15. **E2E real vía gateway** (token HS512 acuñado con el `JWT_SECRET` del `.env`, clave UTF-8 cruda): con datos temporales (ULD-A UPS gross 2000 + ULD-B FDX gross 4000, 4 `uld_awb`) → evaluate agrupado por AirlineCode con `formulas=[{column:PiecesX2, expression:[Pieces]*2, aggregate:AVG}]`, `chartConfig.topN=1, y=GrossLbs` → **1 fila FDX 4000** (topN respeta eje Y); sin topN → 2 grupos UPS(2000,6,12) y FDX(4000,10,20); **totales** `GrossLbs=6000` (SUM), `Pieces=16` (SUM), **`PiecesX2=16` (AVG de 12 y 20)** — la agregación AVG se distingue del SUM (que daría 32). Datos de prueba limpiados (`uld_awb` → 0).
+
+Lección E2E: la clave del `.env` es `JWT_SECRET` UTF-8 cruda de 64 bytes; para acuñar un token de acceso basta firmar HS512 (`alg:HS512`) con la clave UTF-8, subject=userId, claims `role/airlineId/email/fullName/tokenType=access/iat/exp`. El export-service rechazaba el token cuando se lanzaba **sin** cargar `.env` (secret distinto del entorno) — relanzar con `set -a; source ./.env` resuelve el 401.
+
 ## Recent session changes (Aug 30, 2026 (2) — MFA OBLIGATORIO con enrolamiento forzado en el login)
 
 **Requisito de negocio**: todos los usuarios deben tener MFA configurado antes de operar. Antes MFA era opcional (`mfaEnabled`), ahora es **obligatorio** (`app.mfa.mandatory=true`): un usuario con credenciales válidas pero sin MFA NO recibe token — se le fuerza a enrolarse en el login.
@@ -1170,6 +1270,32 @@ npm run build         # Vite build succeeds
 4. Simular reinicio (adelantar epoch en BD) → login → **428** `mfaReason=reset` con mensaje "Por seguridad, la autenticación de dos factores fue reiniciada tras una actualización del sistema..."
 5. Re-enrolamiento completo → login con TOTP OK
 6. Tests: auth-service **36/36** pass; reactor completo **102/102** pass; frontend lint/build/vitest OK
+
+## Recent session changes (Sep 1, 2026 — Dashboard Builder: campos seleccionables de todas las tablas + filtros)
+
+**Requisito de negocio**: el Dashboard Builder debía permitir elegir **qué campos de qué tablas** aparecen en las consultas personalizadas, filtrar las filas y agrupar. Antes: catálogo hardcodeado de 12 campos (ULD/Vuelo), `fieldSources` se guardaba pero NO controlaba las columnas del resultado, filas por ULD (no por ULD-AWB), sin filtros, y el frontend usaba claves i18n `db.*` que NO existían (se renderizaban crudas).
+
+**Decisiones de diseño**:
+- Cada fila del resultado = **una MAWB dentro de un ULD** (detalle `uld_awb`), con joins a ULD→Flight→Airline→MAWB→Booking (por mawbId, fallback por awbNumber)→WarehouseReceipt (prefiere recibo no superseded).
+- Los **filtros (WHERE)** viajan dentro de `cfg.chartConfig.filters` (`List<{field,op,value}>`) — persistidos con el reporte SIN migración de BD. Ops: `eq, ne, contains, gt, gte, lt, lte, isNull, notNull`.
+- `fieldSources` ahora **controla las columnas** del reporte (dimension + selección + fórmulas). `MAX_ROWS=5000`.
+- **Agrupación ULD-aware**: al agrupar, los pesos del ULD suman por ULD **distinto** no por fila (`ULD_LEVEL_KEYS = {TareLbs, GrossLbs, NetLbs, TareKg, GrossKg, NetKg}`), `FLIGHT_LEVEL_KEYS = {MaxPayloadKg}` por vuelo; el resto de numéricos suma plano; no-numérico toma el primer valor no-null. `LinkedHashMap` para orden estable.
+- Aliases legacy preservados para reportes/fórmulas viejas: `Pieces`→piezas ULD-AWB, `Origin`/`Destination`→del vuelo, `Status`→estado del ULD.
+
+| File | Change |
+|------|--------|
+| `backend/.../exportservice/service/DashboardBuilderService.java` | **REESCRITO** — catálogo de **61 campos** en 7 grupos (ULD 12, Flight 8, Airline 2, MAWB 12, Booking 13, Receipt 13, Scenario 1), cada `FieldDefDTO` con `source`; motor de filas ULD-AWB con joins; `filtersOf(cfg)` lee `chartConfig["filters"]`; `matchesFilters`; `groupBy` + `aggNumeric` (distinct-aware); `varsFor`/`totalsFor`; recorte de columnas a `dimension + fieldSources + fórmulas` |
+| `backend/.../exportservice/dto/FilterDTO.java` | **NEW** — record `filter(String field, String op, Object value)` (accessors `flt.field()`/`flt.op()`/`flt.value()`) |
+| `backend/.../exportservice/pom.xml` | Añadido `spring-boot-starter-test` (scope test) — el módulo no tenía infraestructura de tests |
+| `backend/.../exportservice/service/DashboardBuilderServiceTest.java` | **NEW** — 5 tests con repos mockeados: catálogo ≥40 con todas las fuentes, 1 fila por ULD-AWB con joins (UldNumber/FlightNumber/AirlineCode/MawbStatus), filtros eq/gte/isNull, agrupación con **GrossLbs sumado por ULD distinto + MaxPayloadKg por vuelo**, columnas = dimension+fieldSources |
+| `frontend/src/components/DashboardBuilderPanel.vue` | **REESCRITO** — selector de campos **agrupado por tabla** (checkbox por color, columna fuente en tooltip, todos los tipos seleccionables); sección **Filtros de consulta** (campo+operador+valor; input numérico/texto, dropdown Sí/No para booleanos, vacío/no-vacío sin valor), múltiples filtros AND; filtros se envían dentro de `chartConfig` al evaluar/guardar y se restauran al cargar; celdas booleanas renderizadas Sí/No; dimensión incluye campos string+boolean; grupos: uld/flight/**airline**/mawb/booking/receipt/scenario |
+| `frontend/src/i18n/es.js` + `en.js` | **NEW bloque `db`** — claves del builder completas (antes inexistentes): fuentes (uld/flight/airline/mawb/booking/receipt/scenario), operadores, filtros, hint de columnas. Verificado: 0 claves faltantes en ambos idiomas |
+
+**Verificación**:
+- Reactor Maven completo BUILD SUCCESS (auth 36, flight 11, booking 7, mawb 11, warehouse 4, uld 11, export **5 nuevos**, common/gateway): **107 tests**.
+- Frontend: check:refs 43 SFC 0 refs, lint OK, build OK, vitest 15/15.
+- **E2E real vía gateway** (token acuñado con el `JWT_SECRET` real del `.env` — clave UTF-8 cruda, NO Base64): `fields` → 61 campos; sin token → 401; `evaluate` sin agrupar → joins reales ULD↔Flight↔Airline↔MAWB; agrupación `AwbNumber` → **GrossLbs 2500** (2 ULDs distintos) y Pieces 7 (4+3); filtros AND (`Pieces≥5` + `contains "585"`) → 1 fila; fórmula `Pieces*tasaCrecimiento`(1.1) → 5.5; CRUD reportes con filtros persistidos (create/get/update/delete 204). Datos temporales de prueba insertados/eliminados (uld_awb vuelve a 0).
+- Nota: el export-service en marcha quedó RECONSTRUIDO y reiniciado con el jar nuevo (el proceso anterior corría el catálogo viejo).
 
 ## Import paths
 

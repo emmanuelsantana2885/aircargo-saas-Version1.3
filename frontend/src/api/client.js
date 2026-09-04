@@ -18,9 +18,29 @@ function processQueue(error) {
   failedQueue = []
 }
 
+function readStoredSession() {
+  try {
+    const raw = localStorage.getItem('aircargo_auth')
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+// Solo limpia y redirige con recarga cuando existía una sesión REALMENTE
+// establecida (userId + sitio confirmado). Si el usuario está a mitad del
+// login (aún sin sitio), NO se borra el estado ni se recarga: LoginView
+// conserva y restaura el paso del multi-step en sessionStorage y evita el
+// rebote a la pantalla de contraseña.
 function clearLocalSession() {
-  localStorage.removeItem('aircargo_auth')
-  window.location.href = '/login'
+  const stored = readStoredSession()
+  const hadFullSession = !!stored?.userId && !!stored?.selectedSiteId
+  if (hadFullSession) {
+    localStorage.removeItem('aircargo_auth')
+    if (window.location.pathname !== '/login') {
+      window.location.href = '/login'
+    }
+  }
 }
 
 api.interceptors.response.use(
@@ -44,6 +64,9 @@ api.interceptors.response.use(
         return api(originalRequest)
       } catch (refreshErr) {
         processQueue(refreshErr)
+        // El refresh falló: si no había una sesión plena (login en curso),
+        // rechazamos en silencio para no forzar la vuelta a la pantalla de
+        // contraseña; LoginView retoma el paso exacto del flujo.
         clearLocalSession()
         return Promise.reject(refreshErr)
       } finally {

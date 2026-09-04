@@ -7,10 +7,10 @@
           <p class="ds-subtitle hidden sm:block">{{ t('warehouse.subtitle') }}</p>
         </div>
         <div class="h-8 w-[1px] bg-slate-200 hidden sm:block"></div>
-        <div class="flex flex-col gap-0.5 opacity-50 hidden md:flex">
+        <div class="flex flex-col gap-0.5 min-w-[140px]">
           <span class="ds-label hidden sm:block">{{ t('common.flight') }}</span>
-          <select disabled
-            class="bg-slate-100 border border-slate-300 rounded px-2 py-1 font-black text-slate-800 uppercase tracking-widest text-[15px] min-w-[120px] cursor-not-allowed">
+          <select v-model="localFlightId" @change="onReceiptFlightChange"
+            class="ds-input font-black uppercase tracking-widest cursor-pointer min-w-[160px]">
             <option value="">{{ t('common.all') }}</option>
             <option v-for="f in store.flights" :key="f.id" :value="f.id">
               {{ airlineCodeById(f.airlineId) }}-{{ f.flightNumber }} ({{ f.origin }}→{{ f.destination }})
@@ -19,8 +19,11 @@
         </div>
         <div class="flex flex-col gap-0.5 flex-1 min-w-[140px] max-w-[280px]">
           <span class="ds-label hidden sm:block">{{ t('common.search') }} (* &lt; &gt; =)</span>
-          <input v-model="filterTextRaw" type="text" :placeholder="t('common.search')"
-            class="ds-input" />
+          <div class="ds-search max-w-none">
+            <component :is="icons.Search" :size="14" class="ds-search-icon" :stroke-width="2" />
+            <input v-model="filterTextRaw" type="text" :placeholder="t('common.search')"
+              class="ds-input w-full pl-9" />
+          </div>
         </div>
         <div class="flex flex-col gap-0.5">
           <span class="ds-label hidden sm:block">{{ t('common.date') }}</span>
@@ -28,7 +31,7 @@
         </div>
       </div>
         <div class="flex items-center gap-2 text-[13px] font-mono font-bold text-slate-950 shrink-0">
-        <span class="h-1.5 w-1.5 rounded-full bg-slate-500 "></span> {{ filteredMawbs.length }}/{{ store.mawbs.length }} MAWBs
+        <span class="ds-chip">{{ filteredMawbs.length }}/{{ store.mawbs.length }} MAWBs</span>
       </div>
     </header>
 
@@ -52,11 +55,11 @@
 
     <section class="ds-table-section mb-1.5">
       <div class="overflow-x-auto shrink-0">
-      <div class="ds-table-header border-b border-slate-600 receipt-list-header" style="min-width: 700px">
+      <div class="ds-table-header border-b border-slate-600 receipt-list-header" style="min-width: 1000px">
         <div class="col-span-1 text-left flex items-center gap-1">
           <input type="checkbox" :checked="selectedMawbIds.size === filteredMawbs.length && filteredMawbs.length > 0"
             @change="toggleSelectAll"
-            class="accent-slate-700 rounded w-3 h-3 cursor-pointer" />
+            class="accent-slate-700 rounded w-4 h-4 cursor-pointer" />
         </div>
         <div class="col-span-2 text-left relative">
           <span @click="toggleHeaderFilter('mawb')"
@@ -85,7 +88,7 @@
           </div>
         </div>
         <div class="col-span-1 text-center">{{ t('common.pieces') }}</div>
-        <div class="col-span-2 text-right pr-2">Peso (kg)</div>
+        <div class="col-span-1 text-right pr-2">Peso (kg)</div>
         <div class="col-span-1 text-center relative receipt-list-cell" data-col="dest">
           <span @click="toggleHeaderFilter('dest')"
             class="cursor-pointer select-none transition-all duration-150"
@@ -99,7 +102,7 @@
               class="px-3 py-1.5 cursor-pointer hover:bg-slate-100 truncate" :class="columnFilters.dest === v ? 'bg-slate-50 text-slate-700 font-bold' : ''">{{ v }}</div>
           </div>
         </div>
-        <div class="col-span-1 text-center receipt-list-cell" data-col="docs">Docs</div>
+        <div class="col-span-2 text-center receipt-list-cell" data-col="docs">Docs</div>
         <div class="col-span-2 text-center relative">
           <span @click="toggleHeaderFilter('status')"
             class="cursor-pointer select-none transition-all duration-150 inline-flex items-center gap-1"
@@ -132,22 +135,18 @@
         <button @click="selectedMawbIds.clear()" class="text-slate-950 hover:text-slate-950 text-[14px] font-mono underline ml-auto">{{ t('warehouse.signatures.clear') }}</button>
       </div>
 
-      <div v-if="store.mawbs.length === 0" class="flex-1 flex items-center justify-center">
-        <p class="text-[14px] font-mono text-slate-950 uppercase tracking-widest">No hay MAWBs</p>
-      </div>
-      <div v-else-if="filteredMawbs.length === 0" class="flex-1 flex items-center justify-center">
-        <p class="text-[14px] font-mono text-slate-950 uppercase tracking-widest">Ningún MAWB coincide con el filtro</p>
-      </div>
+      <EmptyState v-if="store.mawbs.length === 0" :title="t('warehouse.empty')" :hint="t('warehouse.emptyHint')" :icon="icons.FileInvoice" />
+      <EmptyState v-else-if="filteredMawbs.length === 0" :title="t('warehouse.emptyFilter')" :hint="t('warehouse.emptyHint')" :icon="icons.Search" />
       <div v-else class="divide-y divide-slate-200 text-[13px] text-slate-950 overflow-y-auto flex-1 min-h-0 thin-scrollbar">
           <div v-for="m in filteredMawbs" :key="m.id" class="flex flex-col">
           <div class="overflow-x-auto">
-          <div class="grid grid-cols-12 items-center py-1.5 px-5 transition-all duration-150 cursor-pointer border-t"
-            :class="[expandedId === m.id ? 'row-selected' : '', selectedMawbIds.has(m.id) ? 'bg-slate-50/50' : '', overdueSet.has(m.id) ? 'bg-amber-50/60 border-l-2 !border-l-amber-400' : '']" style="border-color: var(--border); min-width: 700px;"
+          <div class="grid grid-cols-12 items-center py-2 px-5 transition-all duration-150 cursor-pointer border-t hover:bg-slate-50/80"
+            :class="[expandedId === m.id ? 'row-selected' : '', selectedMawbIds.has(m.id) ? 'bg-slate-50/50' : '', overdueSet.has(m.id) ? 'bg-amber-50/60 border-l-2 !border-l-amber-400' : '']" style="border-color: var(--border); min-width: 1000px;"
             @click="toggleExpand(m)">
             <div class="col-span-1 flex items-center justify-center relative z-10">
               <input type="checkbox" :checked="selectedMawbIds.has(m.id)"
                 @click.stop @change="toggleSelect(m.id)"
-                class="accent-slate-700 rounded w-3 h-3 cursor-pointer" />
+                class="accent-slate-700 rounded w-4 h-4 cursor-pointer" />
             </div>
             <div class="col-span-2 font-mono font-bold text-slate-950 relative z-10 flex items-center gap-1.5">
               <span class="text-[12px] text-slate-950 transition-transform duration-200" :class="{ 'rotate-90': expandedId === m.id }">&#9654;</span>
@@ -164,23 +163,26 @@
               {{ receiptTotals[m.id]?.pieces || m.pieces || '—' }}
               <span v-if="receiptTotals[m.id]?.pieces > 0 && receiptTotals[m.id]?.pieces !== m.pieces" class="text-[13px] text-slate-500 block leading-tight">rec: {{ receiptTotals[m.id].pieces }}</span>
             </div>
-            <div class="col-span-2 text-right font-mono font-bold relative z-10 pr-2"
+            <div class="col-span-1 text-right font-mono font-bold relative z-10 pr-2"
               :class="receiptTotals[m.id]?.weightKg > 0 ? 'text-slate-700' : 'text-slate-950'">
               {{ receiptTotals[m.id]?.weightKg ? Number(receiptTotals[m.id].weightKg).toLocaleString() : (m.reportedWeightKg ? Number(m.reportedWeightKg).toLocaleString() : '—') }}
               <span v-if="receiptTotals[m.id]?.weightKg > 0 && receiptTotals[m.id]?.weightKg !== Number(m.reportedWeightKg)" class="text-[13px] text-slate-500 block leading-tight">recibo</span>
             </div>
             <div class="col-span-1 text-center font-mono font-bold text-slate-950 relative z-10 receipt-list-cell" data-col="dest">{{ m.destination || '—' }}</div>
-            <div class="col-span-1 flex items-center justify-center gap-1 relative z-10 receipt-list-cell" data-col="docs">
-              <button @click.stop="editOrExpandReceipt(m)" title="Editar/Crear recibo"
-                class="text-[16px] px-1 py-0.5 rounded transition font-bold leading-none shadow-sm"
-                :class="receiptById[m.id] ? 'bg-amber-500 text-white hover:bg-amber-600' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'">&#9998;</button>
+            <div class="col-span-2 flex items-center justify-center gap-1.5 flex-wrap relative z-10 receipt-list-cell" data-col="docs">
+              <button @click.stop="editOrExpandReceipt(m)" :title="t('warehouse.editReceipt')"
+                class="ds-icon-btn !min-h-9 !min-w-9 !px-0 !text-[16px]"
+                :class="receiptById[m.id] ? '!bg-amber-500 !text-white !border-amber-500 hover:!bg-amber-600' : ''">&#9998;</button>
+              <button @click.stop="toggleMawbEvidenceManager(m)"
+                class="ds-icon-btn !min-h-9 !min-w-9 !px-0 !text-[16px]"
+                :title="t('warehouse.evidence.title')">&#128193;</button>
               <template v-if="receiptById[m.id]">
-                <button @click.stop="downloadReceiptById(m)" title="Descargar Excel"
-                  class="text-[15px] px-1 py-0.5 rounded hover:bg-slate-100 hover:text-slate-700 transition leading-none">&#11015;</button>
-                <button @click.stop="downloadHtmlById(m)" title="Descargar HTML evidencias"
-                  class="text-[15px] px-1 py-0.5 rounded hover:bg-slate-200 hover:text-slate-950 transition leading-none">&#128196;</button>
-                <button @click.stop="downloadPdfById(m)" title="Descargar PDF evidencias"
-                  class="text-[15px] px-1 py-0.5 rounded hover:bg-slate-100 hover:text-slate-700 transition leading-none">&#128213;</button>
+                <button @click.stop="downloadReceiptById(m)" :title="t('warehouse.downloadExcel')"
+                  class="ds-icon-btn !min-h-9 !min-w-9 !px-0 !text-[16px]">&#11015;</button>
+                <button @click.stop="downloadHtmlById(m)" :title="t('warehouse.downloadHtml')"
+                  class="ds-icon-btn !min-h-9 !min-w-9 !px-0 !text-[16px]">&#128196;</button>
+                <button @click.stop="downloadPdfById(m)" :title="t('warehouse.downloadPdf')"
+                  class="ds-icon-btn !min-h-9 !min-w-9 !px-0 !text-[16px]">&#128213;</button>
               </template>
             </div>
             <div class="col-span-2 flex items-center gap-2 relative z-10">
@@ -195,11 +197,6 @@
                 :class="statusLabelClass(m)">{{ statusLabel(m) }}</span>
               <span v-if="overdueSet.has(m.id)"
                 class="text-amber-500 text-[16px] leading-none animate-pulse" title="Recibido pero vuelo ya pasó — pendiente de despacho">&#9888;</span>
-              <button @click.stop="toggleMawbEvidenceManager(m)"
-                class="ml-auto text-[13px] px-1.5 py-0.5 rounded border border-slate-300 text-slate-950 hover:text-slate-950 hover:border-slate-950 transition font-mono"
-                title="Gestionar evidencias documentales de esta MAWB">
-                &#128193;
-              </button>
             </div>
           </div>
           </div>
@@ -973,6 +970,7 @@ import SignaturePad from '../components/SignaturePad.vue'
 import CameraCapture from '../components/CameraCapture.vue'
 import EditReceiptModal from '../components/EditReceiptModal.vue'
 import LocaleDatePicker from '../components/LocaleDatePicker.vue'
+import EmptyState from '../components/EmptyState.vue'
 import { useIcons } from '../composables/useIcons'
 import { hawbsApi } from '../api/hawbs'
 
@@ -991,6 +989,17 @@ const route = useRoute()
 function airlineCodeById(airlineId) {
   const a = store.airlines.find(x => x.id === airlineId)
   return a?.code || 'AIR'
+}
+
+const localFlightId = ref(store.selectedFlightId || '')
+watch(() => store.selectedFlightId, (id) => { localFlightId.value = id || '' })
+async function onReceiptFlightChange() {
+  if (localFlightId.value) {
+    await store.selectFlight(localFlightId.value)
+  } else {
+    store.selectedFlightId = null
+    await store.loadAllMawbs()
+  }
 }
 
 const expandedId = ref(localStorage.getItem('WAREHOUSE_EXPANDED_MAWB') || null)

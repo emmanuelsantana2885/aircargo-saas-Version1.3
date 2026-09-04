@@ -253,7 +253,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../stores/auth'
@@ -269,6 +269,37 @@ const router = useRouter()
 const route = useRoute()
 const toast = useToastStore()
 const auth = useAuthStore()
+
+const FLOW_KEY = 'aircargo_login_flow'
+
+// El login es multi-step (credentials → mfa → mfa-enroll → site-select).
+// Persistimos el paso en sessionStorage (sobrevive recargas y la navegación
+// a /login) para que NUNCA se vuelva a la pantalla de contraseña tras pasar
+// el MFA: si el flujo se interrumpe (recarga, 401+refresh fallido, guard del
+// router), LoginView retoma el paso exacto (site-select / mfa) en vez de
+// reiniciar en 'credentials'.
+function saveFlow(step, email) {
+  try {
+    sessionStorage.setItem(FLOW_KEY, JSON.stringify({ step, email: email || '' }))
+  } catch {}
+}
+
+function loadFlow() {
+  try {
+    const raw = sessionStorage.getItem(FLOW_KEY)
+    if (!raw) return null
+    const f = JSON.parse(raw)
+    return f && f.step ? f : null
+  } catch {
+    return null
+  }
+}
+
+function clearFlow() {
+  try {
+    sessionStorage.removeItem(FLOW_KEY)
+  } catch {}
+}
 
 const loginEmail = ref('')
 const password = ref('')
@@ -314,6 +345,7 @@ async function handleLogin() {
       step.value = 'mfa'
       totpCode.value = ''
       errorMsg.value = ''
+      saveFlow('mfa', loginEmail.value)
       loading.value = false
       return
     }
@@ -380,6 +412,7 @@ function proceedAfterLogin() {
     return
   }
   if (auth.sites.length === 1) {
+    clearFlow()
     selectedSite.value = auth.sites[0].id
     auth.confirmSite(selectedSite.value)
     navigateAfterSiteConfirm()
@@ -387,6 +420,7 @@ function proceedAfterLogin() {
   }
   selectedSite.value = auth.sites[0].id
   step.value = 'site-select'
+  saveFlow('site-select', auth.email || loginEmail.value)
 }
 
 async function startMfaEnrollment(token) {
@@ -459,11 +493,13 @@ function navigateAfterSiteConfirm() {
 
 function handleSiteConfirm() {
   if (!selectedSite.value) return
+  clearFlow()
   auth.confirmSite(selectedSite.value)
   navigateAfterSiteConfirm()
 }
 
 function handleBackToLogin() {
+  clearFlow()
   step.value = 'credentials'
   pendingEmail.value = ''
   pendingPassword.value = ''
@@ -482,4 +518,32 @@ function handleBackToLogin() {
 function goToSetPassword() {
   router.push(`/set-password?email=${encodeURIComponent(loginEmail.value)}`)
 }
+
+// Al montar, restauramos el paso del flujo de login guardado.
+// Esto garantiza que tras pasar el MFA (sessionStorage preserve) la app JAMÁS
+// vuelva a la pantalla de contraseña por una recarga/navegación intermedia:
+// · si el usuario ya tenía userId pero no sitio confirmado → site-select
+// · si venía de MFA → de vuelta al paso MFA con el email precargado
+onMounted(() => {
+  const flow = loadFlow()
+  if (!flow || !flow.step || flow.step === 'credentials') return
+
+  // El usuario ya completó el login (cookies/tokens emitidos) y quedó pendiente
+  // elegir el sitio → retomar exactamente ahí, sin pedir contraseña otra vez.
+  if (flow.step === 'site-select' && auth.hasSession && !auth.selectedSiteId) {
+    if (auth.sites.length > 0) {
+      step.value = 'site-select'
+      selectedSite.value = auth.sites[0].id
+      loginEmail.value = flow.email || auth.email
+      return
+    }
+    clearFlow()
+    return
+  }
+
+  // Venía del paso MFA (aún sin sesión): retoma el MFA con el email precargado.
+  if ((flow.step === 'mfa' || flow.step === 'mfa-enroll') && flow.email) {
+    loginEmail.value = flow.email
+  }
+})
 </script>

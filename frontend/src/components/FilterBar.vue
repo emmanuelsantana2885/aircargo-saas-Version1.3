@@ -50,15 +50,18 @@
         <span class="truncate">{{ statusLabel }}</span>
         <svg class="ml-auto shrink-0" xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9" /></svg>
       </button>
-      <div v-if="statusOpen" class="absolute top-full left-0 mt-1 bg-white border border-slate-300 rounded shadow-lg z-50 min-w-[160px]">
+      <div v-if="statusOpen" class="absolute top-full left-0 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl shadow-slate-900/10 z-50 min-w-[160px] overflow-hidden">
         <div @click="$emit('update:status', ''); statusOpen = false"
-          class="px-3 py-2 text-[12px] font-mono hover:bg-slate-100 cursor-pointer">{{ t('filterBar.all') }}</div>
-        <div v-for="opt in statusOptions" :key="opt.value"
-          @click="$emit('update:status', opt.value); statusOpen = false"
-          class="px-3 py-2 text-[12px] font-mono hover:bg-slate-100 cursor-pointer flex items-center gap-2"
-          :class="status === opt.value ? 'bg-slate-50 font-bold' : ''">
-          <span class="w-2 h-2 rounded-full" :class="opt.dotClass"></span>
-          {{ opt.label }}
+          class="px-3 py-2 text-[12px] font-mono hover:bg-slate-100 cursor-pointer border-b border-slate-100"
+          :class="!status ? 'bg-slate-50 font-bold' : ''">{{ t('filterBar.all') }}</div>
+        <div class="max-h-64 overflow-y-auto">
+          <div v-for="opt in statusOptions" :key="opt.value"
+            @click="$emit('update:status', opt.value); statusOpen = false"
+            class="px-3 py-2 text-[12px] font-mono hover:bg-slate-100 cursor-pointer flex items-center gap-2"
+            :class="status === opt.value ? 'bg-slate-50 font-bold' : ''">
+            <span class="w-2 h-2 rounded-full" :class="opt.dotClass"></span>
+            {{ opt.label }}
+          </div>
         </div>
       </div>
     </div>
@@ -104,10 +107,11 @@
     <!-- Generic Search (legacy) -->
     <div v-if="showSearch && !showMawb" class="flex flex-col gap-0.5 flex-1 min-w-[180px]">
       <label v-if="searchLabel" class="ds-label">{{ searchLabel }}</label>
-      <div class="flex items-center gap-1">
+      <div class="flex items-center gap-1 relative">
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
         <input type="text" :value="searchText" @input="onSearchInput"
           :placeholder="searchPlaceholder"
-          class="ds-input flex-1" />
+          class="ds-input flex-1 pl-8" />
         <span v-if="searchText" @click="$emit('update:searchText', '')"
           class="text-[14px] text-slate-400 hover:text-slate-600 cursor-pointer px-1" :title="t('filterBar.tooltipClear')">&#10005;</span>
       </div>
@@ -132,7 +136,7 @@
 
     <!-- Row Count -->
     <div v-if="showCount" class="self-end mb-0.5 ml-auto">
-      <span class="text-[12px] font-mono text-slate-500">
+      <span class="ds-chip !text-[12px] !py-1">
         {{ filteredCount }} / {{ totalCount }}
       </span>
     </div>

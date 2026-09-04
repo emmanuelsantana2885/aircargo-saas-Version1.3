@@ -125,7 +125,7 @@ public class RouteConfig {
                         .uri(svc("SERVICE_LOAD_PLANNING_URL", "http://localhost:9098")))
 
                 .route("export-service", r -> r
-                        .path("/api/exports/**", "/api/bi/**", "/api/reports/**", "/api/catalog/**")
+                        .path("/api/exports/**", "/api/bi/**", "/api/reports/**", "/api/catalog/**", "/api/dashboard-builder/**")
                         .filters(f -> f
                                 .circuitBreaker(config -> config
                                         .setName("export-service")

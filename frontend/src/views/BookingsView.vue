@@ -11,7 +11,8 @@
         <div class="flex flex-col gap-0.5">
           <span class="text-[13px] font-black text-slate-950 uppercase tracking-widest">{{ t('flights.table.flight') }}</span>
           <select v-model="localFlightId" @change="onFlightChange"
-            class="bg-slate-100 border border-slate-300 rounded px-3 py-1.5 font-black text-slate-950 focus:outline-none uppercase tracking-widest text-[14px] cursor-pointer min-w-[160px]">
+            class="ds-input font-black uppercase tracking-widest cursor-pointer"
+            :class="store.selectedFlight ? 'min-w-[280px]' : 'min-w-[160px]'">
             <option value="" disabled>{{ t('bookings.selectFlight') }}</option>
             <option v-for="flight in flightList" :key="flight.id" :value="flight.id">
               {{ airlineCodeById(flight.airlineId) }}-{{ flight.flightNumber }} ({{ flight.origin }}→{{ flight.destination }}) — {{ flight.flightDate }}
@@ -56,37 +57,110 @@
 
     <section class="ds-table-section">
       <div class="table-scroll-wrapper flex-1 min-h-0">
-      <div class="ds-table-header" style="min-width: 900px">
-        <div class="col-span-2 text-left">{{ t('bookings.table.booking') }}</div>
-        <div class="col-span-2 text-left">{{ t('flights.table.flight') }} / {{ t('flights.table.date') }}</div>
-        <div class="col-span-2 text-left">{{ t('bookings.table.clientName') }}</div>
-        <div class="col-span-2 text-left">{{ t('common.shipper') }} <span class="text-slate-300 font-normal">{{ t('bookings.table.receipt') }}</span></div>
-        <div class="col-span-1 text-center">{{ t('bookings.table.skids') }}</div>
-        <div class="col-span-1 text-right pr-2">{{ t('bookings.table.weightKg') }}</div>
-        <div class="col-span-1 text-center bg-slate-800 py-0.5 rounded border border-slate-600 text-white font-black tracking-wide">{{ t('bookings.table.mawbStatus') }}</div>
+      <div class="ds-table-header" style="min-width: 860px">
+        <div class="col-span-2 text-left relative">
+          <span @click="toggleHeaderFilter('awb')" class="cursor-pointer select-none"
+            :class="columnFilters.awb ? 'text-slate-300' : 'hover:text-white/80'">
+            {{ t('bookings.table.booking') }} <span class="text-[10px]" :class="columnFilters.awb ? 'opacity-100' : 'opacity-40'">&#9660;</span>
+          </span>
+          <div v-if="headerFilterOpen === 'awb'" class="absolute top-full left-0 mt-1 bg-white border border-slate-300 rounded shadow-lg z-50 min-w-[180px] max-h-[220px] overflow-y-auto text-[13px] text-slate-950 font-normal normal-case">
+            <div @click="setColumnFilter('awb', null)" class="px-3 py-1.5 cursor-pointer hover:bg-slate-100 font-bold" :class="!columnFilters.awb ? 'bg-slate-100' : ''">{{ t('common.all') }}</div>
+            <div v-for="v in uniqueValues(flightBookings, b => b.awbNumber).slice(0, 200)" :key="v" @click="setColumnFilter('awb', v)"
+              class="px-3 py-1.5 cursor-pointer hover:bg-slate-100 truncate" :class="columnFilters.awb === v ? 'bg-slate-50 text-slate-700 font-bold' : ''">{{ v }}</div>
+          </div>
+        </div>
+        <div class="col-span-2 text-left relative">
+          <span @click="toggleHeaderFilter('client')" class="cursor-pointer select-none"
+            :class="columnFilters.client ? 'text-slate-300' : 'hover:text-white/80'">
+            {{ t('bookings.table.clientName') }} <span class="text-[10px]" :class="columnFilters.client ? 'opacity-100' : 'opacity-40'">&#9660;</span>
+          </span>
+          <div v-if="headerFilterOpen === 'client'" class="absolute top-full left-0 mt-1 bg-white border border-slate-300 rounded shadow-lg z-50 min-w-[180px] max-h-[220px] overflow-y-auto text-[13px] text-slate-950 font-normal normal-case">
+            <div @click="setColumnFilter('client', null)" class="px-3 py-1.5 cursor-pointer hover:bg-slate-100 font-bold" :class="!columnFilters.client ? 'bg-slate-100' : ''">{{ t('common.all') }}</div>
+            <div v-for="v in uniqueValues(flightBookings, b => b.clientName).slice(0, 200)" :key="v" @click="setColumnFilter('client', v)"
+              class="px-3 py-1.5 cursor-pointer hover:bg-slate-100 truncate" :class="columnFilters.client === v ? 'bg-slate-50 text-slate-700 font-bold' : ''">{{ v }}</div>
+          </div>
+        </div>
+        <div class="col-span-2 text-left relative">
+          <span @click="toggleHeaderFilter('shipper')" class="cursor-pointer select-none"
+            :class="columnFilters.shipper ? 'text-slate-300' : 'hover:text-white/80'">
+            {{ t('bookings.table.shipper') }} <span class="text-slate-300 font-normal">{{ t('bookings.table.receipt') }}</span> <span class="text-[10px]" :class="columnFilters.shipper ? 'opacity-100' : 'opacity-40'">&#9660;</span>
+          </span>
+          <div v-if="headerFilterOpen === 'shipper'" class="absolute top-full left-0 mt-1 bg-white border border-slate-300 rounded shadow-lg z-50 min-w-[180px] max-h-[220px] overflow-y-auto text-[13px] text-slate-950 font-normal normal-case">
+            <div @click="setColumnFilter('shipper', null)" class="px-3 py-1.5 cursor-pointer hover:bg-slate-100 font-bold" :class="!columnFilters.shipper ? 'bg-slate-100' : ''">{{ t('common.all') }}</div>
+            <div v-for="v in uniqueValues(flightBookings, b => b.shipperName).slice(0, 200)" :key="v" @click="setColumnFilter('shipper', v)"
+              class="px-3 py-1.5 cursor-pointer hover:bg-slate-100 truncate" :class="columnFilters.shipper === v ? 'bg-slate-50 text-slate-700 font-bold' : ''">{{ v }}</div>
+          </div>
+        </div>
+        <div class="col-span-1 text-center relative">
+          <span @click="toggleHeaderFilter('pieces')" class="cursor-pointer select-none"
+            :class="columnFilters.pieces ? 'text-slate-300' : 'hover:text-white/80'">
+            {{ t('bookings.table.pieces') }} <span class="text-[10px]" :class="columnFilters.pieces ? 'opacity-100' : 'opacity-40'">&#9660;</span>
+          </span>
+          <div v-if="headerFilterOpen === 'pieces'" class="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-white border border-slate-300 rounded shadow-lg z-50 min-w-[160px] text-[13px] text-slate-950 font-normal normal-case">
+            <div @click="setColumnFilter('pieces', null)" class="px-3 py-1.5 cursor-pointer hover:bg-slate-100 font-bold text-center" :class="!columnFilters.pieces ? 'bg-slate-100' : ''">{{ t('common.all') }}</div>
+            <div v-for="v in uniqueValues(flightBookings, b => Number(b.skids || b.units || 0)).slice(0, 100)" :key="v" @click="setColumnFilter('pieces', v)"
+              class="px-3 py-1.5 cursor-pointer hover:bg-slate-100 text-center" :class="columnFilters.pieces === v ? 'bg-slate-50 text-slate-700 font-bold' : ''">{{ v }}</div>
+          </div>
+        </div>
+        <div class="col-span-1 text-center relative">
+          <span @click="toggleHeaderFilter('eaType')" class="cursor-pointer select-none"
+            :class="columnFilters.eaType ? 'text-slate-300' : 'hover:text-white/80'">
+            {{ t('bookings.table.unitType') }} <span class="text-[10px]" :class="columnFilters.eaType ? 'opacity-100' : 'opacity-40'">&#9660;</span>
+          </span>
+          <div v-if="headerFilterOpen === 'eaType'" class="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-white border border-slate-300 rounded shadow-lg z-50 min-w-[140px] text-[13px] text-slate-950 font-normal normal-case">
+            <div @click="setColumnFilter('eaType', null)" class="px-3 py-1.5 cursor-pointer hover:bg-slate-100 font-bold text-center" :class="!columnFilters.eaType ? 'bg-slate-100' : ''">{{ t('common.all') }}</div>
+            <div v-for="v in ['SKID', 'BOX']" :key="v" @click="setColumnFilter('eaType', v)"
+              class="px-3 py-1.5 cursor-pointer hover:bg-slate-100 text-center" :class="columnFilters.eaType === v ? 'bg-slate-50 text-slate-700 font-bold' : ''">{{ v }}</div>
+          </div>
+        </div>
+        <div class="col-span-1 text-right pr-2 relative">
+          <span @click="toggleHeaderFilter('status')" class="cursor-pointer select-none inline-flex items-center"
+            :class="columnFilters.status ? 'text-slate-300' : 'hover:text-white/80'">
+            {{ t('bookings.table.weightKg') }} <span class="text-[10px]" :class="columnFilters.status ? 'opacity-100' : 'opacity-40'">&#9660;</span>
+          </span>
+          <div v-if="headerFilterOpen === 'status'" class="absolute top-full right-0 mt-1 bg-white border border-slate-300 rounded shadow-lg z-50 min-w-[140px] text-[13px] text-slate-950 font-normal normal-case">
+            <div @click="setColumnFilter('weight', null)" class="px-3 py-1.5 cursor-pointer hover:bg-slate-100 font-bold text-center" :class="!columnFilters.weight ? 'bg-slate-100' : ''">{{ t('common.all') }}</div>
+            <div v-for="v in uniqueValues(flightBookings, b => Math.round(Number(b.reservedKg || 0))).slice(0, 100)" :key="v" @click="setColumnFilter('weight', v)"
+              class="px-3 py-1.5 cursor-pointer hover:bg-slate-100 text-center" :class="columnFilters.weight === v ? 'bg-slate-50 text-slate-700 font-bold' : ''">{{ v }}</div>
+          </div>
+        </div>
+        <div class="col-span-1 text-center bg-slate-800 py-0.5 rounded border border-slate-600 text-white font-black tracking-wide relative">
+          <span @click="toggleHeaderFilter('mawbStatus')" class="cursor-pointer select-none"
+            :class="columnFilters.mawbStatus ? 'text-slate-300' : 'hover:text-white/80'">
+            {{ t('bookings.table.mawbStatus') }} <span class="text-[10px]" :class="columnFilters.mawbStatus ? 'opacity-100' : 'opacity-40'">&#9660;</span>
+          </span>
+          <div v-if="headerFilterOpen === 'mawbStatus'" class="absolute top-full right-0 mt-1 bg-white border border-slate-300 rounded shadow-lg z-50 min-w-[160px] text-[13px] text-slate-950 font-normal normal-case">
+            <div @click="setColumnFilter('mawbStatus', null)" class="px-3 py-1.5 cursor-pointer hover:bg-slate-100 font-bold text-center" :class="!columnFilters.mawbStatus ? 'bg-slate-100' : ''">{{ t('common.all') }}</div>
+            <div v-for="v in ['BOOKED', 'RECEIVED', 'MANIFESTED', 'DEPARTED']" :key="v" @click="setColumnFilter('mawbStatus', v)"
+              class="px-3 py-1.5 cursor-pointer hover:bg-slate-100 text-center" :class="columnFilters.mawbStatus === v ? 'bg-slate-50 text-slate-700 font-bold' : ''">{{ v }}</div>
+          </div>
+        </div>
         <div class="col-span-1"></div>
       </div>
 
-      <div v-if="store.loading && !store.bookings.length" class="flex-1 flex items-center justify-center">
-        <span class="text-[14px] font-mono text-slate-950 ">{{ t('common.loading') }}</span>
-      </div>
+      <EmptyState v-if="store.loading && !store.bookings.length" :title="t('common.loading')" loading />
 
-      <div v-else-if="deduplicatedBookings.length === 0" class="flex-1 flex items-center justify-center">
-        <p class="text-[14px] font-mono text-slate-950 uppercase tracking-widest">{{ store.selectedFlightId ? t('bookings.empty') : t('bookings.emptyCreate') }}</p>
-      </div>
+      <EmptyState v-else-if="deduplicatedBookings.length === 0"
+        :title="store.selectedFlightId ? t('bookings.empty') : t('bookings.emptyCreate')"
+        :hint="t('bookings.emptyHint')"
+        :icon="icons.ClipboardList">
+        <button v-if="store.selectedFlightId" @click="openCreate" class="ds-btn-primary mt-1">
+          <component :is="icons.Plus" :size="14" :stroke-width="2.5" /> {{ t('bookings.createFirst') }}
+        </button>
+      </EmptyState>
 
       <div v-else class="divide-y divide-slate-100 text-[13px] text-slate-950 overflow-y-auto flex-1 min-h-0 scrollbar-none">
         <div v-for="b in deduplicatedBookings" :key="b.id"
-          class="ds-table-row">
+          class="ds-table-row group">
 
           <div class="col-span-2 font-mono font-black text-slate-950 relative z-10 text-[13px] flex items-center gap-2">
-            <span>{{ b.awbNumber || b.id?.slice(0, 8) || 'N/A' }}</span>
+            <button v-if="b.mawbId" @click="goToReceipt(b)"
+              class="underline decoration-dotted underline-offset-2 hover:text-blue-700 transition-colors text-left"
+              :title="t('bookings.openReceipt')">
+              {{ b.awbNumber || b.id?.slice(0, 8) || 'N/A' }}
+            </button>
+            <span v-else>{{ b.awbNumber || b.id?.slice(0, 8) || 'N/A' }}</span>
             <span v-if="b._dupCount > 1" class="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-slate-100 text-slate-700 text-[12px] font-bold" :title="t('bookings.dupGroupedTooltip')">{{ b._dupCount }}x</span>
-          </div>
-
-          <div class="col-span-2 font-mono font-bold text-[18px] text-slate-950 relative z-10 flex flex-col leading-tight">
-            <span>{{ flightNumber(b.flightId) || '—' }}</span>
-            <span v-if="b.flightId" class="text-[13px] text-slate-500 font-semibold">{{ flightDate(b.flightId) }}</span>
           </div>
 
           <div class="col-span-2 text-slate-950 font-semibold relative z-10 truncate pr-3">
@@ -101,6 +175,17 @@
           <div class="col-span-1 text-center font-mono font-bold text-slate-900 relative z-10">
             <span v-if="bookingReceipt(b)">{{ bookingReceipt(b).pieceCount || '—' }}</span>
             <span v-else>{{ b.skids || b.units || '—' }}</span>
+          </div>
+
+          <div class="col-span-1 text-center font-mono font-bold text-slate-900 relative z-10 flex items-center justify-center gap-1">
+            <template v-for="p in unitParts(b)" :key="p.type">
+              <span class="inline-block px-1.5 py-0.5 rounded text-[11px] font-mono font-bold whitespace-nowrap"
+                :title="p.type === 'SKID' ? t('bookings.skidPallet') : t('bookings.boxUnit')"
+                :class="p.type === 'SKID' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'">
+                {{ p.count }}{{ p.type === 'SKID' ? 'S' : 'B' }}
+              </span>
+            </template>
+            <span v-if="!unitParts(b).length" class="text-slate-300">—</span>
           </div>
 
           <div class="col-span-1 text-right font-mono font-bold text-slate-950 relative z-10 pr-2">
@@ -119,7 +204,7 @@
               <span v-if="getMawbStatus(b) !== '—'" class="text-slate-300 text-[13px]">·</span>
             </div>
           </div>
-          <div class="col-span-1 flex justify-end relative z-10">
+          <div class="col-span-1 flex justify-end relative z-10 ds-row-actions">
             <button @click.stop="openEdit(b)"
               class="text-slate-400 hover:text-blue-600 transition-colors p-1"
               :title="t('common.edit')">
@@ -181,7 +266,7 @@
               <input v-model="form.destination" type="text" maxlength="3" placeholder="MIA"
                 class="ds-input uppercase" />
             </div>
-            <div class="grid grid-cols-2 gap-2">
+            <div class="grid grid-cols-3 gap-2">
               <div>
                 <label class="ds-label">{{ t('bookings.form.skids') }}</label>
                 <input v-model.number="form.skids" type="number" min="0"
@@ -191,6 +276,13 @@
                 <label class="ds-label">{{ t('bookings.form.units') }}</label>
                 <input v-model.number="form.units" type="number" min="0"
                   class="ds-input" />
+              </div>
+              <div>
+                <label class="ds-label">{{ t('bookings.form.eaType') }}</label>
+                <select v-model="form.eaType" class="ds-input">
+                  <option value="SKID">SKID</option>
+                  <option value="BOX">BOX</option>
+                </select>
               </div>
             </div>
           </div>
@@ -249,7 +341,8 @@
                 <th class="text-left px-5 py-3 border-b border-slate-400">{{ t('bookings.import.cnee') }}</th>
                 <th class="text-center px-4 py-3 border-b border-slate-400">{{ t('bookings.table.awb') }}</th>
                 <th class="text-center px-4 py-3 border-b border-slate-400">{{ t('bookings.table.skids') }}</th>
-                <th class="text-center px-4 py-3 border-b border-slate-400">{{ t('bookings.import.unitsShort') }}</th>
+                <th class="text-center px-4 py-3 border-b border-slate-400">{{ t('bookings.table.boxes') }}</th>
+                <th class="text-center px-4 py-3 border-b border-slate-400">{{ t('bookings.table.unitType') }}</th>
                 <th class="text-right px-4 py-3 border-b border-slate-400">{{ t('common.kg') }}</th>
                 <th class="text-center px-4 py-3 border-b border-slate-400">{{ t('common.dest') }}</th>
                 <th class="text-center px-4 py-3 border-b border-slate-400">{{ t('bookings.import.commodityShort') }}</th>
@@ -265,6 +358,10 @@
                 <td class="px-4 py-3 text-center text-slate-950 font-mono">{{ row.awbNumber || '—' }}</td>
                 <td class="px-4 py-3 text-center font-bold text-slate-900">{{ row.skids || '—' }}</td>
                 <td class="px-4 py-3 text-center font-bold text-slate-900">{{ row.units || '—' }}</td>
+                <td class="px-4 py-3 text-center">
+                  <span class="inline-block px-1.5 py-0.5 rounded text-[12px] font-semibold"
+                    :class="row.eaType === 'SKID' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'">{{ row.eaType }}</span>
+                </td>
                 <td class="px-4 py-3 text-right font-bold text-slate-900">{{ row.reservedKg.toLocaleString() }}</td>
                 <td class="px-4 py-3 text-center font-bold text-slate-950">{{ row.destination }}</td>
                 <td class="px-4 py-3 text-center"><span class="inline-block text-[13px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-950 font-semibold">{{ row.commodityType }}</span></td>
@@ -295,6 +392,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import { useAppStore } from '../stores/app'
 import { useIcons } from '../composables/useIcons'
 import * as XLSX from 'xlsx'
@@ -306,9 +404,14 @@ import { useConfirm } from '../composables/useConfirm'
 import { extractError } from '../utils/error'
 import { useCommodities } from '../composables/useCommodities'
 import FilterBar from '../components/FilterBar.vue'
+import EmptyState from '../components/EmptyState.vue'
+import { useHeaderFilters } from '../composables/useHeaderFilters'
 
 const store = useAppStore()
+const router = useRouter()
 const { t } = useI18n()
+const hf = useHeaderFilters({ containerSelector: '.ds-table-header' })
+const { headerFilterOpen, columnFilters, toggleHeaderFilter, setColumnFilter, uniqueValues } = hf
 const { commodities: dbCommodities, loadCommodities } = useCommodities()
 const toast = useToastStore()
 const { confirm } = useConfirm()
@@ -391,6 +494,7 @@ function parseBookingsFromXLSX(data) {
       awbNumber,
       skids,
       units,
+      eaType: skids > 0 ? 'SKID' : (units > 0 ? 'BOX' : 'SKID'),
       reservedKg,
       destination: String(r[9] || '').trim().toUpperCase() || 'MIA',
       commodityType: parseCommodity(r[11]),
@@ -403,10 +507,56 @@ function parseBookingsFromXLSX(data) {
 
 const commodityTypes = computed(() => dbCommodities.value.map(c => c.code))
 
-const visibleBookings = computed(() => {
-  let list = store.selectedFlightId
+const flightBookings = computed(() =>
+  store.selectedFlightId
     ? store.bookings.filter(b => b.flightId === store.selectedFlightId)
     : store.bookings
+)
+
+const visibleBookings = computed(() => {
+  let list = flightBookings.value
+  if (columnFilters.awb) {
+    const q = columnFilters.awb
+    list = list.filter(b => {
+      const m = bookingMawb(b)
+      return (b.awbNumber === q) || (m?.awbNumber === q)
+    })
+  }
+  if (columnFilters.client) {
+    const q = columnFilters.client
+    list = list.filter(b => (b.clientName || '').toLowerCase() === String(q).toLowerCase())
+  }
+  if (columnFilters.shipper) {
+    const q = columnFilters.shipper
+    list = list.filter(b => {
+      const m = bookingMawb(b)
+      return (b.shipperName || m?.shipperName || '') === q
+    })
+  }
+  if (columnFilters.pieces !== null && columnFilters.pieces !== undefined) {
+    const q = Number(columnFilters.pieces)
+    list = list.filter(b => Number(b.skids || b.units || 0) === q)
+  }
+  if (columnFilters.eaType) {
+    list = list.filter(b => {
+      const parts = unitParts(b)
+      return columnFilters.eaType === 'SKID'
+        ? parts.some(p => p.type === 'SKID')
+        : parts.some(p => p.type === 'BOX')
+    })
+  }
+  if (columnFilters.weight !== null && columnFilters.weight !== undefined) {
+    const q = Number(columnFilters.weight)
+    list = list.filter(b => Math.round(Number(b.reservedKg || 0)) === q)
+  }
+  if (columnFilters.mawbStatus) {
+    const q = columnFilters.mawbStatus
+    list = list.filter(b => {
+      const m = bookingMawb(b)
+      const s = q === 'BOOKED' ? (!m?.status || m.status === 'BOOKED') : m?.status === q
+      return s
+    })
+  }
   if (statusFilter.value) {
     list = list.filter(b => {
       const m = bookingMawb(b)
@@ -466,10 +616,13 @@ function airlineCodeById(airlineId) {
   return a?.code || 'AIR'
 }
 
-function flightDate(flightId) {
-  if (!flightId) return ''
-  const f = store.flights.find(f => f.id === flightId)
-  return f ? f.flightDate : ''
+function unitParts(b) {
+  const parts = []
+  const skids = Number(b.skids) || 0
+  const units = Number(b.units) || 0
+  if (skids > 0) parts.push({ type: 'SKID', count: skids })
+  if (units > 0) parts.push({ type: 'BOX', count: units })
+  return parts
 }
 
 const form = ref({
@@ -480,6 +633,7 @@ const form = ref({
   awbNumber: '',
   skids: 1,
   units: 0,
+  eaType: 'SKID',
   reservedKg: null,
   destination: 'MIA',
   commodityType: 'GENERAL',
@@ -490,6 +644,12 @@ const form = ref({
 function bookingMawb(b) {
   if (!b.mawbId) return null
   return store.mawbs.find(m => m.id === b.mawbId || m.flightId === b.flightId && m.awbNumber === b.awbNumber) || null
+}
+
+function goToReceipt(b) {
+  const m = bookingMawb(b)
+  const mawbId = m?.id || b.mawbId
+  router.push({ name: 'receipts', query: { mawbId } })
 }
 
 function bookingReceipt(b) {
@@ -545,7 +705,7 @@ function openCreate() {
   form.value = {
     clientName: '', contactName: '', shipperName: '', cnee: '',
     awbNumber: `${airlineCodeById(store.selectedFlight?.airlineId)}-${flightNum}-${Date.now().toString(36).toUpperCase()}`,
-    skids: 1, units: 0,
+    skids: 1, units: 0, eaType: 'SKID',
     reservedKg: null, destination: 'MIA', commodityType: 'GENERAL', priority: 0, notes: ''
   }
   showModal.value = true
@@ -561,6 +721,7 @@ function openEdit(b) {
     awbNumber: b.awbNumber || '',
     skids: b.skids || 0,
     units: b.units || 0,
+    eaType: b.eaType || 'SKID',
     reservedKg: b.reservedKg || null,
     destination: b.destination || '',
     commodityType: b.commodityType || 'GENERAL',
@@ -628,6 +789,7 @@ async function confirmImport() {
         reservedKg: row.reservedKg,
         skids: row.skids || 1,
         units: row.units || 0,
+        eaType: row.eaType || 'SKID',
         destination: row.destination,
         commodityType: row.commodityType,
         priority: row.priority,
@@ -697,6 +859,7 @@ async function saveBooking() {
       reservedKg: form.value.reservedKg || 0,
       skids: form.value.skids || 1,
       units: form.value.units || 0,
+      eaType: form.value.eaType || 'SKID',
       destination: form.value.destination,
       commodityType: form.value.commodityType,
       priority: form.value.priority,

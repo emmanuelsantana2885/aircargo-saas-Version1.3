@@ -16,6 +16,7 @@ public class BookingDTO {
     private String awbNumber;
     private Integer skids;
     private Integer units;
+    private String eaType;
     private BigDecimal reservedKg;
     private BigDecimal confirmedKg;
     private BigDecimal receivedKg;
@@ -54,6 +55,8 @@ public class BookingDTO {
     public void setSkids(Integer skids) { this.skids = skids; }
     public Integer getUnits() { return units; }
     public void setUnits(Integer units) { this.units = units; }
+    public String getEaType() { return eaType; }
+    public void setEaType(String eaType) { this.eaType = eaType; }
     public BigDecimal getReservedKg() { return reservedKg; }
     public void setReservedKg(BigDecimal reservedKg) { this.reservedKg = reservedKg; }
     public BigDecimal getConfirmedKg() { return confirmedKg; }

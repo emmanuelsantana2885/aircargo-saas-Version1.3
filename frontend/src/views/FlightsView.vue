@@ -11,10 +11,7 @@
         <div v-if="store.error" class="text-[14px] font-mono text-slate-600 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg">
           {{ store.error }}
         </div>
-        <span class="ds-stat">
-          <span class="h-2 w-2 rounded-full bg-slate-500"></span>
-          {{ t('flights.countFlights', { n: filteredFlights.length }) }}
-        </span>
+        <span class="ds-chip">{{ t('flights.countFlights', { n: filteredFlights.length }) }}</span>
         <FilterBar
           v-model:search-text="searchText"
           v-model:destination="destFilter"
@@ -53,24 +50,17 @@
         <div class="col-span-1 text-center">{{ t('flights.table.actions') }}</div>
       </div>
 
-      <!-- Loading -->
-      <div v-if="store.loading" class="flex-1 flex items-center justify-center">
-        <span class="text-[14px] font-mono text-slate-500 uppercase tracking-widest">{{ t('common.loading') }}</span>
-      </div>
+      <EmptyState v-if="store.loading" :title="t('common.loading')" loading />
 
-      <!-- Empty -->
-      <div v-else-if="filteredFlights.length === 0" class="ds-empty">
-        <component :is="icons.PlaneDeparture" :size="32" class="text-slate-300" :stroke-width="1.2" />
-        <p class="uppercase tracking-widest">{{ t('flights.empty') }}</p>
+      <EmptyState v-else-if="filteredFlights.length === 0" :title="t('flights.empty')" :hint="t('flights.emptyHint')" :icon="icons.PlaneDeparture">
         <button @click="openCreate" class="ds-btn-secondary mt-1">
           + {{ t('flights.createFirstFlight') }}
         </button>
-      </div>
+      </EmptyState>
 
-      <!-- Rows -->
       <div v-else class="divide-y divide-slate-100 text-[13px] text-slate-950 overflow-y-auto flex-1 min-h-0 scrollbar-none">
         <div v-for="f in filteredFlights" :key="f.id"
-          class="ds-table-row !py-3.5"
+          class="ds-table-row group"
           @click="selectFlight(f)">
 
           <div class="col-span-2 font-mono font-black text-slate-950 relative z-10 flex items-center gap-2">
@@ -111,7 +101,7 @@
             </div>
           </div>
 
-          <div class="col-span-1 flex justify-center gap-1.5 relative z-10">
+          <div class="col-span-1 flex justify-center gap-1.5 relative z-10 ds-row-actions">
             <button @click.stop="openEdit(f)"
               class="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:border-slate-950 hover:text-slate-950 transition">
               <component :is="icons.Pencil" :size="13" :stroke-width="2" />
@@ -218,6 +208,7 @@ import { useConfirm } from '../composables/useConfirm'
 import { extractError } from '../utils/error'
 import FilterBar from '../components/FilterBar.vue'
 import LocaleDatePicker from '../components/LocaleDatePicker.vue'
+import EmptyState from '../components/EmptyState.vue'
 
 const icons = useIcons()
 const { t } = useI18n()

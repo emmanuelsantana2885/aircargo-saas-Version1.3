@@ -1,6 +1,7 @@
 package com.aircargo.bookingservice.dto;
 
 import com.aircargo.bookingservice.entity.Booking;
+import com.aircargo.bookingservice.entity.EaType;
 import com.aircargo.common.entity.Airline;
 import com.aircargo.bookingservice.entity.Flight;
 import com.aircargo.common.entity.CommodityType;
@@ -31,6 +32,7 @@ public class BookingDTO {
     private String awbNumber;
     private Integer skids;
     private Integer units;
+    private EaType eaType;
     private BigDecimal reservedKg;
     private BigDecimal confirmedKg;
     private BigDecimal receivedKg;
@@ -63,6 +65,7 @@ public class BookingDTO {
                 .awbNumber(booking.getAwbNumber())
                 .skids(booking.getSkids())
                 .units(booking.getUnits())
+                .eaType(booking.getEaType())
                 .reservedKg(booking.getReservedKg())
                 .confirmedKg(booking.getConfirmedKg())
                 .receivedKg(booking.getReceivedKg())
@@ -105,6 +108,7 @@ public class BookingDTO {
         entity.setAwbNumber(dto.getAwbNumber());
         entity.setSkids(dto.getSkids());
         entity.setUnits(dto.getUnits());
+        entity.setEaType(dto.getEaType());
         entity.setReservedKg(dto.getReservedKg() != null ? dto.getReservedKg() : BigDecimal.ZERO);
         entity.setConfirmedKg(dto.getConfirmedKg());
         entity.setReceivedKg(dto.getReceivedKg());

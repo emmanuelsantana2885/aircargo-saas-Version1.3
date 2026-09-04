@@ -59,6 +59,10 @@ public class Booking {
     @Column(name = "units")
     private Integer units;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "ea_type", length = 10)
+    private EaType eaType;
+
     @Column(name = "reserved_kg", precision = 10, scale = 2, nullable = false)
     @Builder.Default
     private BigDecimal reservedKg = BigDecimal.ZERO;

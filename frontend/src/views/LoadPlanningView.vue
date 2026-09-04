@@ -2,12 +2,18 @@
   <div class="ds-page">
 
     <header class="ds-section-header flex-row px-3 py-3">
-      <div class="flex items-center gap-6">
+      <div class="flex items-center gap-4 min-w-0 flex-wrap">
+        <div class="hidden md:block shrink-0">
+          <h1 class="ds-title">{{ t('loadPlanning.title') }}</h1>
+          <p class="ds-subtitle">{{ t('loadPlanning.subtitle') }}</p>
+        </div>
+        <div class="h-8 w-[1px] bg-slate-200 hidden md:block"></div>
+        <div class="flex items-center gap-4 flex-wrap">
         <div class="flex flex-col gap-0.5">
            <span class="ds-label">{{ t('common.date') }}</span>
           <LocaleDatePicker v-model="selectedDate" class="w-[140px] cursor-pointer" @change="onDateChange" />
         </div>
-        <div class="h-8 w-[1px] bg-slate-200"></div>
+        <div class="h-8 w-[1px] bg-slate-200 hidden sm:block"></div>
         <div class="flex flex-col gap-0.5">
            <span class="ds-label">{{ t('loadPlanning.colFlightNumber') }}</span>
           <select v-model="selectedFlightId" @change="syncFlightMetadata" class="ds-input cursor-pointer min-w-[180px]">
@@ -17,39 +23,42 @@
             </option>
           </select>
         </div>
-        <div class="h-8 w-[1px] bg-slate-200"></div>
-        <div class="flex flex-col justify-center">
+        <div class="h-8 w-[1px] bg-slate-200 hidden lg:block"></div>
+        <div class="hidden lg:flex flex-col justify-center">
            <span class="ds-label">{{ t('loadPlanning.airline') }}</span>
           <span class="text-[14px] font-black text-slate-950 uppercase tracking-widest">{{ activeAirlineLabel }}</span>
         </div>
-        <div class="h-8 w-[1px] bg-slate-200"></div>
-        <div class="flex flex-col justify-center">
+        <div class="hidden lg:flex flex-col justify-center">
            <span class="ds-label">{{ t('loadPlanning.colAircraftTail') }}</span>
           <span class="text-[14px] font-black text-slate-950 uppercase tracking-wider">{{ activeFlightMeta.aircraftReg || '-' }}</span>
         </div>
-        <div class="h-8 w-[1px] bg-slate-200"></div>
-        <div class="flex flex-col justify-center">
+        <div class="hidden md:flex flex-col justify-center">
            <span class="ds-label">{{ t('loadPlanning.colRoute') }}</span>
           <span class="text-[14px] font-black text-slate-950 uppercase tracking-widest">{{ (activeFlightMeta.origin || '') + '→' + (activeFlightMeta.destination || '-') }}</span>
         </div>
+        </div>
       </div>
-      <div class="flex items-center gap-1.5">
+      <div class="flex items-center gap-1.5 flex-wrap">
         <button v-if="activeFlightMeta.id && activeFlightMeta.status !== 'DEPARTED' && activeFlightMeta.status !== 'ARRIVED' && activeFlightMeta.status !== 'CANCELLED'"
           @click="dispatchFlight" :title="t('loadPlanning.dispatchFlight')"
-          class="ds-btn-primary px-2 py-1.5">
+          class="ds-btn-primary px-2.5 py-1.5">
           <component :is="icons.PlaneDeparture" :size="16" :stroke-width="2.5" />
+          <span class="hidden xl:inline">{{ t('loadPlanning.dispatchFlight') }}</span>
         </button>
         <button @click="triggerImport" :title="t('loadPlanning.uploadManifest')"
-          class="ds-btn-secondary px-2 py-1.5">
+          class="ds-btn-secondary px-2.5 py-1.5">
           <component :is="icons.FileUpload" :size="16" :stroke-width="2" />
+          <span class="hidden xl:inline">{{ t('loadPlanning.uploadManifest') }}</span>
         </button>
         <button @click="exportPalletSheets" :title="t('loadPlanning.palletSheets')"
-          class="ds-btn-primary px-2 py-1.5 bg-slate-600 hover:bg-slate-500 border-slate-600 hover:border-slate-500">
+          class="ds-btn-secondary px-2.5 py-1.5">
           <component :is="icons.FileDescription" :size="16" :stroke-width="2" />
+          <span class="hidden xl:inline">{{ t('loadPlanning.palletSheets') }}</span>
         </button>
         <button @click="exportToXLSX" :title="t('loadPlanning.exportManifest')"
-          class="ds-btn-primary px-2 py-1.5">
+          class="ds-btn-primary px-2.5 py-1.5">
           <component :is="icons.FileExport" :size="16" :stroke-width="2" />
+          <span class="hidden xl:inline">{{ t('loadPlanning.exportManifest') }}</span>
         </button>
       </div>
     </header>
@@ -148,12 +157,10 @@
         <span class="text-center">{{ t('loadPlanning.colDest') }}</span>
       </div>
 
-      <div v-if="activeManifest.length === 0"
-        class="flex-1 flex flex-col items-center justify-center text-slate-950 text-[14px] gap-2"
-        :class="dragOver ? 'bg-slate-50' : ''">
-        <span>{{ t('loadPlanning.emptySelectFlight') }}</span>
-        <span v-if="floatingUlds.length > 0" class="text-[13px] text-slate-300">{{ t('loadPlanning.dragFloatingHint') }}</span>
-      </div>
+      <EmptyState v-if="activeManifest.length === 0"
+        :title="t('loadPlanning.emptySelectFlight')"
+        :hint="floatingUlds.length > 0 ? t('loadPlanning.dragFloatingHint') : t('loadPlanning.emptyHint')"
+        :icon="icons.Scale" />
 
       <div v-else class="divide-y divide-slate-200 text-[13px] overflow-y-auto flex-1 min-h-0 scrollbar-none"
         @dragover.prevent="onRowDragOver"
@@ -318,6 +325,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import LocaleDatePicker from '../components/LocaleDatePicker.vue'
+import EmptyState from '../components/EmptyState.vue'
 import { useUldsStore } from '../stores/ulds'
 import { useAppStore } from '../stores/app'
 import api from '../api/client'

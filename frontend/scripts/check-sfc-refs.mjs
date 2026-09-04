@@ -52,7 +52,7 @@ const GLOBALS = new Set([
   'MutationObserver', 'DOMParser', 'XMLHttpRequest', 'DOMException', 'Node',
   'Element', 'HTMLElement', 'HTMLInputElement', 'SVGElement', 'getComputedStyle',
   'matchMedia', 'requestIdleCallback', 'cancelIdleCallback', 'getSelection',
-  'CSS', 'import.meta', 'BarcodeDetector',
+  'CSS', 'import.meta', 'BarcodeDetector', 'XMLSerializer',
 ])
 
 // Macros de compilación de Vue (no requieren import)

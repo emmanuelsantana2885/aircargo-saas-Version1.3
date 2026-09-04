@@ -23,6 +23,16 @@
         style="color: rgba(255,255,255,0.7)">
         {{ iconLib === 'tabler' ? 'TB' : 'LC' }}
       </button>
+      <button @click="cycleFont" :title="t('header.fontHint')"
+        class="flex items-center justify-center w-8 h-8 rounded hover:bg-white/10 transition text-[9px] font-bold tracking-tight"
+        style="color: rgba(255,255,255,0.7)">
+        {{ fontLabel }}
+      </button>
+      <button @click="cycleDensity" :title="t('header.densityHint')"
+        class="flex items-center justify-center w-8 h-8 rounded hover:bg-white/10 transition text-[9px] font-bold tracking-tight"
+        style="color: rgba(255,255,255,0.7)">
+        {{ densityLabel }}
+      </button>
       <button @click="toggleTheme" :title="theme === 'tokyo' ? t('header.themeLight') : t('header.themeDark')"
         class="flex items-center justify-center w-8 h-8 rounded hover:bg-white/10 transition">
         <component :is="icons.Moon" v-if="theme === 'light'" :size="17" style="color: white" :stroke-width="1.8" />
@@ -37,6 +47,8 @@ import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { getTheme, setTheme } from '../../utils/theme'
+import { getFont, setFont } from '../../utils/font'
+import { getDensity, setDensity } from '../../utils/density'
 import { iconLib, toggleIconLib } from '../../utils/iconLib'
 import { useIcons } from '../../composables/useIcons'
 import LanguageSwitcher from '../LanguageSwitcher.vue'
@@ -47,7 +59,22 @@ const { t } = useI18n()
 const route = useRoute()
 const isMobile = ref(false)
 const theme = ref(getTheme())
+const font = ref(getFont())
+const density = ref(getDensity())
 const icons = useIcons()
+const FONT_ORDER = ['consolas', 'nerd', 'sans']
+const FONT_LABEL = { consolas: 'CON', nerd: 'NRD', sans: 'SNS' }
+const fontLabel = computed(() => FONT_LABEL[font.value] || 'FNT')
+const densityLabel = computed(() => density.value === 'compact' ? 'CMP' : 'COM')
+
+function cycleFont() {
+  const idx = FONT_ORDER.indexOf(font.value)
+  font.value = setFont(FONT_ORDER[(idx + 1) % FONT_ORDER.length])
+}
+
+function cycleDensity() {
+  density.value = setDensity(density.value === 'compact' ? 'comfortable' : 'compact')
+}
 
 function toggleTheme() {
   theme.value = setTheme(theme.value === 'tokyo' ? 'light' : 'tokyo')

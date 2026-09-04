@@ -37,8 +37,12 @@ import { useIdleLogout } from './composables/useIdleLogout'
 import { usersApi } from './api/users'
 import api from './api/client'
 import { initTheme } from './utils/theme'
+import { initFont } from './utils/font'
+import { initDensity } from './utils/density'
 
 initTheme()
+initFont()
+initDensity()
 
 
 const auth = useAuthStore()
