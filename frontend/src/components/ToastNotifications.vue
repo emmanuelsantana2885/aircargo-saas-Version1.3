@@ -52,7 +52,7 @@ function iconFor(type) {
   padding: 12px 16px;
   border-radius: 8px;
   font-size: 13px;
-  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-family: var(--font-family);
   font-weight: 500;
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
   cursor: pointer;

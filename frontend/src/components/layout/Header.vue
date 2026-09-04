@@ -62,8 +62,8 @@ const theme = ref(getTheme())
 const font = ref(getFont())
 const density = ref(getDensity())
 const icons = useIcons()
-const FONT_ORDER = ['consolas', 'nerd', 'sans']
-const FONT_LABEL = { consolas: 'CON', nerd: 'NRD', sans: 'SNS' }
+const FONT_ORDER = ['combo', 'cascadia', 'bodoni', 'consolas', 'nerd', 'sans']
+const FONT_LABEL = { combo: 'CMB', cascadia: 'CSC', bodoni: 'BDN', consolas: 'CON', nerd: 'NRD', sans: 'SNS' }
 const fontLabel = computed(() => FONT_LABEL[font.value] || 'FNT')
 const densityLabel = computed(() => density.value === 'compact' ? 'CMP' : 'COM')
 

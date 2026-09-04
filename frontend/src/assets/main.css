@@ -11,7 +11,7 @@
   --accent-light: #e0e0e0;
   --border: #999999;
   --sidebar-width: 230px;
-  /* Font selector (data-font on <html>): 'mono' (Nerd/JetBrains Mono) | 'nerd' | 'sans' */
+  /* Font selector (data-font on <html>): 'consolas' | 'nerd' | 'sans' | 'cascadia' | 'bodoni' | 'combo' */
   --font-family-mono: 'JetBrains Mono', 'Courier New', monospace;
   --font-family-sans: 'JetBrains Mono', 'Courier New', monospace;
   --font-family: var(--font-family-mono);
@@ -32,9 +32,38 @@
   --font-family-sans: 'Inter', 'Segoe UI', system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
   --font-family: var(--font-family-sans);
 }
+/* Font selector: Cascadia Code SemiBold */
+:root[data-font='cascadia'] {
+  --font-family-mono: 'Cascadia Code', 'JetBrains Mono', 'Courier New', monospace;
+  --font-family-sans: 'Cascadia Code', 'JetBrains Mono', 'Courier New', monospace;
+  --font-family-weight: 600;
+  --font-family: var(--font-family-mono);
+}
+/* Font selector: Bodoni (serif editorial) */
+:root[data-font='bodoni'] {
+  --font-family-sans: 'Bodoni Moda', 'Libre Bodoni', Georgia, 'Times New Roman', serif;
+  --font-family: var(--font-family-sans);
+}
+/* Font selector: Combo (Cascadia UI + Bodoni headings) */
+:root[data-font='combo'] {
+  --font-family-mono: 'Cascadia Code', 'JetBrains Mono', 'Courier New', monospace;
+  --font-family-sans: 'Cascadia Code', 'JetBrains Mono', 'Courier New', monospace;
+  --font-family-weight: 600;
+  --font-family: var(--font-family-mono);
+}
+:root[data-font='combo'] h1,
+:root[data-font='combo'] h2,
+:root[data-font='combo'] h3,
+:root[data-font='combo'] h4,
+:root[data-font='combo'] .title,
+:root[data-font='combo'] .ds-title,
+:root[data-font='combo'] .ds-modal-title {
+  font-family: 'Bodoni Moda', 'Libre Bodoni', Georgia, 'Times New Roman', serif;
+}
 
 body {
   font-family: var(--font-family);
+  font-weight: var(--font-family-weight, 400);
   background-color: var(--bg);
   font-size: 14px;
   color: var(--text);
