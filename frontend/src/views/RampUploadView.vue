@@ -4,12 +4,12 @@
       
       <div class="border-b pb-3 mb-4 flex justify-between items-center">
         <div>
-          <h3 class="text-[15px] font-black text-slate-900 uppercase tracking-wider">
+          <h3 class="text-[15px] font-bold text-slate-900 uppercase tracking-wider">
             Ingesta Masiva // Manifiesto de Rampa
           </h3>
           <p class="text-sm text-slate-500 mt-0.5">MÓDULO: LOAD PLANNING & WEIGHT CONTROL</p>
         </div>
-        <span class="bg-slate-950 text-white text-[11px] font-black px-2 py-0.5 rounded uppercase tracking-widest">
+        <span class="bg-slate-950 text-white text-[11px] font-bold px-2 py-0.5 rounded uppercase tracking-widest">
           Excel Parser Active
         </span>
       </div>
@@ -29,17 +29,17 @@
           type="file" 
           ref="fileInput" 
           class="hidden" 
-          accept=".xlsx, .xls" 
+          accept=".xlsx, .xls, .csv" 
           @change="handleFileSelect" 
         />
 
         <div class="space-y-2">
           <div v-if="!selectedFile" class="text-slate-400 group-hover:text-slate-600 transition-colors">
-            📊 <span class="text-sm font-black block mt-1 uppercase tracking-wider">Arrastra el archivo de Rampa aquí</span>
+            📊 <span class="text-sm font-bold block mt-1 uppercase tracking-wider">Arrastra el archivo de Rampa aquí</span>
             <span class="text-[11px] block text-slate-400">Formatos aceptados: .XLSX / .XLS con celdas combinadas</span>
           </div>
           
-          <div v-else class="text-slate-700 font-black text-sm">
+          <div v-else class="text-slate-700 font-bold text-sm">
             📄 {{ selectedFile.name }}
             <span class="text-[11px] block text-slate-400 font-normal mt-1">
               Size: {{ (selectedFile.size / 1024).toFixed(2) }} KB
@@ -53,11 +53,11 @@
           ⏳ PARSEANDO MATRIZ EN LA JVM... DESCOMBINANDO REGIONES Y CALCULANDO LIBRAS...
         </div>
 
-        <div v-if="serverError" class="p-3 bg-slate-50 border-l-4 border-l-slate-500 text-slate-950 rounded font-black uppercase leading-relaxed text-sm">
+        <div v-if="serverError" class="p-3 bg-slate-50 border-l-4 border-l-slate-500 text-slate-900 rounded font-bold uppercase leading-relaxed text-sm">
           ❌ {{ serverError }}
         </div>
 
-        <div v-if="successMessage" class="p-3 bg-slate-50 border-l-4 border-l-slate-500 text-slate-950 rounded font-black uppercase text-sm">
+        <div v-if="successMessage" class="p-3 bg-slate-50 border-l-4 border-l-slate-500 text-slate-900 rounded font-bold uppercase text-sm">
           ✔ {{ successMessage }}
         </div>
       </div>
@@ -70,7 +70,7 @@
         @click="processRampManifest"
         :disabled="!selectedFile || uploading || missingContext"
         :class="selectedFile && !uploading && !missingContext ? 'bg-slate-950 hover:bg-slate-900 text-white cursor-pointer' : 'bg-slate-200 text-slate-400 cursor-not-allowed'"
-        class="w-full font-black uppercase tracking-widest py-2.5 rounded text-sm transition-colors mt-4"
+        class="w-full font-bold uppercase tracking-widest py-2.5 rounded text-sm transition-colors mt-4"
       >
         Sincronizar con Base de Datos
       </button>
@@ -113,11 +113,11 @@ function handleFileDrop(event) {
   const files = event.dataTransfer.files
   if (files.length > 0) {
     const file = files[0]
-    if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+    if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || file.name.endsWith('.csv')) {
       selectedFile.value = file
       resetAlerts()
     } else {
-      serverError.value = 'TIPO DE ARCHIVO NO VALIDO. DEBE SER UN EXCEL DE CARGO (.XLSX).'
+      serverError.value = 'TIPO DE ARCHIVO NO VALIDO. DEBE SER UN EXCEL DE CARGO (.XLSX) O CSV.'
     }
   }
 }

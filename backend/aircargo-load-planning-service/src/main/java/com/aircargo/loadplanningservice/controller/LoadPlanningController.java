@@ -1,10 +1,13 @@
 package com.aircargo.loadplanningservice.controller;
 
 import com.aircargo.common.util.TextUtil;
+import com.aircargo.feign.client.UldClient;
 import com.aircargo.feign.dto.UldAwbDTO;
 import com.aircargo.feign.dto.UldDTO;
 import com.aircargo.loadplanningservice.dto.LoadPlanningDTO;
+import com.aircargo.loadplanningservice.dto.LoadPlanningBatchImportResultDTO;
 import com.aircargo.loadplanningservice.dto.LoadPlanningUldDTO;
+import com.aircargo.loadplanningservice.service.LoadPlanningBatchImportService;
 import com.aircargo.loadplanningservice.service.LoadPlanningExportService;
 import com.aircargo.loadplanningservice.service.LoadPlanningService;
 import com.aircargo.loadplanningservice.service.RampManifestParserService;
@@ -28,13 +31,28 @@ public class LoadPlanningController {
     private final LoadPlanningService loadPlanningService;
     private final RampManifestParserService manifestParserService;
     private final LoadPlanningExportService exportService;
+    private final LoadPlanningBatchImportService batchImportService;
+    private final UldClient uldClient;
 
     public LoadPlanningController(LoadPlanningService loadPlanningService,
                                    RampManifestParserService manifestParserService,
-                                   LoadPlanningExportService exportService) {
+                                   LoadPlanningExportService exportService,
+                                   LoadPlanningBatchImportService batchImportService,
+                                   UldClient uldClient) {
         this.loadPlanningService = loadPlanningService;
         this.manifestParserService = manifestParserService;
         this.exportService = exportService;
+        this.batchImportService = batchImportService;
+        this.uldClient = uldClient;
+    }
+
+    @PostMapping("/batch-import")
+    public ResponseEntity<?> batchImport(@RequestParam("file") MultipartFile file) {
+        try {
+            return ResponseEntity.ok(batchImportService.importBatch(file));
+        } catch (Exception ex) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "error", ex.getMessage()));
+        }
     }
 
     @PostMapping("/flight/{flightId}/close")
@@ -59,11 +77,50 @@ public class LoadPlanningController {
                                                  @RequestParam("airlineId") java.util.UUID airlineId,
                                                  @RequestParam("file") MultipartFile file) {
         try {
+            // First try to detect LOAD_PLANNING format (fixed format with flight info in E3/L3)
+            LoadPlanningBatchImportResultDTO batchResult = null;
+            try {
+                batchResult = batchImportService.importBatch(file);
+            } catch (Exception e) {
+                // Not LOAD_PLANNING format, will try ramp manifest parser
+            }
+
+            if (batchResult != null && batchResult.getSuccessSheets() > 0) {
+                // LOAD_PLANNING format detected and imported successfully
+                int totalUlds = batchResult.getTotalUldsCreated() + batchResult.getTotalUldsUpdated();
+                int totalMawbs = batchResult.getTotalMawbsCreated();
+                int totalBookings = batchResult.getTotalBookingsCreated();
+                String message = String.format(
+                    "Exito: Importado formato Load Planning. ULDs: %d (%d nuevos, %d actualizados), MAWBs: %d nuevos, Bookings: %d nuevos.",
+                    totalUlds, batchResult.getTotalUldsCreated(), batchResult.getTotalUldsUpdated(),
+                    totalMawbs, totalBookings);
+                return ResponseEntity.ok().body(Map.of("success", true, "message", message));
+            }
+
+            // Fallback to ramp manifest parser (ULD-only format)
             List<UldDTO> uldsExtraidos = manifestParserService.parseExcelToNativeUld(file, flightId, airlineId);
-            return ResponseEntity.ok().body(Map.of(
-                "success", true,
-                "message", String.format("Exito: Se inyectaron %d ULDs nativos al plan de vuelo.", uldsExtraidos.size())
-            ));
+            List<UldDTO> existing = uldClient.getUlds(null, flightId);
+            Map<String, UldDTO> existingByNumber = new java.util.HashMap<>();
+            for (UldDTO uld : existing) {
+                if (uld.getUldNumber() != null) {
+                    existingByNumber.put(uld.getUldNumber().toUpperCase(), uld);
+                }
+            }
+            int created = 0;
+            for (UldDTO uld : uldsExtraidos) {
+                if (existingByNumber.containsKey(uld.getUldNumber().toUpperCase())) continue;
+                uldClient.createUld(uld);
+                created++;
+            }
+            String message;
+            if (created > 0) {
+                message = String.format("Exito: Se inyectaron %d ULDs nativos al plan de vuelo.", created);
+            } else if (!uldsExtraidos.isEmpty()) {
+                message = String.format("Los %d ULDs del manifiesto ya existian en el plan de vuelo.", uldsExtraidos.size());
+            } else {
+                message = "No se encontraron ULDs en el manifiesto. Verifique el archivo y sus columnas.";
+            }
+            return ResponseEntity.ok().body(Map.of("success", true, "message", message));
         } catch (Exception ex) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "error", ex.getMessage()));
         }
@@ -80,6 +137,24 @@ public class LoadPlanningController {
             return ResponseEntity.ok()
                     .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + filename)
                     .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                    .body(resource);
+
+        } catch (Exception ex) {
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    @GetMapping("/flight/{flightId}/export-manifest/csv")
+    public ResponseEntity<Resource> downloadRampManifestCsv(@PathVariable java.util.UUID flightId) {
+        try {
+            ByteArrayInputStream in = exportService.exportFlightLoadPlanCsv(flightId);
+            InputStreamResource resource = new InputStreamResource(in);
+
+            String filename = String.format("LOAD_PLAN_FLIGHT_%s.csv", flightId.toString().substring(0, 8));
+
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + filename)
+                    .contentType(MediaType.parseMediaType("text/csv"))
                     .body(resource);
 
         } catch (Exception ex) {
@@ -229,7 +304,8 @@ public class LoadPlanningController {
                         ? plan.getAirlineCode().toUpperCase() : airlineName;
                 String statusSeal = seal != null && !seal.isEmpty() && !seal.isBlank()
                         ? sts + " \u2022 " + seal : sts;
-                String builtBy = v(uld.getBuiltBy());
+                String loadedBy = v(uld.getLoadedBy());
+                String weighedBy = v(uld.getWeighedBy());
                 String confirmedWith = v(uld.getConfirmedWith());
                 String completedAt = v(uld.getCompletedAt());
 
@@ -284,8 +360,8 @@ public class LoadPlanningController {
                         sb.append("<td class='c'>").append(idx++).append("</td>");
                         sb.append("<td>").append(xmlEscape(nz(awb.getMawbLabel()))).append("</td>");
                         sb.append("<td class='c'>").append(pcs).append("</td>");
-                        sb.append("<td class='r'>").append(pcs).append("</td>");
-                        sb.append("<td>").append(xmlEscape(nz(awb.getDescription()))).append("</td>");
+                        sb.append("<td class='r'></td>");
+                        sb.append("<td>").append(xmlEscape(nz(awb.getDescription() != null ? awb.getDescription().name() : ""))).append("</td>");
                         sb.append("<td>").append(xmlEscape(nz(awb.getDestination()))).append("</td>");
                         sb.append("</tr>");
                     }
@@ -298,7 +374,7 @@ public class LoadPlanningController {
                 sb.append("<tr class='total'>");
                 sb.append("<td colspan='2' style='text-align:right;'>Total</td>");
                 sb.append("<td class='c'>").append(totalPieces).append("</td>");
-                sb.append("<td class='r'>").append(gross).append("</td>");
+                sb.append("<td class='r'></td>");
                 sb.append("<td colspan='2' style='font-size:10pt;'>Gross: ").append(gross)
                         .append(" &#160;|&#160; <span style='background:#f2f2f2;padding:1pt 4pt;border:1px solid #000;'>Tare: ").append(tare)
                         .append("</span> &#160;|&#160; Net: ").append(net).append("</td>");
@@ -311,10 +387,10 @@ public class LoadPlanningController {
                 // ── Footer ──
                 sb.append("<table class='footer'>");
                 sb.append("<tr>");
-                sb.append("<td><span class='fl'>Built By:</span><span class='fv'>").append(builtBy).append("</span></td>");
+                sb.append("<td><span class='fl'>Loaded By:</span><span class='fv'>").append(loadedBy).append("</span></td>");
                 sb.append("<td><span class='fl'>Completed At:</span><span class='fv'>").append(completedAt).append("</span></td>");
                 sb.append("<td><span class='fl'>Confirmed With:</span><span class='fv'>").append(confirmedWith).append("</span></td>");
-                sb.append("<td><span class='fl'>Time:</span><span class='fv'>").append(completedAt).append("</span></td>");
+                sb.append("<td><span class='fl'>Weighed By:</span><span class='fv'>").append(weighedBy).append("</span></td>");
                 sb.append("</tr></table>");
 
                 sb.append("</div>");

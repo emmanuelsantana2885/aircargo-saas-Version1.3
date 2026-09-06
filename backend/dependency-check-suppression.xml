@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Dependency Check Suppression File for Aircargo -->
+<!-- File: backend/dependency-check-suppression.xml -->
+
+<suppressions>
+  <!-- 
+    Suppress false positives or accepted risks.
+    Format: 
+    <suppress>
+      <notes>Reason for suppression</notes>
+      <packageUrl>pkg:maven/group/artifact@version</packageUrl>
+      <cve>CVE-XXXX-XXXX</cve>
+    </suppress>
+  -->
+
+  <!-- Example: Suppress log4j vulnerability in test scope only -->
+  <!--
+  <suppress>
+    <notes>log4j 2.17.1 only used in test scope, not in production runtime</notes>
+    <packageUrl>pkg:maven/org.apache.logging.log4j/log4j-core@2.17.1</packageUrl>
+    <cve>CVE-2021-44228</cve>
+  </suppress>
+  -->
+
+  <!-- Example: Accept risk for transitive dependency with no fix available -->
+  <!--
+  <suppress>
+    <notes>No fixed version available for transitive dependency. Monitoring upstream.</notes>
+    <packageUrl>pkg:maven/com.example/library@1.0.0</packageUrl>
+    <cve>CVE-2023-XXXXX</cve>
+  </suppress>
+  -->
+
+  <!-- Spring Boot 3.x / Spring Framework 6.x known CVEs with mitigations -->
+  <!-- These are typically patched in Spring Boot minor versions -->
+
+  <!-- Netty (used by Spring WebFlux) - monitor for updates -->
+  <!--
+  <suppress>
+    <notes>Netty vulnerability patched in Spring Boot 3.2.x</notes>
+    <packageUrl>pkg:maven/io.netty/netty-codec-http@4.1.100.Final</packageUrl>
+    <cve>CVE-2023-XXXX</cve>
+  </suppress>
+  -->
+
+  <!-- SnakeYAML - used by Spring Boot for config, not exposed to untrusted input -->
+  <!--
+  <suppress>
+    <notes>SnakeYAML only used for trusted configuration files, not user input</notes>
+    <packageUrl>pkg:maven/org.yaml/snakeyaml@2.2</packageUrl>
+    <cve>CVE-2022-1471</cve>
+  </suppress>
+  -->
+
+  <!-- H2 Database - only used in test profile -->
+  <!--
+  <suppress>
+    <notes>H2 Database only used in test scope (application-test.properties), not production</notes>
+    <packageUrl>pkg:maven/com.h2database/h2@2.2.224</packageUrl>
+    <cve>CVE-2021-42392</cve>
+  </suppress>
+  -->
+
+  <!-- Jackson - monitor for deserialization vulnerabilities -->
+  <!--
+  <suppress>
+    <notes>Jackson configured with default typing disabled, only trusted sources</notes>
+    <packageUrl>pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.16.0</packageUrl>
+    <cve>CVE-2023-XXXX</cve>
+  </suppress>
+  -->
+
+</suppressions>

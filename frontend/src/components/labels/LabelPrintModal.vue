@@ -3,7 +3,7 @@
     <div class="bg-white rounded-xl shadow-2xl w-[560px] max-h-[90vh] flex flex-col border border-slate-300">
       <div class="flex items-center justify-between px-4 py-3 border-b border-slate-200 shrink-0">
         <div>
-          <h3 class="text-[14px] font-black uppercase tracking-widest text-slate-950 font-mono">Imprimir {{ typeLabel }} Label</h3>
+          <h3 class="text-[14px] font-bold uppercase tracking-widest text-slate-950 font-mono">Imprimir {{ typeLabel }} Label</h3>
           <p class="text-[11px] font-mono text-slate-400 font-semibold">{{ items.length }} seleccionado(s)</p>
         </div>
         <button @click="$emit('close')" class="w-8 h-8 rounded hover:bg-slate-100 text-slate-500 text-[14px] font-mono">✕</button>
@@ -20,7 +20,7 @@
         <template v-else>
           <div class="grid grid-cols-2 gap-3">
             <label class="block col-span-2">
-              <span class="text-[11px] font-mono font-black text-slate-600 uppercase tracking-widest">Plantilla</span>
+              <span class="text-[11px] font-mono font-bold text-slate-600 uppercase tracking-widest">Plantilla</span>
               <div class="flex gap-2 mt-1">
                 <select v-model="templateId" class="flex-1 px-2 py-1.5 rounded border border-slate-300 text-[13px] font-mono focus:outline-none focus:border-slate-950 bg-white">
                   <option v-for="t in templates" :key="t.id" :value="t.id">{{ t.name }} {{ t.isDefault ? '(default)' : '' }}</option>
@@ -29,20 +29,20 @@
               </div>
             </label>
             <label class="block">
-              <span class="text-[11px] font-mono font-black text-slate-600 uppercase tracking-widest">Formato</span>
+              <span class="text-[11px] font-mono font-bold text-slate-600 uppercase tracking-widest">Formato</span>
               <select v-model="format" class="w-full mt-1 px-2 py-1.5 rounded border border-slate-300 text-[13px] font-mono focus:outline-none focus:border-slate-950 bg-white">
                 <option value="PDF">PDF</option>
                 <option value="ZPL">ZPL (Zebra)</option>
               </select>
             </label>
             <label class="block">
-              <span class="text-[11px] font-mono font-black text-slate-600 uppercase tracking-widest">Copias</span>
+              <span class="text-[11px] font-mono font-bold text-slate-600 uppercase tracking-widest">Copias</span>
               <input v-model.number="quantity" type="number" min="1" max="99" class="w-full mt-1 px-2 py-1.5 rounded border border-slate-300 text-[13px] font-mono focus:outline-none focus:border-slate-950 bg-white" />
             </label>
           </div>
 
           <div v-if="currentTemplate">
-            <div class="text-[11px] font-mono font-black text-slate-600 uppercase tracking-widest mb-1.5">Vista previa</div>
+            <div class="text-[11px] font-mono font-bold text-slate-600 uppercase tracking-widest mb-1.5">Vista previa</div>
             <div class="bg-slate-100 rounded-lg p-4 flex justify-center overflow-auto">
               <div class="bg-white shadow border border-slate-300 relative" :style="previewCanvasStyle">
                 <div v-for="el in previewElements" :key="el.id"

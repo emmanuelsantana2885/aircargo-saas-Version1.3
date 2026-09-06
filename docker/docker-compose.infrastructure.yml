@@ -33,7 +33,7 @@ services:
       # rabbitmq_prometheus por defecto; el bind-mount de enabled_plugins causaba eacces en el
       # boot por desajuste de ownership (usuario del contenedor UID 100 vs archivo UID 1000).
     ports:
-      - "5672:5672"
+      - "${RABBITMQ_PORT:-5672}:5672"
       - "15672:15672"
       - "15692:15692"   # métricas Prometheus (plugin rabbitmq_prometheus)
     healthcheck:

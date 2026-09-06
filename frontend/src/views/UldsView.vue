@@ -40,53 +40,14 @@
         </button>
       </EmptyState>
 
-      <div v-else class="ds-split">
-        <aside class="ds-split-list">
-          <div v-for="uld in filteredUlDs" :key="uld.uid"
-            @click="toggleUldExpansion(uld.uid)"
-            class="ds-list-card flex-wrap"
-            :class="[expandedUldId === uld.uid
-              ? 'border-slate-950 ring-1 ring-slate-950 row-selected'
-              : 'border-slate-200 hover:border-slate-400 hover:shadow-sm',
-              uld._isFirstDated ? 'border-t-2 border-t-slate-950 mt-1' : '']"
-            :style="uldStatusBorderStyle(uld.status)">
-
-            <span class="text-[13px] font-black text-slate-950 font-mono truncate min-w-0 leading-tight flex items-center gap-1.5 flex-1">
-              {{ uld.uldNumber || t('ulds.newUld') }}
-              <span v-if="uldAgeInDays(uld.createdAt) !== null"
-                class="text-[10px] font-bold px-1 py-px rounded leading-none"
-                :class="uldAgeBadgeClass(uldAgeInDays(uld.createdAt))">
-                {{ uldAgeInDays(uld.createdAt) }}d
-              </span>
-            </span>
-            <span class="text-[10px] font-black px-1 py-px rounded uppercase whitespace-nowrap leading-none shrink-0"
-              :class="statusBadgeClass(uld.status)">{{ t('ulds.status.' + uld.status) }}</span>
-
-            <span class="text-[12px] font-mono text-slate-500 truncate w-full leading-tight">
-              {{ flightLabel(uld) }}
-              <span v-if="uld.route"> · {{ uld.route.replace(' -> ', '→') }}</span>
-              · {{ Number(uld.grossWeightLbs || 0).toLocaleString() }} lb
-              · {{ t('ulds.mawbCount', (uld.mawbs || []).length) }}
-            </span>
-
-            <div class="flex items-center gap-1 w-full">
-              <div class="flex-1 h-[3px] bg-slate-100 rounded-full overflow-hidden">
-                <div class="h-full rounded-full transition-all duration-300"
-                  :class="uld.volumePct >= 90 ? 'bg-slate-600' : 'bg-slate-950'"
-                  :style="{ width: uld.volumePct + '%' }"></div>
-              </div>
-              <span class="text-[12px] font-mono font-bold text-slate-400 leading-none">{{ uld.volumePct }}%</span>
-            </div>
-          </div>
-        </aside>
-
+      <div v-else class="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
         <div class="ds-split-detail">
-          <div v-for="uld in filteredUlDs" :key="'f-'+uld.uid">
-            <div v-show="expandedUldId === uld.uid" class="p-4">
+          <template v-if="expandedUld">
+            <div v-for="uld in [expandedUld]" :key="'f-'+uld.uid" class="p-4">
               <div class="bg-white border border-slate-300 rounded shadow-sm max-w-5xl mx-auto p-3 md:p-6 font-mono text-sm relative">
                   <div class="flex justify-between items-center border-b border-slate-300 pb-3 mb-5">
                     <div class="flex items-center gap-2">
-                      <span class="text-[13px] font-black text-slate-950 uppercase tracking-wider">{{ t('ulds.palletSheetHeader') }}</span>
+                      <span class="text-[13px] font-bold text-slate-950 uppercase tracking-wider">{{ t('ulds.palletSheetHeader') }}</span>
                   </div>
                   <div class="flex items-center gap-2">
                     <span class="text-[13px] font-bold text-slate-400 uppercase">Volumen:</span>
@@ -99,7 +60,7 @@
                   <div>
                     <label class="ds-label block mb-1 flex items-center gap-1.5">
                       {{ t('ulds.form.uldCode') }} *
-                      <span v-if="creationStep === 2" class="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-px rounded font-black">{{ t('ulds.scanOrType') }}</span>
+                      <span v-if="creationStep === 2" class="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-px rounded font-bold">{{ t('ulds.scanOrType') }}</span>
                     </label>
                     <input v-model="uld.uldNumber" type="text" placeholder="PMC-XXXXX"
                       class="ds-input uppercase transition-all duration-300"
@@ -264,19 +225,23 @@
                       </select>
                   </div>
                   <div class="bg-slate-50 flex flex-col justify-center rounded px-3 py-2 border border-slate-200">
-                    <span class="text-sm font-black text-slate-600 uppercase tracking-wider">{{ t('ulds.netWeight') }}</span>
-                    <span class="text-sm font-black text-slate-800">{{ ((uld.grossWeightLbs || 0) - (uld.tareLbs || 0)).toLocaleString() }} lbs</span>
+                    <span class="text-sm font-bold text-slate-600 uppercase tracking-wider">{{ t('ulds.netWeight') }}</span>
+                    <span class="text-sm font-bold text-slate-800">{{ ((uld.grossWeightLbs || 0) - (uld.tareLbs || 0)).toLocaleString() }} lbs</span>
                   </div>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 border-t border-slate-200 pt-5">
+                <div class="grid grid-cols-1 sm:grid-cols-4 xl:grid-cols-5 gap-4 border-t border-slate-200 pt-5">
                   <div>
                     <label class="ds-label block mb-1">{{ t('ulds.form.destination') }}</label>
                     <input v-model="uld.destination" type="text" :placeholder="t('ulds.form.destinationPlaceholder')" class="ds-input uppercase" />
                   </div>
 <div>
-                      <label class="ds-label block mb-1">{{ t('ulds.form.builtBy') }}</label>
-                      <input v-model="uld.builtBy" type="text" :placeholder="t('ulds.form.builtByPlaceholder')" class="ds-input font-bold" />
+                      <label class="ds-label block mb-1">{{ t('ulds.form.loadedBy') }}</label>
+                      <input v-model="uld.loadedBy" type="text" :placeholder="t('ulds.form.loadedByPlaceholder')" class="ds-input font-bold" />
+                    </div>
+                   <div>
+                      <label class="ds-label block mb-1">{{ t('ulds.form.weighedBy') }}</label>
+                      <input v-model="uld.weighedBy" type="text" :placeholder="t('ulds.form.weighedByPlaceholder')" class="ds-input font-bold" />
                     </div>
                   <div>
                     <label class="ds-label block mb-1">{{ t('ulds.form.confirmedWith') }}</label>
@@ -292,25 +257,25 @@
                 <!-- Step guide for new ULD creation -->
                 <div v-if="!uld.backendId && creationStep > 0" class="flex items-center gap-3 mb-4 px-3 py-2 rounded-lg"
                   :class="creationStep === 1 ? 'bg-amber-50 ring-2 ring-amber-300' : creationStep === 2 ? 'bg-emerald-50 ring-2 ring-emerald-300' : 'bg-slate-50'">
-                  <div class="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider"
+                  <div class="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider"
                     :class="creationStep >= 1 ? 'text-amber-700' : 'text-slate-300'">
-                    <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black"
+                    <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
                       :class="creationStep > 1 ? 'bg-emerald-500 text-white' : creationStep === 1 ? 'bg-amber-400 text-white' : 'bg-slate-200'">1</span>
                     {{ t('ulds.form.flight') }}
                     <span v-if="creationStep > 1" class="text-emerald-600 ml-1">✓</span>
                   </div>
                   <span class="text-slate-300 text-[10px]">▸</span>
-                  <div class="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider"
+                  <div class="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider"
                     :class="creationStep >= 2 ? 'text-emerald-700' : 'text-slate-300'">
-                    <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black"
+                    <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
                       :class="creationStep > 2 ? 'bg-emerald-500 text-white' : creationStep === 2 ? 'bg-emerald-400 text-white' : 'bg-slate-200'">2</span>
                     {{ t('ulds.steps.scanUld') }}
                     <span v-if="creationStep > 2" class="text-emerald-600 ml-1">✓</span>
                   </div>
                   <span class="text-slate-300 text-[10px]">▸</span>
-                  <div class="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider"
+                  <div class="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider"
                     :class="creationStep >= 3 ? 'text-slate-900' : 'text-slate-300'">
-                    <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black"
+                    <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
                       :class="creationStep >= 3 ? 'bg-slate-900 text-white' : 'bg-slate-200'">3</span>
                     {{ t('ulds.steps.registerPieces') }}
                   </div>
@@ -319,7 +284,7 @@
                 <div class="border-t border-slate-200 pt-5 flex flex-wrap justify-end gap-2 bg-slate-50/50 -mx-2 md:-mx-6 -mb-6 p-3 md:p-6 rounded-b">
                   <div class="flex items-center gap-4 mr-auto">
                     <div class="flex flex-col">
-                      <span class="text-[12px] font-black uppercase tracking-widest flex items-center gap-1.5"
+                      <span class="text-[12px] font-bold uppercase tracking-widest flex items-center gap-1.5"
                         :class="creationStep === 1 ? 'text-amber-700' : 'text-slate-400'">
                         {{ t('ulds.form.flight') }}
                         <span v-if="creationStep === 1" class="text-[10px] bg-amber-200 text-amber-800 px-1.5 py-px rounded">{{ t('ulds.step', { n: 1 }) }}</span>
@@ -334,13 +299,13 @@
                       </select>
                     </div>
                     <div class="flex flex-col">
-                      <span class="text-[12px] font-black text-slate-400 uppercase tracking-widest">{{ t('ulds.created') }}</span>
+                      <span class="text-[12px] font-bold text-slate-400 uppercase tracking-widest">{{ t('ulds.created') }}</span>
                       <span class="text-[14px] font-bold text-slate-950">{{ uld.createdAt ? formatDate(uld.createdAt) : '—' }}</span>
                     </div>
                   </div>
                   <div class="flex items-center gap-2">
                     <button @click="toggleScanMode(uld)"
-                      class="font-mono font-black uppercase text-[12px] tracking-widest px-4 py-2.5 rounded shadow-md transition-all flex items-center gap-2"
+                      class="font-mono font-bold uppercase text-[12px] tracking-widest px-4 py-2.5 rounded shadow-md transition-all flex items-center gap-2"
                       :class="creationStep === 2 ? 'bg-emerald-600 hover:bg-emerald-700 text-white ring-2 ring-emerald-300 animate-pulse' : scanMode ? 'bg-emerald-600 hover:bg-emerald-700 text-white ring-2 ring-emerald-300' : 'bg-blue-600 hover:bg-blue-700 text-white'">
                       <template v-if="creationStep === 2">{{ t('ulds.scanNow') }}</template>
                       <template v-else-if="scanMode">{{ t('ulds.scanning') }}</template>
@@ -367,10 +332,74 @@
                 </div>
               </div>
             </div>
-          </div>
+          </template>
 
           <EmptyState v-if="!expandedUldId" :title="t('ulds.selectToEdit')" :hint="t('ulds.selectHint')" :icon="icons.Package" />
         </div>
+
+        <aside class="shrink-0 w-full lg:w-[420px] border-t-2 lg:border-t-0 lg:border-l-2 border-slate-200 bg-slate-50/60 flex flex-col min-h-0">
+          <div class="flex items-center gap-2 px-3 pt-2 pb-1.5 shrink-0 flex-wrap">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">{{ t('ulds.summary') }}</span>
+            <span class="ds-chip !py-0 !px-1.5 text-[10px]">{{ t('ulds.listCount', filteredUlDs.length) }}</span>
+            <span v-if="fullUldCount > 0" class="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 rounded uppercase border border-emerald-200 bg-emerald-50 text-emerald-700">
+              &#10003; {{ t('ulds.fullCount', fullUldCount) }}
+            </span>
+            <span v-if="nearFullUldCount > 0" class="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 rounded uppercase border border-amber-200 bg-amber-50 text-amber-700">
+              &#9673; {{ t('ulds.nearFullCount', nearFullUldCount) }}
+            </span>
+            <span class="ml-auto text-[9px] font-bold uppercase tracking-wider text-slate-400" title="Ordenados por peso bruto desc">&#8595; {{ t('ulds.byGross') }}</span>
+          </div>
+          <div class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-1.5 pb-2 flex flex-col gap-1 content-start">
+            <div v-for="uld in sortedUlDsByGross" :key="uld.uid"
+              @click="toggleUldExpansion(uld.uid)"
+              class="ds-list-card flex-wrap"
+              :class="[expandedUldId === uld.uid
+                ? 'border-slate-950 ring-1 ring-slate-950 row-selected'
+                : 'border-slate-200 hover:border-slate-400 hover:shadow-sm',
+                uld._isFirstDated ? 'border-t-2 border-t-slate-950 mt-1' : '',
+                uld.volumePct >= 100 ? 'border-emerald-300 ring-1 ring-emerald-100' : '']"
+              :style="uldStatusBorderStyle(uld.status)">
+
+              <span class="text-[13px] font-bold text-slate-950 font-mono truncate min-w-0 leading-tight flex items-center gap-1.5 flex-1">
+                {{ uld.uldNumber || t('ulds.newUld') }}
+                <span v-if="uldAgeInDays(uld.createdAt) !== null"
+                  class="text-[10px] font-bold px-1 py-px rounded leading-none"
+                  :class="uldAgeBadgeClass(uldAgeInDays(uld.createdAt))">
+                  {{ uldAgeInDays(uld.createdAt) }}d
+                </span>
+              </span>
+              <span class="text-[10px] font-bold px-1 py-px rounded uppercase whitespace-nowrap leading-none shrink-0"
+                :class="statusBadgeClass(uld.status)">{{ t('ulds.status.' + uld.status) }}</span>
+
+              <div class="flex items-center gap-x-2 text-[11px] font-mono text-slate-500 truncate w-full leading-tight min-w-0">
+                <span class="font-bold text-slate-700 tabular-nums">{{ Number(uld.grossWeightLbs || 0).toLocaleString() }} lb</span>
+                <span class="text-slate-300">|</span>
+                <span class="truncate">{{ flightLabel(uld) }}</span>
+                <span v-if="uld.route" class="text-slate-400 truncate">{{ uld.route.replace(' -> ', '→') }}</span>
+                <span class="text-slate-300">·</span>
+                <span class="shrink-0">{{ t('ulds.mawbCount', (uld.mawbs || []).length) }}</span>
+              </div>
+
+              <div class="flex items-center gap-x-1.5 text-[10px] font-mono text-slate-500 truncate w-full leading-tight min-w-0">
+                <span class="whitespace-nowrap shrink-0">{{ t('ulds.form.weighedBy') }}: <b class="text-slate-700">{{ uld.weighedBy || '—' }}</b></span>
+                <span class="text-slate-300">|</span>
+                <span class="whitespace-nowrap shrink-0">{{ t('ulds.form.loadedBy') }}: <b class="text-slate-700">{{ uld.loadedBy || '—' }}</b></span>
+                <span class="text-slate-300">|</span>
+                <span class="truncate">{{ t('ulds.form.confirmedWith') }}: <b class="text-slate-700 truncate">{{ uld.confirmedWith || '—' }}</b></span>
+              </div>
+
+              <div class="flex items-center gap-1 w-full">
+                <div class="flex-1 h-[3px] bg-slate-100 rounded-full overflow-hidden">
+                  <div class="h-full rounded-full transition-all duration-300"
+                    :class="uld.volumePct >= 100 ? 'bg-emerald-500' : uld.volumePct >= 90 ? 'bg-slate-600' : 'bg-slate-950'"
+                    :style="{ width: Math.min(uld.volumePct, 100) + '%' }"></div>
+                </div>
+                <span class="text-[12px] font-mono font-bold leading-none"
+                  :class="uld.volumePct >= 100 ? 'text-emerald-600' : 'text-slate-400'">{{ uld.volumePct }}%</span>
+              </div>
+            </div>
+          </div>
+        </aside>
       </div>
     </section>
 
@@ -398,6 +427,7 @@ import { useConfirm } from '../composables/useConfirm'
 import FilterBar from '../components/FilterBar.vue'
 import EmptyState from '../components/EmptyState.vue'
 import { useIcons } from '../composables/useIcons'
+import { useLiveRefresh } from '../composables/useLiveRefresh'
 
 const uldsStore = useUldsStore()
 const appStore = useAppStore()
@@ -534,6 +564,14 @@ const filteredUlDs = computed(() => {
   return list
 })
 
+const fullUldCount = computed(() => filteredUlDs.value.filter(u => u.volumePct >= 100).length)
+const nearFullUldCount = computed(() => filteredUlDs.value.filter(u => u.volumePct >= 90 && u.volumePct < 100).length)
+
+// Listado vertical: del ULD más pesado (mayor gross weight) al más ligero
+const sortedUlDsByGross = computed(() => {
+  return [...filteredUlDs.value].sort((a, b) => (Number(b.grossWeightLbs) || 0) - (Number(a.grossWeightLbs) || 0))
+})
+
 function formatDate(iso) {
   if (!iso) return '—'
   const d = new Date(iso)
@@ -542,6 +580,8 @@ function formatDate(iso) {
 
 // Local ULD list derived from backend + new unsaved
 const localUlds = ref([])
+
+const expandedUld = computed(() => localUlds.value.find(u => u.uid === expandedUldId.value) || null)
 
 // Scan mode state
 const scanMode = ref(false)
@@ -665,8 +705,10 @@ async function onUldNumberScanned(code) {
       const flight = appStore.flights.find(f => f.id === flightId)
       uld.airlineId = uld.airlineId || flight?.airlineId || appStore.selectedFlight?.airlineId
       uld.flightId = flightId
+      uld._skipOperatorValidation = true
       const result = await uldsStore.dispatchUld(uld, flightId)
       uld.backendId = result?.id
+      delete uld._skipOperatorValidation
       await appStore.loadUlds()
     } catch (e) {
       console.warn('[ULD Scan] Auto-save failed:', e)
@@ -705,9 +747,9 @@ function mawbSelectGroups(uld, mIdx) {
   if (specialItems.length) groups.push({ label: t('ulds.form.mawbSpecialGroup'), options: specialItems })
   const current = mawb?.awbNumber
   if (current) {
-    const seen = groups.some(g => g.options.some(o => o.awbNumber === current))
+    const seen = groups.some(g => g.options.some(o => normalizeAwb(o.awbNumber) === normalizeAwb(current)))
     if (!seen) {
-      const m = (appStore.mawbs || []).find(x => x.awbNumber === current)
+      const m = (appStore.mawbs || []).find(x => normalizeAwb(x.awbNumber) === normalizeAwb(current))
       groups.unshift({
         label: t('ulds.form.mawbCurrentGroup'),
         options: [m || { awbNumber: current, shipperName: '', consigneeName: '', commodityType: '' }],
@@ -770,7 +812,8 @@ const pendingReceiptCount = computed(() => {
 })
 
 function mawbReceiptInfo(awbNumber, excludeRowId) {
-  const m = (appStore.mawbs || []).find(x => x.awbNumber === awbNumber)
+  const norm = normalizeAwb(awbNumber)
+  const m = (appStore.mawbs || []).find(x => normalizeAwb(x.awbNumber) === norm)
   const receipt = (appStore.receipts || []).find(r => (r.mawb && r.mawb.id === m?.id) || r.mawbId === m?.id)
   const reservedPieces = m ? (m.pieces || 0) : 0
   const receivedPieces = receipt ? (receipt.pieceCount || receipt.receivedPieces || 0) : 0
@@ -791,7 +834,8 @@ function mawbHasReceipt(awbNumber) {
 
 function mawbInBookings(awbNumber) {
   if (!awbNumber) return false
-  return (appStore.bookings || []).some(b => b.awbNumber === awbNumber)
+  const norm = normalizeAwb(awbNumber)
+  return (appStore.bookings || []).some(b => normalizeAwb(b.awbNumber) === norm)
 }
 
 function mawbStatusForAwb(awbNumber) {
@@ -833,6 +877,23 @@ function totalUldReceivedPieces(uld) {
   return (uld.mawbs || []).reduce((s, m) => s + ((m.receivedPieces != null ? m.receivedPieces : m.pieces) || 0), 0)
 }
 
+function liveCommodityFor(awbNumber, fallback) {
+  if (!awbNumber) return fallback || ''
+  const norm = normalizeAwb(awbNumber)
+  const m = (appStore.mawbs || []).find(x => normalizeAwb(x.awbNumber) === norm)
+  if (m?.commodityType) return m.commodityType
+  const b = (appStore.bookings || []).find(x => normalizeAwb(x.awbNumber) === norm)
+  return b?.commodityType || fallback || ''
+}
+
+function normalizeAwb(raw) {
+  let s = String(raw || '').replace(/[\s\-_/]/g, '')
+  if (/^\d{11}$/.test(s)) {
+    s = s.slice(0, 3) + '-' + s.slice(3)
+  }
+  return s
+}
+
 function rebuildLocalList() {
   const backend = (appStore.ulds || []).map(u => {
     const flight = appStore.flights.find(f => f.id === u.flightId)
@@ -850,7 +911,8 @@ function rebuildLocalList() {
       tareLbs: u.tareLbs || u.tareWeight || 0,
       grossWeightLbs: u.grossWeightLbs || u.grossWeight || 0,
       status: u.status || 'OPEN',
-      builtBy: u.builtBy || '',
+      loadedBy: u.loadedBy || '',
+      weighedBy: u.weighedBy || '',
       notes: u.notes || '',
       destination: u.destination || '',
       confirmedWith: u.confirmedWith || '',
@@ -859,15 +921,16 @@ function rebuildLocalList() {
       volumePct: 0,
       createdAt: u.createdAt,
       mawbs: (u.awbs || []).map(m => {
-        const info = mawbReceiptInfo(m.mawbLabel || '')
+        const awbNumber = normalizeAwb(m.mawbLabel || '')
+        const info = mawbReceiptInfo(awbNumber)
         return {
           _rowId: m.id || Math.random().toString(36).slice(2),
-          awbNumber: m.mawbLabel || '',
+          awbNumber,
           _isSpecial: false,
           _prevPieces: m.pieces || 0,
           _ackOverPrealert: false,
-          commodityType: m.description || 'DRY_CARGO',
-          commodityHint: m.description || '',
+          commodityType: liveCommodityFor(awbNumber, m.description) || 'DRY_CARGO',
+          commodityHint: liveCommodityFor(awbNumber, m.description) || '',
           pieces: m.pieces || 0,
           piecesPct: m.piecesPct || 0,
           destination: m.destination || '-',
@@ -904,7 +967,8 @@ function createNewBlankUld() {
     grossWeightLbs: 0,
     status: 'OPEN',
     volumePct: 0,
-    builtBy: '',
+    loadedBy: '',
+    weighedBy: '',
     notes: '',
     destination: '',
     confirmedWith: '',
@@ -999,6 +1063,12 @@ async function saveUld(uld) {
     return
   }
   const flightId = uld.saveFlightId
+  delete uld._skipOperatorValidation
+
+  if (flightId && (!uld.loadedBy?.trim() || !uld.weighedBy?.trim() || !uld.confirmedWith?.trim())) {
+    toast.warning(t('ulds.operatorsRequired'))
+    return
+  }
 
   if (!flightId) {
     if (!uld.backendId) {
@@ -1020,7 +1090,9 @@ async function saveUld(uld) {
         status: uld.status || 'OPEN',
         notes: uld.notes ?? null,
         destination: uld.destination ?? null,
-        builtBy: uld.builtBy ?? null,
+        loadedBy: uld.loadedBy ?? null,
+        weighedBy: uld.weighedBy ?? null,
+        confirmedWith: uld.confirmedWith ?? null,
       })
       // Recreate ULD-AWB links
       if (uld.backendId) {
@@ -1119,7 +1191,7 @@ function removeMawbRow(uld, index) {
 
 function onMawbSelect(uld, mIdx) {
   const mawb = uld.mawbs[mIdx]
-  const selected = availableMawbs.value.find(m => m.awbNumber === mawb.awbNumber)
+  const selected = availableMawbs.value.find(m => normalizeAwb(m.awbNumber) === normalizeAwb(mawb.awbNumber))
   if (!selected) return
   mawb.commodityType = normalizeCommodity(selected.commodityType)
   mawb.commodityHint = selected.commodityType || ''
@@ -1199,6 +1271,7 @@ onMounted(async () => {
     appStore.loadFlights(),
     appStore.loadAllMawbs(),
     appStore.loadReceipts(),
+    appStore.loadBookings(),
     appStore.loadUlds(),
     loadCommodities(),
   ])
@@ -1208,6 +1281,15 @@ onMounted(async () => {
 })
 
 watch(() => appStore.ulds, () => rebuildLocalList(), { deep: true })
+
+useLiveRefresh(() => {
+  if (!appStore.flights.length) return
+  return Promise.all([
+    appStore.loadUlds(undefined, { silent: true }),
+    appStore.loadAllMawbs({ silent: true }),
+    appStore.loadBookings(undefined, { silent: true }),
+  ])
+}, { interval: 30000, pauses: [() => !!expandedUldId.value, showLabels] })
 </script>
 
 <style scoped>

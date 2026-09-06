@@ -1,0 +1,59 @@
+# Staging Overlay with Managed PostgreSQL + RabbitMQ (Optional)
+# Deploy: kubectl apply -k deploy/observability/managed-db/overlays/staging/
+
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: aircargo-staging
+
+resources:
+- ../../../k8s/overlays/staging/kustomization.yml
+
+# Option: Use managed services for staging too (set USE_MANAGED=true)
+# If false, keeps in-cluster postgres/rabbitmq (default for cost savings)
+patches:
+# Can be enabled by setting USE_MANAGED=true env var
+- patch: |-
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: postgres
+      namespace: aircargo-staging
+    spec:
+      replicas: 0
+  target:
+    kind: Deployment
+    labelSelector: app=postgres
+  options:
+    condition: USE_MANAGED==true
+
+- patch: |-
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: rabbitmq
+      namespace: aircargo-staging
+    spec:
+      replicas: 0
+  target:
+    kind: Deployment
+    labelSelector: app=rabbitmq
+  options:
+    condition: USE_MANAGED==true
+
+configMapGenerator:
+- name: aircargo-config
+  behavior: merge
+  literals:
+    # Staging managed endpoints (when USE_MANAGED=true)
+    POSTGRES_HOST: "aircargo-staging.cluster-xxxxx.us-east-1.rds.amazonaws.com"
+    POSTGRES_PORT: "5432"
+    POSTGRES_DB: "aircargo_staging"
+    RABBITMQ_HOST: "aircargo-staging.xxxxx.us-east-1.mq.amazonaws.com"
+    RABBITMQ_PORT: "5671"
+    RABBITMQ_USE_SSL: "true"
+
+commonAnnotations:
+  aircargo.managed-db: "optional"
+  aircargo.managed-rabbitmq: "optional"

@@ -3,6 +3,8 @@
 ## Overview
 This guide covers deploying the Aircargo microservices platform to a production Kubernetes cluster.
 
+> **📋 For complete step-by-step runbook with verification checklists, rollback procedures, and troubleshooting, see: [PRODUCTION_DEPLOYMENT_RUNBOOK.md](./PRODUCTION_DEPLOYMENT_RUNBOOK.md)**
+
 ## Architecture
 ```
 Internet → Ingress (NGINX) → Gateway (Spring Cloud Gateway) → 10 Backend Services

@@ -5,7 +5,7 @@
     <div class="flex items-center justify-between mb-3">
       <div class="flex items-center gap-2">
         <div class="w-2.5 h-2.5 rounded-full animate-pulse" :class="scanning ? 'bg-emerald-500' : 'bg-slate-300'"></div>
-        <span class="text-[13px] font-black text-slate-900 uppercase tracking-wider">
+        <span class="text-[13px] font-bold text-slate-900 uppercase tracking-wider">
           Modo Scan — ULD: {{ uldNumber }}
         </span>
         <span v-if="lastResult" class="text-[12px] font-bold px-2 py-0.5 rounded-full"
@@ -77,7 +77,7 @@
     <div v-if="showCamera" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center" @click.self="closeCamera">
       <div class="bg-white rounded-xl p-6 max-w-lg w-full mx-4 shadow-2xl">
         <div class="flex items-center justify-between mb-4">
-          <span class="text-[14px] font-black text-slate-900 uppercase">Escanear con Cámara</span>
+          <span class="text-[14px] font-bold text-slate-900 uppercase">Escanear con Cámara</span>
           <button @click="closeCamera" class="text-slate-400 hover:text-red-500 text-lg font-bold">✕</button>
         </div>
         <div class="relative w-full rounded-lg overflow-hidden border border-slate-200 bg-black" style="min-height: 280px;">

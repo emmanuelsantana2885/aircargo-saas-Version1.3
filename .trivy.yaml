@@ -1,0 +1,70 @@
+# Trivy Configuration for Aircargo
+# File: .trivy.yaml
+
+---
+# Global settings
+db:
+  repository: ghcr.io/aquasecurity/trivy-db:2
+  skip-update: false
+cache-dir: ~/.cache/trivy
+
+# Scan settings
+scanners:
+  - vuln
+  - secret
+  - config
+  - license
+
+# Severity levels
+severity:
+  - CRITICAL
+  - HIGH
+  - MEDIUM
+  - LOW
+
+# Ignore unfixed vulnerabilities (for faster scans)
+ignore-unfixed: true
+
+# Vulnerability filters
+vulnerability:
+  # Ignore specific CVEs (add as needed)
+  # ignore:
+  #   - CVE-2023-XXXXX
+  # Ignore by package
+  # ignore-pkg:
+  #   - log4j
+
+# Secret scanning
+secret:
+  config: .trivy-secret.yaml
+
+# Misconfiguration scanning
+config:
+  namespaces:
+    - k8s
+    - dockerfile
+    - helm
+  # Skip specific checks
+  # skip-checks:
+  #   - ID.ABC
+
+# License scanning
+license:
+  # Ignore specific licenses
+  # ignore:
+  #   - GPL-3.0
+  # Allowed licenses
+  # allowed:
+  #   - MIT
+  #   - Apache-2.0
+  #   - BSD-3-Clause
+
+# Output
+format: table
+output: ""
+
+# Parallel scanning
+parallel: 4
+
+# Timeout
+timeout: 10m

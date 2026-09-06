@@ -18,7 +18,7 @@
     </header>
 
     <section class="mb-6">
-      <h2 class="text-[13px] font-black uppercase tracking-wider text-slate-700 mb-2 font-mono">{{ t('security.activeSessionsTitle') }}</h2>
+      <h2 class="text-[13px] font-bold uppercase tracking-wider text-slate-700 mb-2 font-mono">{{ t('security.activeSessionsTitle') }}</h2>
       <div class="ds-table-section">
         <div class="overflow-auto">
           <table class="w-full text-[12px] font-mono">
@@ -51,7 +51,7 @@
 
     <section class="mb-6">
       <div class="flex items-center justify-between mb-2">
-        <h2 class="text-[13px] font-black uppercase tracking-wider text-slate-700 font-mono">{{ t('security.auditLogTitle') }}</h2>
+        <h2 class="text-[13px] font-bold uppercase tracking-wider text-slate-700 font-mono">{{ t('security.auditLogTitle') }}</h2>
         <select v-model="auditFilter" class="ds-input text-[11px] py-1 px-2 min-w-[120px]">
           <option value="">{{ t('security.allEvents') }}</option>
           <option v-for="a in auditActions" :key="a" :value="a">{{ a }}</option>
@@ -86,7 +86,7 @@
     </section>
 
     <section>
-      <h2 class="text-[13px] font-black uppercase tracking-wider text-slate-700 mb-2 font-mono">{{ t('security.userBlockTitle') }}</h2>
+      <h2 class="text-[13px] font-bold uppercase tracking-wider text-slate-700 mb-2 font-mono">{{ t('security.userBlockTitle') }}</h2>
       <div class="ds-table-section">
         <div class="overflow-auto">
           <table class="w-full text-[12px] font-mono">

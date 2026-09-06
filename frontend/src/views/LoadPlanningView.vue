@@ -26,15 +26,15 @@
         <div class="h-8 w-[1px] bg-slate-200 hidden lg:block"></div>
         <div class="hidden lg:flex flex-col justify-center">
            <span class="ds-label">{{ t('loadPlanning.airline') }}</span>
-          <span class="text-[14px] font-black text-slate-950 uppercase tracking-widest">{{ activeAirlineLabel }}</span>
+          <span class="text-[14px] font-bold text-slate-900 uppercase tracking-widest">{{ activeAirlineLabel }}</span>
         </div>
         <div class="hidden lg:flex flex-col justify-center">
            <span class="ds-label">{{ t('loadPlanning.colAircraftTail') }}</span>
-          <span class="text-[14px] font-black text-slate-950 uppercase tracking-wider">{{ activeFlightMeta.aircraftReg || '-' }}</span>
+          <span class="text-[14px] font-bold text-slate-900 uppercase tracking-wider">{{ activeFlightMeta.aircraftReg || '-' }}</span>
         </div>
         <div class="hidden md:flex flex-col justify-center">
            <span class="ds-label">{{ t('loadPlanning.colRoute') }}</span>
-          <span class="text-[14px] font-black text-slate-950 uppercase tracking-widest">{{ (activeFlightMeta.origin || '') + '→' + (activeFlightMeta.destination || '-') }}</span>
+          <span class="text-[14px] font-bold text-slate-900 uppercase tracking-widest">{{ (activeFlightMeta.origin || '') + '→' + (activeFlightMeta.destination || '-') }}</span>
         </div>
         </div>
       </div>
@@ -60,6 +60,11 @@
           <component :is="icons.FileExport" :size="16" :stroke-width="2" />
           <span class="hidden xl:inline">{{ t('loadPlanning.exportManifest') }}</span>
         </button>
+        <button @click="exportToCSV" :title="t('loadPlanning.exportCsv')"
+          class="ds-btn-secondary px-2.5 py-1.5">
+          <span class="text-[14px] font-semibold leading-none">↓</span>
+          <span class="hidden xl:inline">{{ t('loadPlanning.exportCsv') }}</span>
+        </button>
       </div>
     </header>
 
@@ -70,17 +75,17 @@
       <div v-for="p in positionSummary" :key="p.pos"
         class="flex items-center gap-1.5 px-2 py-0.5 rounded whitespace-nowrap"
         :class="[p.isBelly ? 'bg-slate-50 border border-slate-300' : 'bg-slate-100 border border-slate-300']">
-        <span class="font-black text-slate-950">{{ p.pos }}</span>
-        <span class="text-slate-950">{{ p.count }} ULD</span>
-        <span class="text-slate-950 text-[13px]">({{ p.pcs }} pcs)</span>
+        <span class="font-bold text-slate-900">{{ p.pos }}</span>
+        <span class="text-slate-900">{{ p.count }} ULD</span>
+        <span class="text-slate-900 text-[13px]">({{ p.pcs }} pcs)</span>
         <span v-if="p.isBelly" class="text-[13px] font-bold text-slate-500 bg-slate-100 px-1 rounded">BELLY</span>
       </div>
       <span class="text-slate-300 mx-1">|</span>
-      <span class="text-slate-950 font-bold whitespace-nowrap">A/C: {{ aircraftType }}</span>
-      <span class="text-slate-950 font-bold whitespace-nowrap">{{ t('loadPlanning.lblTotalUlds') }} {{ activeManifest.length }}</span>
+      <span class="text-slate-900 font-bold whitespace-nowrap">A/C: {{ aircraftType }}</span>
+      <span class="text-slate-900 font-bold whitespace-nowrap">{{ t('loadPlanning.lblTotalUlds') }} {{ activeManifest.length }}</span>
       <span class="text-slate-300 mx-1">|</span>
-      <span class="text-slate-950 font-bold whitespace-nowrap">{{ t('loadPlanning.lblGross') }} {{ calculatedTotals.gross.toLocaleString() }} lbs</span>
-      <span class="text-slate-950 font-bold whitespace-nowrap">{{ t('loadPlanning.lblPayload') }} {{ calculatedTotals.payloadLbs.toLocaleString() }} lbs</span>
+      <span class="text-slate-900 font-bold whitespace-nowrap">{{ t('loadPlanning.lblGross') }} {{ calculatedTotals.gross.toLocaleString() }} lbs</span>
+      <span class="text-slate-900 font-bold whitespace-nowrap">{{ t('loadPlanning.lblPayload') }} {{ calculatedTotals.payloadLbs.toLocaleString() }} lbs</span>
       <span class="text-slate-300 mx-1">|</span>
       <span class="font-bold whitespace-nowrap px-2 py-0.5 rounded"
         :class="calculatedTotals.availableLbs >= 0 ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-red-100 text-red-800 border border-red-300'">
@@ -95,19 +100,42 @@
       @dragleave="onDragLeaveFloating"
       @drop.prevent="onDropFloating"
       :class="dragOverFloating ? 'ring-2 ring-slate-400 ring-offset-2 rounded-lg bg-slate-100' : ''">
+      <div class="shrink-0 flex items-center gap-2 pl-1 pr-2 border-r border-slate-300">
+        <input type="checkbox" :checked="allSelectedForBulk" @change="toggleSelectAllBulk"
+          class="w-4 h-4 accent-slate-900 cursor-pointer shrink-0" :title="t('loadPlanning.bulkSelectAll')" />
+        <template v-if="selectedForBulk.size > 0">
+          <select v-model="bulkTargetFlight"
+            class="bg-white border border-slate-400 rounded px-2 py-1 text-[13px] font-bold text-slate-900 focus:outline-none cursor-pointer">
+            <option value="" disabled>{{ t('loadPlanning.bulkTarget') }}</option>
+            <option v-for="f in assignableFlights" :key="f.id" :value="f.id">{{ flightOptionLabel(f) }}</option>
+          </select>
+          <button @click="openBulkTransfer"
+            class="bg-slate-950 text-white font-bold px-2.5 py-1 rounded text-[12px] uppercase tracking-wider hover:bg-slate-800 cursor-pointer">
+            {{ selectedForBulk.size }} → {{ t('loadPlanning.bulkTransfer') }}
+          </button>
+          <button @click="cancelBulkSelection"
+            class="text-slate-500 hover:text-slate-800 font-bold text-[12px] cursor-pointer">
+            ✕ {{ t('common.clear') }}
+          </button>
+        </template>
+      </div>
       <div v-for="(uldGroup, uIdx) in activeManifest" :key="uIdx"
         draggable="true"
         @dragstart="onDragStart(uldGroup.uldId, $event)"
         class="flex-shrink-0 bg-white border rounded-lg px-3 py-2 flex items-center gap-3 text-[13px]"
         :class="getCardBorderStyle(uldGroup.status)">
-        <span class="font-black text-slate-950 uppercase tracking-tight">{{ uldGroup.uld }}</span>
+        <input type="checkbox"
+          :checked="selectedForBulk.has(uldGroup.uldId)"
+          @change="toggleSelectUld(uldGroup.uldId)"
+          class="w-3.5 h-3.5 accent-slate-900 cursor-pointer shrink-0" :title="t('loadPlanning.bulkSelectUld')" />
+        <span class="font-bold text-slate-900 uppercase tracking-tight">{{ uldGroup.uld }}</span>
         <span class="h-2 w-2 rounded-full" :class="getStatusDotColor(uldGroup.status)"></span>
-        <span class="text-slate-950 font-bold uppercase text-[13px]">{{ lpStatus(uldGroup.status) }}</span>
-        <span class="text-slate-950 font-bold">{{ uldGroup.items.length }} MAWB</span>
-        <span class="text-slate-950">{{ (uldGroup.weight || 0).toLocaleString() }} lb</span>
+        <span class="text-slate-900 font-bold uppercase text-[13px]">{{ lpStatus(uldGroup.status) }}</span>
+        <span class="text-slate-900 font-bold">{{ uldGroup.items.length }} MAWB</span>
+        <span class="text-slate-900">{{ (uldGroup.weight || 0).toLocaleString() }} lb</span>
         <select :value="uldGroup.flightId" @change="onTransferRequest(uldGroup.uldId, uldGroup.uld, uldGroup.flightId, $event.target.value)"
           :disabled="!isLiveUld(uldGroup.uldId)"
-          class="ml-1 bg-slate-100 border border-slate-400 rounded px-2 py-1 text-[13px] font-bold text-slate-950 focus:outline-none cursor-pointer"
+          class="ml-1 bg-slate-100 border border-slate-400 rounded px-2 py-1 text-[13px] font-bold text-slate-900 focus:outline-none cursor-pointer"
           :class="{ 'opacity-50 cursor-not-allowed': !isLiveUld(uldGroup.uldId) }">
           <option v-for="f in flightOptionsFor(uldGroup.flightId)" :key="f.id" :value="f.id">
             {{ flightOptionLabel(f) }}
@@ -119,7 +147,7 @@
           draggable="true"
           @dragstart="onDragStart(uld.id, $event)"
           class="flex-shrink-0 bg-white border border-slate-300 border-dashed rounded-lg px-3 py-2 flex items-center gap-2 text-[13px] cursor-grab active:cursor-grabbing select-none">
-          <span class="font-black text-slate-700 uppercase tracking-tight">{{ uld.uldNumber || 'SIN-ULD' }}</span>
+          <span class="font-bold text-slate-700 uppercase tracking-tight">{{ uld.uldNumber || 'SIN-ULD' }}</span>
           <span class="text-slate-500 text-[13px] font-bold">{{ t('ulds.noFlight') }}</span>
           <select :value="uld.flightId" @change="onTransferRequest(uld.id, uld.uldNumber, null, $event.target.value)"
             class="bg-white border border-slate-300 rounded px-2 py-1 text-[13px] font-bold text-slate-950 focus:outline-none cursor-pointer">
@@ -171,10 +199,10 @@
           @dragenter="onRowDragEnter(uIdx)"
           class="bg-white lp-container-block transition-all duration-150"
           :class="[getRowBgStyle(uldGroup.status), { 'opacity-40': rowDragging === uldGroup.uldId, 'ring-2 ring-slate-400': rowDropIndex === uIdx }]">
-          <div v-if="uldGroup.items.length === 0" class="lp-grid py-2 px-5 items-center text-slate-950">
+          <div v-if="uldGroup.items.length === 0" class="lp-grid py-2 px-5 items-center text-slate-900">
             <span
               @pointerdown="onTableUldPointerDown(uldGroup.uldId, $event)"
-              class="font-semibold text-slate-950 truncate cursor-grab active:cursor-grabbing select-none">{{ uldGroup.uld }}</span>
+              class="font-semibold text-slate-900 truncate cursor-grab active:cursor-grabbing select-none">{{ uldGroup.uld }}</span>
             <span class="text-center">0</span>
             <span class="text-center">-</span>
             <span class="text-center">{{ (uldGroup.weight || 0).toLocaleString() }}</span>
@@ -186,14 +214,14 @@
                 @keydown.enter="e => { e.target.blur(); updatePosition(uldGroup.uldId, e.target.value) }"
                 class="w-full bg-transparent outline-none border-b border-transparent focus:border-slate-400 text-center text-[13px] font-mono" />
             </span>
-            <span class="text-center text-slate-950 italic">—</span>
-            <span class="text-center text-slate-950 italic">{{ t('loadPlanning.emptyUld') }}</span>
+            <span class="text-center text-slate-900 italic">—</span>
+            <span class="text-center text-slate-900 italic">{{ t('loadPlanning.emptyUld') }}</span>
             <span class="text-center">-</span>
           </div>
           <div v-for="(item, iIdx) in uldGroup.items" :key="iIdx" class="lp-grid py-2 px-5 items-center border-b border-slate-300 last:border-b-0">
             <span v-if="iIdx === 0"
               @pointerdown="onTableUldPointerDown(uldGroup.uldId, $event)"
-              class="font-semibold text-slate-950 truncate cursor-grab active:cursor-grabbing select-none">{{ uldGroup.uld }}</span>
+              class="font-semibold text-slate-900 truncate cursor-grab active:cursor-grabbing select-none">{{ uldGroup.uld }}</span>
             <span v-else class="text-slate-200 text-center">—</span>
             <span class="text-center">{{ item.pcs }}</span>
             <span class="text-center">{{ item.volumePct ? item.volumePct + '%' : '-' }}</span>
@@ -212,7 +240,11 @@
             </span>
             <span v-else class="text-slate-200 text-center">—</span>
             <span class="text-center font-mono truncate">{{ item.description }}</span>
-            <span class="text-center font-mono truncate">{{ item.mawb }}</span>
+            <span class="text-center flex items-center justify-center gap-1 min-w-0">
+              <span class="font-mono truncate">{{ item.mawb }}</span>
+              <span v-if="item.status" class="shrink-0 text-[9px] font-bold px-1 py-0.5 rounded"
+                :style="mawbStatusBadge(item.status)">{{ item.status }}</span>
+            </span>
             <span class="text-center">{{ item.destino }}</span>
           </div>
         </div>
@@ -294,7 +326,7 @@
         <h3 class="ds-modal-title mb-3">
           Transferir ULD
         </h3>
-        <div class="text-[14px] text-slate-950 mb-3">
+        <div class="text-[14px] text-slate-900 mb-3">
           ULD <strong>{{ pendingTransfer.uldNumber }}</strong>
           <span v-if="fromFlightLabel" class="mx-1">→ {{ fromFlightLabel }}</span>
           <span class="mx-1">→</span>
@@ -366,6 +398,7 @@ const loadPlan = ref(null)
 const draggedUldId = ref(null)
 const dragOver = ref(false)
 const dragOverFloating = ref(false)
+const isDragging = ref(false)
 
 // Transfer state (with reason)
 const pendingTransfer = ref(null) // { uldId, fromFlightId, toFlightId, uldNumber }
@@ -395,6 +428,58 @@ const pendingFlightPick = ref(null) // { uldId, uldNumber }
 const flightPickValue = ref('')
 const showFlightPicker = ref(false)
 
+// Bulk transfer selection (some/all ULDs of the current flight)
+const selectedForBulk = ref(new Set()) // Set of uldId
+const bulkTargetFlight = ref('')
+
+const manifestUldIds = computed(() => activeManifest.value.map(g => g.uldId).filter(Boolean))
+const allSelectedForBulk = computed(() =>
+  manifestUldIds.value.length > 0 && manifestUldIds.value.every(id => selectedForBulk.value.has(id))
+)
+
+function toggleSelectAllBulk() {
+  const sel = new Set(selectedForBulk.value)
+  if (allSelectedForBulk.value) manifestUldIds.value.forEach(id => sel.delete(id))
+  else manifestUldIds.value.forEach(id => sel.add(id))
+  selectedForBulk.value = sel
+}
+
+function toggleSelectUld(uldId) {
+  if (!uldId) return
+  const sel = new Set(selectedForBulk.value)
+  if (sel.has(uldId)) sel.delete(uldId)
+  else sel.add(uldId)
+  selectedForBulk.value = sel
+}
+
+function cancelBulkSelection() {
+  selectedForBulk.value = new Set()
+  bulkTargetFlight.value = ''
+}
+
+function openBulkTransfer() {
+  let ids = [...selectedForBulk.value].filter(id => isLiveUld(id))
+  const target = bulkTargetFlight.value
+  if (!target) {
+    toast.warning('Seleccione un vuelo destino.')
+    return
+  }
+  ids = ids.filter(id => (allUlds.value.find(u => u.id === id)?.flightId || null) !== target)
+  if (!ids.length) {
+    toast.warning('Ninguno de los ULDs seleccionados puede transferirse al vuelo elegido.')
+    return
+  }
+  const flights = new Set(ids.map(id => allUlds.value.find(u => u.id === id)?.flightId || null))
+  const fromFlightId = flights.size === 1 ? [...flights][0] : null
+  pendingTransfer.value = {
+    uldIds: ids,
+    fromFlightId,
+    toFlightId: target,
+    uldNumber: ids.length === 1 ? (allUlds.value.find(u => u.id === ids[0])?.uldNumber || 'ULD') : `${ids.length} ULDs`
+  }
+  transferReason.value = ''
+}
+
 const flightDatabase = computed(() => {
   if (!selectedDate.value) return uldsStore.flights
   return uldsStore.flights.filter(f => {
@@ -404,7 +489,9 @@ const flightDatabase = computed(() => {
   })
 })
 
-const ASSIGNABLE_STATUSES = new Set(['SCHEDULED', 'BOARDING', 'DELAYED'])
+// Vuelos destino para transferencia/reasignación: últimos 7 días (cubre vuelos ya
+// despachados) + próximas 2 semanas. La transferencia está permitida incluso cuando
+// el vuelo origen o destino ya partió.
 const intlLoc = computed(() => (locale.value || 'es').startsWith('en') ? 'en-US' : 'es-DO')
 
 function fmtFlightDate(d) {
@@ -414,15 +501,23 @@ function fmtFlightDate(d) {
   return new Date(y, m - 1, day).toLocaleDateString(intlLoc.value, { day: '2-digit', month: 'short' })
 }
 
-function flightOptionLabel(f) {
-  const base = `${airlineCodeById(f.airlineId)}-${f.flightNumber}`
-  return fmtFlightDate(f.flightDate) ? `${fmtFlightDate(f.flightDate)} · ${base}` : base
+function flightStatusTag(f) {
+  if (!f?.status) return ''
+  return ['DEPARTED', 'ARRIVED', 'CANCELLED'].includes(f.status) ? ` · ${f.status}` : ''
 }
 
-// Vuelos asignables: semana actual + próxima, incluye hoy, excluye ya despachados.
-// Garantiza al menos 10 próximos vuelos, sin exceder 15.
+function flightOptionLabel(f) {
+  const base = `${airlineCodeById(f.airlineId)}-${f.flightNumber}`
+  const date = fmtFlightDate(f.flightDate) ? `${fmtFlightDate(f.flightDate)} · ` : ''
+  return `${date}${base}${flightStatusTag(f)}`
+}
+
+// Vuelos asignables: semana actual + próxima, incluye últimros 7 días (vuelos ya
+// despachados) — la transferencia sigue permitida post-despacho.
 const assignableFlights = computed(() => {
-  const today = new Date().toISOString().split('T')[0]
+  const start = new Date()
+  start.setDate(start.getDate() - 7)
+  const startWindow = start.toISOString().split('T')[0]
   const dow = new Date().getDay()
   const daysToThisSunday = dow === 0 ? 0 : 7 - dow
   const endNextWeek = new Date()
@@ -431,16 +526,13 @@ const assignableFlights = computed(() => {
 
   const byDate = (a, b) => a.flightDate.localeCompare(b.flightDate) || a.flightNumber.localeCompare(b.flightNumber)
 
-  const eligible = uldsStore.flights.filter(f =>
-    f.flightDate && ASSIGNABLE_STATUSES.has(f.status) && f.flightDate >= today
-  )
+  const eligible = uldsStore.flights.filter(f => f.flightDate && f.flightDate >= startWindow)
   const inWindow = eligible
     .filter(f => f.flightDate <= endNextWeekStr)
     .sort(byDate)
 
   if (inWindow.length >= 10) return inWindow.slice(0, 15)
-  const extended = [...eligible].sort(byDate).slice(0, 15)
-  return extended.length >= 10 ? extended : extended
+  return [...eligible].sort(byDate).slice(0, 15)
 })
 
 function flightOptionsFor(currentFlightId) {
@@ -497,6 +589,15 @@ function posCellClass(pos) {
     : 'pos-regular'
 }
 
+function mawbStatusBadge(status) {
+  const s = (status || '').toUpperCase()
+  if (s === 'RECEIVED') return { background: '#fef3c7', color: '#92400e' }
+  if (s === 'MANIFESTED') return { background: '#d1fae5', color: '#065f46' }
+  if (s === 'DEPARTED' || s === 'ARRIVED') return { background: '#dbeafe', color: '#1e40af' }
+  if (s === 'BOOKED') return { background: '#f1f5f9', color: '#475569' }
+  return { background: '#f1f5f9', color: '#94a3b8' }
+}
+
 const positionSummary = computed(() => {
   const posMap = {}
   for (const uld of activeManifest.value) {
@@ -545,7 +646,8 @@ const activeManifest = computed(() => {
       pcs: m.pieces || 0,
       volumePct: m.piecesPct || m.percentage || null,
       description: m.description || m.commodityType || 'DRY CARGO',
-      destino: m.destination || '-'
+      destino: m.destination || '-',
+      status: m.status || ''
     }))
   }))
 })
@@ -670,12 +772,22 @@ onMounted(async () => {
     }
   }
   await loadAllUlds()
+  autoRefreshId = window.setInterval(refreshIfIdle, 20000)
 })
 
 onUnmounted(() => {
+  if (autoRefreshId) window.clearInterval(autoRefreshId)
   document.removeEventListener('pointermove', onTableUldPointerMove)
   document.removeEventListener('pointerup', onTableUldPointerUp)
 })
+
+async function refreshIfIdle() {
+  if (!selectedFlightId.value) return
+  if (document.visibilityState !== 'visible') return
+  if (isDragging.value || pendingTransfer.value || pendingFlightPick.value || showFlightPicker.value || showUndoToast.value) return
+  await uldsStore.loadUldsForFlight(selectedFlightId.value)
+  fetchLoadPlan(selectedFlightId.value)
+}
 
 async function loadAllUlds() {
   try {
@@ -783,15 +895,25 @@ function cancelTransfer() {
 
 async function confirmTransfer() {
   if (!pendingTransfer.value || !transferReason.value.trim()) return
-  const { uldId, toFlightId } = pendingTransfer.value
+  const { uldIds, toFlightId } = pendingTransfer.value
+  const ids = uldIds || [pendingTransfer.value.uldId]
   const reason = transferReason.value.trim()
   pendingTransfer.value = null
   transferReason.value = ''
+  let done = 0
   try {
-    await api.post(`/ulds/${uldId}/transfer`, {
-      destinationFlightId: toFlightId,
-      reason
-    })
+    for (const id of ids) {
+      await api.post(`/ulds/${id}/transfer`, {
+        destinationFlightId: toFlightId,
+        reason
+      })
+      done++
+    }
+    if (done > 0) {
+      selectedForBulk.value = new Set()
+      bulkTargetFlight.value = ''
+      toast.success(done === 1 ? 'ULD transferido correctamente.' : `${done} ULDs transferidos correctamente.`)
+    }
     if (selectedFlightId.value) {
       await Promise.all([
         uldsStore.loadUldsForFlight(selectedFlightId.value),
@@ -1003,9 +1125,11 @@ async function onRowDrop() {
 
 // Pointer-based drag from table rows to floating cards section
 let pointerDragData = null
+let autoRefreshId = null
 const RING_CLASSES = ['ring-4', 'ring-slate-400', 'ring-offset-2', 'rounded-lg']
 
 function onTableUldPointerDown(uldId, e) {
+  isDragging.value = true
   pointerDragData = { uldId, startX: e.clientX, startY: e.clientY, moved: false }
   document.addEventListener('pointermove', onTableUldPointerMove)
   document.addEventListener('pointerup', onTableUldPointerUp)
@@ -1038,6 +1162,7 @@ function onTableUldPointerMove(e) {
 }
 
 async function onTableUldPointerUp() {
+  isDragging.value = false
   document.removeEventListener('pointermove', onTableUldPointerMove)
   document.removeEventListener('pointerup', onTableUldPointerUp)
   const floatingSection = document.querySelector('.floating-drop-zone')
@@ -1194,7 +1319,7 @@ function exportToXLSX() {
           i === 0 ? (uldGroup.sello || '-') : '',
           i === 0 ? (uldGroup.pos || '-') : '',
           item.description || '',
-          item.mawb || '',
+          item.mawb + (item.status ? ' [' + item.status + ']' : ''),
           item.destino || '-'
         ])
       }
@@ -1213,6 +1338,33 @@ function exportToXLSX() {
   XLSX.utils.book_append_sheet(wb, ws, 'Load Plan')
   const flightNum = flight.flightNumber || selectedFlightId.value
   XLSX.writeFile(wb, `LOAD_PLAN_${airlineCodeById(flight.airlineId)}-${flightNum}.xlsx`)
+}
+async function exportToCSV() {
+  const flightId = selectedFlightId.value
+  if (!flightId) {
+    toast.warning('Seleccione un vuelo primero')
+    return
+  }
+  if (!activeManifest.value.length) {
+    toast.warning('No hay ULDs asignados a este vuelo. Primero debe importar un manifiesto (XLSX) o asignar ULDs al vuelo.')
+    return
+  }
+  try {
+    const res = await api.get(`/load-planning/flight/${flightId}/export-manifest/csv`, { responseType: 'blob' })
+    const url = window.URL.createObjectURL(new Blob([res.data], { type: 'text/csv' }))
+    const a = document.createElement('a')
+    a.href = url
+    const cd = res.headers['content-disposition']
+    const match = cd && cd.match(/filename=(.+)/)
+    a.download = match ? match[1] : `LOAD_PLAN_${flightId.slice(0, 8)}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    window.URL.revokeObjectURL(url)
+  } catch (err) {
+    toast.error('Error al generar CSV. Verifique la consola para más detalles.')
+    console.error('Error generando CSV:', err)
+  }
 }
 
 watch(() => uldsStore.activeUlds, (newUlds) => {

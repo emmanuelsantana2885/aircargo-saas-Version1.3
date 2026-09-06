@@ -23,12 +23,14 @@ metadata:
       add_header X-XSS-Protection "1; mode=block" always;
       add_header Referrer-Policy "strict-origin-when-cross-origin" always;
       add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:;" always;
+    # cert-manager: automatic TLS via Let's Encrypt
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
 spec:
   ingressClassName: nginx
   tls:
     - hosts:
         - api.aircargo.example.com
-      secretName: aircargo-tls-secret
+      secretName: aircargo-gateway-tls
   rules:
     - host: api.aircargo.example.com
       http:
@@ -57,12 +59,14 @@ metadata:
       add_header X-XSS-Protection "1; mode=block" always;
       add_header Referrer-Policy "strict-origin-when-cross-origin" always;
       add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:;" always;
+    # cert-manager: automatic TLS via Let's Encrypt
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
 spec:
   ingressClassName: nginx
   tls:
     - hosts:
         - aircargo.example.com
-      secretName: aircargo-tls-secret
+      secretName: aircargo-frontend-tls
   rules:
     - host: aircargo.example.com
       http:
@@ -74,14 +78,3 @@ spec:
                 name: aircargo-frontend
                 port:
                   number: 80
----
-# TLS Secret (create with cert-manager or manually)
-# apiVersion: v1
-# kind: Secret
-# metadata:
-#   name: aircargo-tls-secret
-#   namespace: aircargo
-# type: kubernetes.io/tls
-# data:
-#   tls.crt: <base64-encoded-cert>
-#   tls.key: <base64-encoded-key>

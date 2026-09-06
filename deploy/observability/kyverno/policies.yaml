@@ -1,0 +1,381 @@
+# Kyverno Policies for Aircargo - Runtime Security & Pod Security Standards
+# Deploy: kubectl apply -k deploy/observability/kyverno/
+# Requires: Kyverno installed (helm install kyverno kyverno/kyverno -n kyverno)
+
+---
+# ─── ClusterPolicy: Restricted Pod Security Standard ───────────────
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: restrict-pod-security-standard
+  annotations:
+    policies.kyverno.io/title: "Restricted Pod Security Standard"
+    policies.kyverno.io/category: "Pod Security Standards (Restricted)"
+    policies.kyverno.io/severity: "critical"
+    policies.kyverno.io/subject: "Pod"
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+  # Run as non-root
+  - name: require-non-root
+    match:
+      any:
+      - resources:
+          kinds: ["Pod"]
+    validate:
+      message: "Container must run as non-root (runAsNonRoot: true)"
+      pattern:
+        spec:
+          securityContext:
+            runAsNonRoot: true
+        containers:
+        - securityContext:
+            runAsNonRoot: true
+  # Drop ALL capabilities
+  - name: drop-all-capabilities
+    match:
+      any:
+      - resources:
+          kinds: ["Pod"]
+    validate:
+      message: "All capabilities must be dropped (capabilities.drop: [ALL])"
+      pattern:
+        containers:
+        - securityContext:
+            capabilities:
+              drop: ["ALL"]
+  # Read-only root filesystem
+  - name: read-only-root-fs
+    match:
+      any:
+      - resources:
+          kinds: ["Pod"]
+    validate:
+      message: "Root filesystem must be read-only (readOnlyRootFilesystem: true)"
+      pattern:
+        containers:
+        - securityContext:
+            readOnlyRootFilesystem: true
+  # No privilege escalation
+  - name: no-privilege-escalation
+    match:
+      any:
+      - resources:
+          kinds: ["Pod"]
+    validate:
+      message: "Privilege escalation must be disabled (allowPrivilegeEscalation: false)"
+      pattern:
+        containers:
+        - securityContext:
+            allowPrivilegeEscalation: false
+  # No host network/port/ipc/pid
+  - name: no-host-namespaces
+    match:
+      any:
+      - resources:
+          kinds: ["Pod"]
+    validate:
+      message: "Host namespaces (network, pid, ipc) must not be used"
+      pattern:
+        spec:
+          hostNetwork: false
+          hostPID: false
+          hostIPC: false
+  # Run as high UID/GID (non-root)
+  - name: run-as-high-uid
+    match:
+      any:
+      - resources:
+          kinds: ["Pod"]
+    validate:
+      message: "Container must run as UID >= 1000 and GID >= 1000"
+      pattern:
+        spec:
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+        containers:
+        - securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+  # Seccomp profile (RuntimeDefault)
+  - name: seccomp-profile
+    match:
+      any:
+      - resources:
+          kinds: ["Pod"]
+    validate:
+      message: "Seccomp profile must be RuntimeDefault"
+      pattern:
+        spec:
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+        containers:
+        - securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+
+---
+# ─── ClusterPolicy: Aircargo Specific Security ────────────────────
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: aircargo-security-policies
+  annotations:
+    policies.kyverno.io/title: "Aircargo Specific Security Policies"
+    policies.kyverno.io/category: "Application Security"
+    policies.kyverno.io/severity: "high"
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+  # Require resource limits
+  - name: require-resource-limits
+    match:
+      any:
+      - resources:
+          kinds: ["Pod"]
+          namespaces: ["aircargo"]
+    validate:
+      message: "All containers must have resource limits (CPU and memory)"
+      pattern:
+        containers:
+        - resources:
+            limits:
+              cpu: "?*"
+              memory: "?*"
+  # Require resource requests
+  - name: require-resource-requests
+    match:
+      any:
+      - resources:
+          kinds: ["Pod"]
+          namespaces: ["aircargo"]
+    validate:
+      message: "All containers must have resource requests"
+      pattern:
+        containers:
+        - resources:
+            requests:
+              cpu: "?*"
+              memory: "?*"
+  # Prohibit latest tag
+  - name: prohibit-latest-tag
+    match:
+      any:
+      - resources:
+          kinds: ["Pod", "Deployment", "StatefulSet", "DaemonSet"]
+          namespaces: ["aircargo"]
+    validate:
+      message: "Image tag 'latest' is not allowed. Use specific version tags."
+      deny:
+        conditions:
+        - key: "{{ container.image }}"
+          operator: EndsWith
+          value: ":latest"
+  # Require image pull policy
+  - name: require-image-pull-policy
+    match:
+      any:
+      - resources:
+          kinds: ["Pod"]
+          namespaces: ["aircargo"]
+    validate:
+      message: "Image pull policy must be 'Always' or 'IfNotPresent' (not Never)"
+      pattern:
+        containers:
+        - imagePullPolicy: "Always|IfNotPresent"
+  # Require liveness/readiness probes
+  - name: require-probes
+    match:
+      any:
+      - resources:
+          kinds: ["Deployment", "StatefulSet"]
+          namespaces: ["aircargo"]
+    validate:
+      message: "All containers must have liveness and readiness probes"
+      pattern:
+        spec:
+          template:
+            spec:
+              containers:
+              - livenessProbe: "?*"
+                readinessProbe: "?*"
+  # Require startup probe for slow-starting apps
+  - name: require-startup-probe
+    match:
+      any:
+      - resources:
+          kinds: ["Deployment", "StatefulSet"]
+          namespaces: ["aircargo"]
+    validate:
+      message: "Java/Spring Boot services must have startup probe (failureThreshold >= 15)"
+      pattern:
+        spec:
+          template:
+            spec:
+              containers:
+              - startupProbe:
+                  failureThreshold: 15
+    # Only enforce for Java services
+    exclude:
+      any:
+      - resources:
+          kinds: ["Deployment", "StatefulSet"]
+          namespaces: ["aircargo"]
+          labelSelector:
+            matchExpressions:
+            - key: app
+              operator: NotIn
+              values: ["aircargo-auth-service", "aircargo-flight-service", "aircargo-booking-service", 
+                       "aircargo-mawb-service", "aircargo-warehouse-service", "aircargo-uld-service",
+                       "aircargo-load-planning-service", "aircargo-export-service", "aircargo-notification-service"]
+
+---
+# ─── ClusterPolicy: Network Policies Validation ───────────────────
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-network-policies
+  annotations:
+    policies.kyverno.io/title: "Require Network Policies"
+    policies.kyverno.io/category: "Network Security"
+    policies.kyverno.io/severity: "medium"
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+  - name: check-network-policy-exists
+    match:
+      any:
+      - resources:
+          kinds: ["Namespace"]
+    validate:
+      message: "Namespace must have at least one NetworkPolicy (default-deny recommended)"
+      deny:
+        conditions:
+        - key: "{{ NetworkPolicy.namespaces[namespace].name || `none` }}"
+          operator: NotEquals
+          value: "none"
+
+---
+# ─── ClusterPolicy: Secret Security ──────────────────────────────
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: secret-security
+  annotations:
+    policies.kyverno.io/title: "Secret Security"
+    policies.kyverno.io/category: "Secrets Management"
+    policies.kyverno.io/severity: "critical"
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+  # No secrets in env vars (use secretRef instead)
+  - name: no-secrets-in-env
+    match:
+      any:
+      - resources:
+          kinds: ["Pod", "Deployment", "StatefulSet", "DaemonSet", "CronJob"]
+    validate:
+      message: "Secrets must not be set directly in env vars. Use secretRef in envFrom or secretKeyRef."
+      deny:
+        conditions:
+        - key: "{{ container.env || `[]` | filter(@, @.value != null && @.valueFrom == null && (@.value | contains('password') || contains('secret') || contains('key') || contains('token'))) | length(@) > 0 }}"
+          operator: Equals
+          value: "true"
+    exclude:
+      any:
+      - resources:
+          namespaces: ["kube-system", "logging", "tracing", "monitoring"]
+  # Require External Secrets for production secrets
+  - name: require-external-secrets
+    match:
+      any:
+      - resources:
+          kinds: ["Secret"]
+          namespaces: ["aircargo"]
+    validate:
+      message: "Production secrets should be managed by External Secrets Operator"
+      deny:
+        conditions:
+        - key: "{{ request.object.metadata.annotations['external-secrets.io/managed'] || `false` }}"
+          operator: Equals
+          value: "false"
+    validationFailureAction: Audit  # Audit only for now
+
+---
+# ─── ClusterPolicy: Mutating - Add Default Security Context ───────
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: add-default-security-context
+  annotations:
+    policies.kyverno.io/title: "Add Default Security Context"
+    policies.kyverno.io/category: "Pod Security Standards (Mutating)"
+    policies.kyverno.io/severity: "medium"
+spec:
+  mutateExistingOnPolicyUpdate: true
+  rules:
+  - name: add-pod-security-context
+    match:
+      any:
+      - resources:
+          kinds: ["Pod"]
+          namespaces: ["aircargo"]
+    mutate:
+      patchStrategicMerge:
+        spec:
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+  - name: add-container-security-context
+    match:
+      any:
+      - resources:
+          kinds: ["Pod"]
+          namespaces: ["aircargo"]
+    mutate:
+      patchStrategicMerge:
+        spec:
+          containers:
+          - (name): "*"
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop: ["ALL"]
+              readOnlyRootFilesystem: true
+              runAsNonRoot: true
+              runAsUser: 1000
+              runAsGroup: 1000
+              seccompProfile:
+                type: RuntimeDefault
+
+---
+# ─── PolicyReport for compliance tracking ────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kyverno-policy-report
+  namespace: kyverno
+data:
+  policy-report.yaml: |
+    apiVersion: wgpolicyk8s.io/v1alpha2
+    kind: PolicyReport
+    metadata:
+      name: kyverno-policy-report
+      namespace: kyverno
+    summary:
+      pass: 0
+      fail: 0
+      warn: 0
+      error: 0
+      skip: 0

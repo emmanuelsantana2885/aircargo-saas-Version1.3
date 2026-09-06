@@ -2,7 +2,7 @@
   <div class="fixed inset-0 z-[100] flex bg-slate-900/60 backdrop-blur-sm">
     <!-- Top bar -->
     <div class="absolute top-0 left-0 right-0 h-14 bg-slate-950 flex items-center gap-3 px-4 z-20">
-      <span class="text-[13px] font-mono font-black uppercase tracking-widest text-white whitespace-nowrap">
+      <span class="text-[13px] font-mono font-bold uppercase tracking-widest text-white whitespace-nowrap">
         Editor de Etiquetas — {{ typeLabel }}
       </span>
       <select v-model="loadId" class="bg-slate-800 text-white border border-slate-700 rounded px-2 py-1 text-[12px] font-mono max-w-[220px]">
@@ -23,7 +23,7 @@
     <!-- Left: toolbox + element list -->
     <div class="w-56 bg-slate-100 border-r border-slate-300 flex flex-col pt-14 shrink-0">
       <div class="p-3 border-b border-slate-200">
-        <div class="text-[11px] font-black uppercase tracking-widest text-slate-500 mb-2">Añadir elemento</div>
+        <div class="text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-2">Añadir elemento</div>
         <div class="grid grid-cols-2 gap-1.5">
           <button v-for="tool in tools" :key="tool.type" @click="addElement(tool.type)"
             class="py-1.5 rounded border border-slate-300 bg-white hover:border-slate-950 text-[11px] font-mono font-bold text-slate-700 transition">
@@ -32,12 +32,12 @@
         </div>
       </div>
       <div class="flex-1 overflow-y-auto p-3 space-y-1">
-        <div class="text-[11px] font-black uppercase tracking-widest text-slate-500 mb-1">Elementos ({{ elements.length }})</div>
+        <div class="text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1">Elementos ({{ elements.length }})</div>
         <button v-for="(el, i) in elements" :key="el.id" @click="selectElement(i)"
           class="w-full text-left px-2 py-1.5 rounded border text-[12px] font-mono transition flex items-center justify-between gap-1"
           :class="selectedIndex === i ? 'border-slate-950 bg-white shadow-sm' : 'border-slate-200 bg-white hover:border-slate-400'">
           <span class="truncate text-slate-700">
-            <span class="font-black text-slate-950">{{ el.type }}</span>
+            <span class="font-bold text-slate-950">{{ el.type }}</span>
             <span class="text-slate-400"> · {{ Math.round(el.x) }},{{ Math.round(el.y) }}</span>
           </span>
           <span @click.stop="removeElement(i)" class="text-slate-300 hover:text-rose-500 px-1">✕</span>
@@ -45,7 +45,7 @@
         <div v-if="!elements.length" class="text-[12px] font-mono text-slate-400 text-center pt-6">Sin elementos</div>
       </div>
       <div class="p-3 border-t border-slate-200">
-        <label class="block text-[11px] font-mono font-black text-slate-600 mb-1">Plantilla por defecto</label>
+        <label class="block text-[11px] font-mono font-bold text-slate-600 mb-1">Plantilla por defecto</label>
         <label class="flex items-center gap-2 text-[12px] font-mono text-slate-700 cursor-pointer">
           <input type="checkbox" v-model="isDefault" class="accent-slate-950" />
           Usar como default {{ typeLabel }}
@@ -85,7 +85,7 @@
     <!-- Right: properties -->
     <div class="w-72 bg-slate-100 border-l border-slate-300 flex flex-col pt-14 shrink-0 overflow-y-auto">
       <div class="p-3 border-b border-slate-200">
-        <div class="text-[11px] font-black uppercase tracking-widest text-slate-500 mb-2">Propiedades de la etiqueta</div>
+        <div class="text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-2">Propiedades de la etiqueta</div>
         <label class="block mb-2">
           <span class="text-[11px] font-mono text-slate-600">Nombre</span>
           <input v-model="name" type="text" class="w-full mt-0.5 px-2 py-1 rounded border border-slate-300 text-[13px] font-mono focus:outline-none focus:border-slate-950 bg-white" />
@@ -126,7 +126,7 @@
       </div>
 
       <div v-if="selectedElement" class="p-3 border-b border-slate-200">
-        <div class="text-[11px] font-black uppercase tracking-widest text-slate-500 mb-2">Elemento: {{ selectedElement.type }}</div>
+        <div class="text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-2">Elemento: {{ selectedElement.type }}</div>
 
         <label v-if="isTextLike" class="block mb-2">
           <span class="text-[11px] font-mono text-slate-600">Fuente de datos</span>

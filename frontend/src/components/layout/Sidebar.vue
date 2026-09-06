@@ -14,15 +14,15 @@
     </button>
 
     <!-- Logo -->
-    <div class="px-4 py-4 border-b relative overflow-hidden" style="border-color: #e2e8f0; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 25%, #e2e8f0 50%, #f8fafc 75%, #ffffff 100%);">
+    <div class="px-4 py-4 border-b relative overflow-hidden" style="border-color: #e2e8f0; background: linear-gradient(135deg, #f8fafc 0%, #eef2f7 30%, #e8eefc 60%, #e2e8f0 80%, #ffffff 100%);">
       <div class="absolute inset-0 opacity-[0.05]" style="background-image: repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(37,99,235,0.25) 2px, rgba(37,99,235,0.25) 3px), repeating-linear-gradient(-45deg, transparent, transparent 3px, rgba(37,99,235,0.15) 3px, rgba(37,99,235,0.15) 4px);"></div>
-      <div class="absolute inset-0 opacity-[0.04]" style="background-image: radial-gradient(circle at 30% 50%, rgba(37,99,235,0.25) 0%, transparent 60%), radial-gradient(circle at 70% 30%, rgba(124,58,237,0.15) 0%, transparent 50%);"></div>
+      <div class="absolute inset-0 opacity-[0.05]" style="background-image: radial-gradient(circle at 30% 50%, rgba(37,99,235,0.3) 0%, transparent 60%), radial-gradient(circle at 70% 30%, rgba(124,58,237,0.2) 0%, transparent 50%);"></div>
       <div class="flex items-center" :class="showCollapsed ? 'justify-center' : 'gap-2.5'">
         <div v-if="!showCollapsed" class="overflow-hidden whitespace-nowrap relative z-10">
-          <div class="font-extrabold title" style="font-size: 18px; letter-spacing: 0.08em; color: #1e293b;">AirCargo</div>
+          <div class="font-extrabold title text-gradient" style="font-size: 18px; letter-spacing: 0.08em;">AirCargo</div>
           <div class="text-[13px] font-medium tracking-wide" style="color: #64748b">{{ auth.selectedSite?.code || 'SDQ' }} Operations</div>
         </div>
-        <div v-else class="w-8 h-8 flex items-center justify-center shrink-0" style="background: #2563eb">
+        <div v-else class="w-8 h-8 flex items-center justify-center shrink-0 rounded-lg glow-accent" style="background: linear-gradient(135deg,#1e3a8a,#2563eb); box-shadow: 0 4px 14px -4px rgba(37,99,235,0.5);">
           <component :is="icons.PlaneDeparture" :size="20" color="white" :stroke-width="1.8" />
         </div>
       </div>
@@ -62,11 +62,12 @@
     </nav>
 
     <!-- User -->
-    <div class="px-2 py-3 border-t" style="border-color: #e2e8f0; background: #f8fafc;">
-      <div class="flex items-center px-2 py-2" style="background: #f1f5f9; border-radius: 8px;"
+    <div class="px-2 py-3 border-t relative overflow-hidden" style="border-color: #e2e8f0; background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);">
+      <div class="absolute inset-0 opacity-[0.03]" style="background-image: radial-gradient(circle at 20% 0%, rgba(37,99,235,0.6) 0%, transparent 60%);"></div>
+      <div class="flex items-center px-2 py-2 relative" style="background: rgba(255,255,255,0.75); border-radius: 10px; border: 1px solid #e6ecf5; box-shadow: 0 1px 3px rgba(15,23,42,0.06);"
         :class="showCollapsed ? 'justify-center' : 'gap-2.5'">
-        <div class="w-8 h-8 flex items-center justify-center shrink-0 rounded-full"
-          :style="{ background: roleIcon.bg, color: roleIcon.fg }">
+        <div class="w-8 h-8 flex items-center justify-center shrink-0 rounded-full ring-2 ring-white"
+          :style="{ background: roleIcon.bg, color: roleIcon.fg, boxShadow: `0 2px 8px ${roleIcon.bg}` }">
           <component :is="roleIcon.icon" :size="16" :stroke-width="1.8" />
         </div>
         <template v-if="!showCollapsed">
@@ -179,7 +180,7 @@ const settingsMenu = computed(() => {
 <style scoped>
 .nav-default { color: #64748b; }
 .nav-default:hover { background: rgba(37,99,235,.05); color: #1e293b; }
-.nav-active { background: rgba(37,99,235,.10); color: #1e293b; font-weight: 700; }
+.nav-active { background: rgba(37,99,235,.10); color: #1e293b; font-weight: 700; box-shadow: inset 3px 0 0 0 rgba(37,99,235,.6); }
 .nav-label { font-size: 14px; letter-spacing: 0.02em; }
 
 /* Icon frame — light theme */
@@ -198,6 +199,7 @@ const settingsMenu = computed(() => {
 .nav-default:hover .ico-frame {
   border-color: color-mix(in srgb, var(--ic) 40%, transparent);
   background: color-mix(in srgb, var(--ic) 10%, transparent);
+  transform: translateY(-1px);
 }
 .ico-frame-active {
   border-color: color-mix(in srgb, var(--ic) 60%, transparent) !important;

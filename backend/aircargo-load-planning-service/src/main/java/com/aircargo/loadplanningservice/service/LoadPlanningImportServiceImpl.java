@@ -1,5 +1,6 @@
 package com.aircargo.loadplanningservice.service;
 
+import com.aircargo.common.entity.CommodityType;
 import com.aircargo.feign.client.*;
 import com.aircargo.feign.dto.*;
 import com.aircargo.loadplanningservice.dto.LoadPlanningImportResultDTO;
@@ -188,7 +189,7 @@ public class LoadPlanningImportServiceImpl implements LoadPlanningImportService 
                 uldAwbDto.setUldId(currentUld.getId());
                 if (mawb != null) uldAwbDto.setMawbId(mawb.getId());
                 uldAwbDto.setMawbLabel(mawbLabel);
-                uldAwbDto.setDescription(description);
+                uldAwbDto.setDescription(mapCommodityType(description));
                 uldAwbDto.setDestination(dest);
                 uldAwbDto.setPieces(pieces);
                 uldAwbDto.setPiecesPct(piecesPct);
@@ -276,6 +277,18 @@ public class LoadPlanningImportServiceImpl implements LoadPlanningImportService 
             return prefix;
         } catch (IllegalArgumentException e) {
             return "BULK";
+        }
+    }
+
+    private CommodityType mapCommodityType(String description) {
+        if (description == null || description.isBlank()) {
+            return CommodityType.GENERAL;
+        }
+        String normalized = description.trim().toUpperCase(java.util.Locale.ROOT).replace(" ", "_").replace("-", "_");
+        try {
+            return CommodityType.valueOf(normalized);
+        } catch (IllegalArgumentException e) {
+            return CommodityType.GENERAL;
         }
     }
 }

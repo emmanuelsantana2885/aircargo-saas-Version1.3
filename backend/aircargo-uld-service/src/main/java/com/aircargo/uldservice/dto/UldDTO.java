@@ -29,12 +29,16 @@ public class UldDTO {
     private OffsetDateTime loadedAt;
     private String notes;
     private String destination;
-    private String builtBy;
+    private String loadedBy;
+    private String weighedBy;
     private String confirmedWith;
     private OffsetDateTime completedAt;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
     private List<UldAwbDTO> awbs;
+
+    /** Transitorio: true => se omite la validación obligatoria de operadores (auto-save del escáner). No se persiste. */
+    private boolean skipOperatorValidation;
 
     public UldDTO() {}
 
@@ -60,7 +64,8 @@ public class UldDTO {
         dto.setLoadedAt(entity.getLoadedAt());
         dto.setNotes(entity.getNotes());
         dto.setDestination(entity.getDestination());
-        dto.setBuiltBy(entity.getBuiltBy());
+        dto.setLoadedBy(entity.getLoadedBy());
+        dto.setWeighedBy(entity.getWeighedBy());
         dto.setConfirmedWith(entity.getConfirmedWith());
         dto.setCompletedAt(entity.getCompletedAt());
         dto.setCreatedAt(entity.getCreatedAt());
@@ -90,7 +95,8 @@ public class UldDTO {
         entity.setLoadedAt(dto.getLoadedAt());
         entity.setNotes(dto.getNotes());
         entity.setDestination(dto.getDestination());
-        entity.setBuiltBy(dto.getBuiltBy());
+        entity.setLoadedBy(dto.getLoadedBy());
+        entity.setWeighedBy(dto.getWeighedBy());
         entity.setConfirmedWith(dto.getConfirmedWith());
         entity.setCompletedAt(dto.getCompletedAt());
         return entity;
@@ -134,8 +140,10 @@ public class UldDTO {
     public void setNotes(String notes) { this.notes = notes; }
     public String getDestination() { return destination; }
     public void setDestination(String destination) { this.destination = destination; }
-    public String getBuiltBy() { return builtBy; }
-    public void setBuiltBy(String builtBy) { this.builtBy = builtBy; }
+    public String getLoadedBy() { return loadedBy; }
+    public void setLoadedBy(String loadedBy) { this.loadedBy = loadedBy; }
+    public String getWeighedBy() { return weighedBy; }
+    public void setWeighedBy(String weighedBy) { this.weighedBy = weighedBy; }
     public String getConfirmedWith() { return confirmedWith; }
     public void setConfirmedWith(String confirmedWith) { this.confirmedWith = confirmedWith; }
     public OffsetDateTime getCompletedAt() { return completedAt; }
@@ -146,4 +154,6 @@ public class UldDTO {
     public void setUpdatedAt(OffsetDateTime updatedAt) { this.updatedAt = updatedAt; }
     public List<UldAwbDTO> getAwbs() { return awbs; }
     public void setAwbs(List<UldAwbDTO> awbs) { this.awbs = awbs; }
+    public boolean isSkipOperatorValidation() { return skipOperatorValidation; }
+    public void setSkipOperatorValidation(boolean skipOperatorValidation) { this.skipOperatorValidation = skipOperatorValidation; }
 }

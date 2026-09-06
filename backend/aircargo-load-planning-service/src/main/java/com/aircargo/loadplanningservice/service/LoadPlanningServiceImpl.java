@@ -1,5 +1,6 @@
 package com.aircargo.loadplanningservice.service;
 
+import com.aircargo.common.entity.CommodityType;
 import com.aircargo.feign.client.FlightClient;
 import com.aircargo.feign.client.MawbClient;
 import com.aircargo.feign.client.UldClient;
@@ -7,8 +8,11 @@ import com.aircargo.feign.dto.FlightDTO;
 import com.aircargo.feign.dto.MawbDTO;
 import com.aircargo.feign.dto.UldAwbDTO;
 import com.aircargo.feign.dto.UldDTO;
+import com.aircargo.common.event.FlightDepartedEvent;
+import com.aircargo.loadplanningservice.config.RabbitConfig;
 import com.aircargo.loadplanningservice.dto.LoadPlanningDTO;
 import com.aircargo.loadplanningservice.dto.LoadPlanningUldDTO;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
@@ -23,16 +27,58 @@ import java.util.stream.Collectors;
 @Service
 public class LoadPlanningServiceImpl implements LoadPlanningService {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(LoadPlanningServiceImpl.class);
+
+    private static final String FLIGHT_DEPARTED_KEY = "flight.departed";
+
     private final FlightClient flightClient;
     private final UldClient uldClient;
     private final MawbClient mawbClient;
+    private final RabbitTemplate rabbitTemplate;
 
     public LoadPlanningServiceImpl(FlightClient flightClient,
                                     UldClient uldClient,
-                                    MawbClient mawbClient) {
+                                    MawbClient mawbClient,
+                                    RabbitTemplate rabbitTemplate) {
         this.flightClient = flightClient;
         this.uldClient = uldClient;
         this.mawbClient = mawbClient;
+        this.rabbitTemplate = rabbitTemplate;
+    }
+
+    /**
+     * Overrides link commodity/status/destination with LIVE MAWB data (source of truth).
+     * The uld_awb snapshot is kept in sync via mawb.updated events, but this read-time
+     * enrichment guarantees load-planning reflects the current MAWB even right after
+     * a Booking/MAWB edit or for links whose snapshot is still pending.
+     */
+    private UldAwbDTO enrichFromMawb(UldAwbDTO link) {
+        try {
+            MawbDTO mawb = null;
+            if (link.getMawbId() != null) {
+                mawb = mawbClient.getMawbById(link.getMawbId());
+            }
+            if (mawb == null && link.getMawbLabel() != null) {
+                String canonical = normalizeAwb(link.getMawbLabel());
+                if (canonical != null) {
+                    mawb = mawbClient.getMawbByAwbNumber(canonical);
+                }
+            }
+            if (mawb == null) return link;
+            if (mawb.getCommodityType() != null) link.setDescription(mapCommodityType(mawb.getCommodityType()));
+            if (mawb.getStatus() != null) link.setStatus(mawb.getStatus());
+            if (mawb.getDestination() != null) link.setDestination(mawb.getDestination());
+        } catch (Exception e) {
+            log.warn("enrichFromMawb fallback (link {}) {}", link.getMawbLabel(), e.getMessage());
+        }
+        return link;
+    }
+
+    private String normalizeAwb(String raw) {
+        if (raw == null) return null;
+        String digits = raw.replaceAll("[\\s\\-/_]", "");
+        if (digits.length() != 11) return null;
+        return digits.substring(0, 3) + "-" + digits.substring(3);
     }
 
     @Override
@@ -50,6 +96,9 @@ public class LoadPlanningServiceImpl implements LoadPlanningService {
                         if (awbs == null) {
                             awbs = uldClient.getUldAwbs(uld.getId(), null);
                         }
+                        if (awbs != null) {
+                            awbs = awbs.stream().map(this::enrichFromMawb).collect(Collectors.toList());
+                        }
 
                         LoadPlanningUldDTO dto = new LoadPlanningUldDTO();
                         dto.setId(uld.getId());
@@ -64,7 +113,8 @@ public class LoadPlanningServiceImpl implements LoadPlanningService {
                         dto.setStatus(uld.getStatus());
                         dto.setAwbs(awbs);
                         dto.setDestination(uld.getDestination());
-                        dto.setBuiltBy(uld.getBuiltBy());
+                        dto.setLoadedBy(uld.getLoadedBy());
+                        dto.setWeighedBy(uld.getWeighedBy());
                         dto.setConfirmedWith(uld.getConfirmedWith());
                         dto.setCompletedAt(uld.getCompletedAt() != null ? uld.getCompletedAt().toString() : null);
                         return dto;
@@ -110,6 +160,7 @@ public class LoadPlanningServiceImpl implements LoadPlanningService {
         }
 
         flightClient.updateFlightStatus(flightId, "DEPARTED");
+        publishFlightDeparted(flight);
 
         List<UldDTO> ulds = uldClient.getUlds(null, flightId);
         for (UldDTO uld : ulds) {
@@ -135,5 +186,27 @@ public class LoadPlanningServiceImpl implements LoadPlanningService {
 
         return getByFlightId(flightId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Load plan not found after close"));
+    }
+
+    private void publishFlightDeparted(FlightDTO flight) {
+        try {
+            rabbitTemplate.convertAndSend(RabbitConfig.EXCHANGE, FLIGHT_DEPARTED_KEY,
+                    new FlightDepartedEvent(flight.getId(), flight.getFlightNumber(), flight.getAirlineId()));
+            log.info("Published flight.departed event for flight {}", flight.getId());
+        } catch (Exception e) {
+            log.warn("Failed to publish flight.departed for flight {}: {}", flight.getId(), e.getMessage());
+        }
+    }
+
+    private CommodityType mapCommodityType(String description) {
+        if (description == null || description.isBlank()) {
+            return CommodityType.GENERAL;
+        }
+        String normalized = description.trim().toUpperCase(java.util.Locale.ROOT).replace(" ", "_").replace("-", "_");
+        try {
+            return CommodityType.valueOf(normalized);
+        } catch (IllegalArgumentException e) {
+            return CommodityType.GENERAL;
+        }
     }
 }

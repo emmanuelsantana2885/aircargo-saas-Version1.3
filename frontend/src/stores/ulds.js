@@ -112,7 +112,10 @@ export const useUldsStore = defineStore('ulds', () => {
       status: uld.status || 'BUILT',
       notes: uld.notes ?? null,
       destination: uld.destination ?? null,
-      builtBy: uld.builtBy ?? null,
+      loadedBy: uld.loadedBy ?? null,
+      weighedBy: uld.weighedBy ?? null,
+      confirmedWith: uld.confirmedWith ?? null,
+      skipOperatorValidation: !!uld._skipOperatorValidation,
     }
 
     let res

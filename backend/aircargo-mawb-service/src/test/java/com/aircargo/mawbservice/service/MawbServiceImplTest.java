@@ -11,6 +11,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 
 import java.util.List;
 import java.util.Optional;
@@ -26,12 +27,15 @@ class MawbServiceImplTest {
     @Mock
     private MawbRepository mawbRepository;
 
+    @Mock
+    private RabbitTemplate rabbitTemplate;
+
     private ObjectMapper objectMapper = new ObjectMapper();
     private MawbServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        service = new MawbServiceImpl(mawbRepository, objectMapper);
+        service = new MawbServiceImpl(mawbRepository, objectMapper, rabbitTemplate);
     }
 
     private Mawb sampleMawb() {

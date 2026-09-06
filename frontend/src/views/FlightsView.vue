@@ -58,23 +58,23 @@
         </button>
       </EmptyState>
 
-      <div v-else class="divide-y divide-slate-100 text-[13px] text-slate-950 overflow-y-auto flex-1 min-h-0 scrollbar-none">
+      <div v-else class="divide-y divide-slate-100 text-[13px] text-slate-900 overflow-y-auto flex-1 min-h-0 scrollbar-none">
         <div v-for="f in filteredFlights" :key="f.id"
           class="ds-table-row group"
           @click="selectFlight(f)">
 
-          <div class="col-span-2 font-mono font-black text-slate-950 relative z-10 flex items-center gap-2">
+          <div class="col-span-2 font-mono font-bold text-slate-900 relative z-10 flex items-center gap-2">
             <span class="text-[13px] font-bold text-white bg-slate-800 rounded-md px-2 py-0.5 uppercase tracking-wider">{{ airlineCode(f) }}</span>
             <span>{{ f.flightNumber }}</span>
           </div>
-          <div class="col-span-2 font-semibold text-slate-950 relative z-10">
+          <div class="col-span-2 font-semibold text-slate-900 relative z-10">
             {{ f.origin }} <span class="text-slate-400 mx-1">→</span> {{ f.destination }}
           </div>
-          <div class="col-span-1 font-mono text-[13px] text-slate-950 relative z-10">{{ f.aircraftType }}</div>
-          <div class="col-span-1 font-mono text-[13px] text-slate-950 relative z-10">{{ f.aircraftReg || 'TMP-' + f.flightNumber }}</div>
-          <div class="col-span-1 text-center font-mono text-[13px] text-slate-950 relative z-10">{{ f.flightDate }}</div>
-          <div class="col-span-1 text-center font-mono font-black text-slate-950 relative z-10">{{ f.totalPositions || '—' }}</div>
-          <div class="col-span-1 text-center font-mono font-black text-slate-950 relative z-10">
+          <div class="col-span-1 font-mono text-[13px] text-slate-900 relative z-10">{{ f.aircraftType }}</div>
+          <div class="col-span-1 font-mono text-[13px] text-slate-900 relative z-10">{{ f.aircraftReg || 'TMP-' + f.flightNumber }}</div>
+          <div class="col-span-1 text-center font-mono text-[13px] text-slate-900 relative z-10">{{ f.flightDate }}</div>
+          <div class="col-span-1 text-center font-mono font-bold text-slate-900 relative z-10">{{ f.totalPositions || '—' }}</div>
+          <div class="col-span-1 text-center font-mono font-bold text-slate-900 relative z-10">
             {{ f.maxPayloadKg ? Number(f.maxPayloadKg).toLocaleString() : '—' }}
           </div>
           <div class="col-span-1 text-center font-mono font-bold text-[13px] relative z-10">
@@ -209,6 +209,7 @@ import { extractError } from '../utils/error'
 import FilterBar from '../components/FilterBar.vue'
 import LocaleDatePicker from '../components/LocaleDatePicker.vue'
 import EmptyState from '../components/EmptyState.vue'
+import { useLiveRefresh } from '../composables/useLiveRefresh'
 
 const icons = useIcons()
 const { t } = useI18n()
@@ -294,6 +295,12 @@ onMounted(async () => {
   ])
   loadFlightWeights()
 })
+
+useLiveRefresh(() => {
+  const p = store.loadFlights({ silent: true })
+  loadFlightWeights()
+  return p
+}, { interval: 30000, pauses: [() => showModal.value, () => saving.value] })
 
 // ── Enums ─────────────────────────────────────────────────────
 const aircraftTypes  = ['B767','B757','B737','B747','B777','A300','A310','A330','MD11','DC8','OTHER']

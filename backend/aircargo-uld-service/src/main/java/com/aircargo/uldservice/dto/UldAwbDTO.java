@@ -16,6 +16,7 @@ public class UldAwbDTO {
     private String mawbLabel;
     private CommodityType description;
     private String destination;
+    private String status;
     private Integer pieces;
     private Integer piecesPct;
     private BigDecimal tempInbound;
@@ -43,6 +44,7 @@ public class UldAwbDTO {
         dto.setMawbLabel(entity.getMawbLabel());
         dto.setDescription(entity.getDescription());
         dto.setDestination(entity.getDestination());
+        dto.setStatus(entity.getStatus());
         dto.setPieces(entity.getPieces());
         dto.setPiecesPct(entity.getPiecesPct());
         dto.setTempInbound(entity.getTempInbound());
@@ -70,6 +72,7 @@ public class UldAwbDTO {
         entity.setMawbLabel(dto.getMawbLabel());
         entity.setDescription(dto.getDescription());
         entity.setDestination(dto.getDestination());
+        entity.setStatus(dto.getStatus());
         entity.setPieces(dto.getPieces());
         entity.setPiecesPct(dto.getPiecesPct());
         entity.setTempInbound(dto.getTempInbound());
@@ -95,6 +98,8 @@ public class UldAwbDTO {
     public void setDescription(CommodityType description) { this.description = description; }
     public String getDestination() { return destination; }
     public void setDestination(String destination) { this.destination = destination; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
     public Integer getPieces() { return pieces; }
     public void setPieces(Integer pieces) { this.pieces = pieces; }
     public Integer getPiecesPct() { return piecesPct; }

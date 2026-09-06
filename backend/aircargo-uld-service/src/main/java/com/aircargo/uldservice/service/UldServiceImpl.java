@@ -1,15 +1,20 @@
 package com.aircargo.uldservice.service;
 
 import com.aircargo.common.dto.PageResponse;
+import com.aircargo.common.event.UldUpdatedEvent;
 import com.aircargo.feign.client.MawbClient;
+import com.aircargo.uldservice.config.RabbitConfig;
 import com.aircargo.uldservice.dto.UldAwbDTO;
 import com.aircargo.uldservice.dto.UldDTO;
 import com.aircargo.uldservice.entity.Uld;
 import com.aircargo.uldservice.entity.UldAwb;
+import com.aircargo.uldservice.entity.UldFlightOperator;
 import com.aircargo.uldservice.entity.UldStatus;
 import com.aircargo.uldservice.repository.UldAwbRepository;
+import com.aircargo.uldservice.repository.UldFlightOperatorRepository;
 import com.aircargo.uldservice.repository.UldRepository;
 import com.aircargo.uldservice.util.UldTypes;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
@@ -32,12 +37,31 @@ public class UldServiceImpl implements UldService {
 
     private final UldRepository uldRepository;
     private final UldAwbRepository uldAwbRepository;
+    private final UldFlightOperatorRepository uldFlightOperatorRepository;
     private final MawbClient mawbClient;
+    private final RabbitTemplate rabbitTemplate;
 
-    public UldServiceImpl(UldRepository uldRepository, UldAwbRepository uldAwbRepository, MawbClient mawbClient) {
+    public UldServiceImpl(UldRepository uldRepository, UldAwbRepository uldAwbRepository,
+                          UldFlightOperatorRepository uldFlightOperatorRepository,
+                          MawbClient mawbClient, RabbitTemplate rabbitTemplate) {
         this.uldRepository = uldRepository;
         this.uldAwbRepository = uldAwbRepository;
+        this.uldFlightOperatorRepository = uldFlightOperatorRepository;
         this.mawbClient = mawbClient;
+        this.rabbitTemplate = rabbitTemplate;
+    }
+
+    /**
+     * Best-effort: notify load-planning-service so cached load plans are invalidated
+     * when a ULD changes (status/assignment/etc). Never breaks the ULD save.
+     */
+    private void publishUldUpdated(Uld uld) {
+        try {
+            rabbitTemplate.convertAndSend(RabbitConfig.EXCHANGE, "uld.updated",
+                    new UldUpdatedEvent(uld.getId(), uld.getUldNumber(), uld.getFlightId()));
+        } catch (Exception e) {
+            log.warn("uld.updated not published for {}: {}", uld.getUldNumber(), e.getMessage());
+        }
     }
 
     private void computeMetricWeights(Uld e) {
@@ -62,6 +86,85 @@ public class UldServiceImpl implements UldService {
         return dto;
     }
 
+    // ------------------------------------------------------------------
+    // Operador por (ULD, vuelo): snapshot en uld_flight_operator
+    // ------------------------------------------------------------------
+
+    private boolean isBlank(String s) {
+        return s == null || s.isBlank();
+    }
+
+    /**
+     * Un ULD asignado a un vuelo es obligatorio que declare quién lo cargó,
+     * quién lo pesó y con quién se confirmó. Lanza 400 (IllegalArgumentException).
+     */
+    private void validateOperatorsPresent(Uld uld) {
+        if (uld.getFlightId() == null) return;
+        if (isBlank(uld.getLoadedBy()) || isBlank(uld.getWeighedBy()) || isBlank(uld.getConfirmedWith())) {
+            throw new IllegalArgumentException(
+                    "Un ULD asignado a un vuelo requiere Loaded By, Weighed By y Confirmed With");
+        }
+    }
+
+    /** Crea/actualiza la snapshot de operadores para el vuelo actual del ULD. */
+    private void upsertFlightOperator(Uld uld) {
+        if (uld.getFlightId() == null || uld.getId() == null) return;
+        UldFlightOperator op = uldFlightOperatorRepository
+                .findByUldIdAndFlightId(uld.getId(), uld.getFlightId())
+                .orElseGet(() -> {
+                    UldFlightOperator created = new UldFlightOperator();
+                    created.setUldId(uld.getId());
+                    created.setFlightId(uld.getFlightId());
+                    return created;
+                });
+        op.setLoadedBy(uld.getLoadedBy());
+        op.setWeighedBy(uld.getWeighedBy());
+        op.setConfirmedWith(uld.getConfirmedWith());
+        uldFlightOperatorRepository.save(op);
+    }
+
+    /**
+     * Al transferir/reasignar a un vuelo nuevo se copian los operadores del vuelo
+     * origen (estado actual del ULD); si el vuelo destino ya tiene su propia
+     * snapshot se conserva (historial), no se sobrescribe.
+     */
+    private void ensureFlightOperatorCopy(Uld uld) {
+        if (uld.getFlightId() == null || uld.getId() == null) return;
+        if (uldFlightOperatorRepository.findByUldIdAndFlightId(uld.getId(), uld.getFlightId()).isPresent()) return;
+        UldFlightOperator op = new UldFlightOperator();
+        op.setUldId(uld.getId());
+        op.setFlightId(uld.getFlightId());
+        op.setLoadedBy(uld.getLoadedBy());
+        op.setWeighedBy(uld.getWeighedBy());
+        op.setConfirmedWith(uld.getConfirmedWith());
+        uldFlightOperatorRepository.save(op);
+    }
+
+    private void applyFlightOperator(UldDTO dto) {
+        if (dto == null || dto.getId() == null || dto.getFlightId() == null) return;
+        uldFlightOperatorRepository.findByUldIdAndFlightId(dto.getId(), dto.getFlightId())
+                .ifPresent(op -> {
+                    dto.setLoadedBy(op.getLoadedBy());
+                    dto.setWeighedBy(op.getWeighedBy());
+                    dto.setConfirmedWith(op.getConfirmedWith());
+                });
+    }
+
+    private void applyFlightOperators(List<UldDTO> dtos, UUID flightId) {
+        if (flightId == null || dtos.isEmpty()) return;
+        List<UUID> ids = dtos.stream().map(UldDTO::getId).collect(Collectors.toList());
+        Map<UUID, UldFlightOperator> byUld = uldFlightOperatorRepository.findByUldIdInAndFlightId(ids, flightId)
+                .stream().collect(Collectors.toMap(UldFlightOperator::getUldId, op -> op));
+        dtos.forEach(dto -> {
+            UldFlightOperator op = byUld.get(dto.getId());
+            if (op != null) {
+                dto.setLoadedBy(op.getLoadedBy());
+                dto.setWeighedBy(op.getWeighedBy());
+                dto.setConfirmedWith(op.getConfirmedWith());
+            }
+        });
+    }
+
     @Override
     @Transactional(readOnly = true)
     @Cacheable(value = "ulds", key = "{#airlineId, #flightId}")
@@ -83,6 +186,7 @@ public class UldServiceImpl implements UldService {
                     ));
             dtos.forEach(dto -> dto.setAwbs(awbMap.getOrDefault(dto.getId(), List.of())));
         }
+        applyFlightOperators(dtos, flightId);
         return dtos;
     }
 
@@ -110,6 +214,7 @@ public class UldServiceImpl implements UldService {
             dtos.forEach(dto -> dto.setAwbs(awbMap.getOrDefault(dto.getId(), List.of())));
         }
 
+        applyFlightOperators(dtos, flightId);
         return PageResponse.of(dtos, page, size, result.getTotalElements());
     }
 
@@ -119,6 +224,10 @@ public class UldServiceImpl implements UldService {
     public Optional<UldDTO> getById(UUID id) {
         return uldRepository.findById(id)
                 .map(UldDTO::fromEntity)
+                .map(dto -> {
+                    applyFlightOperator(dto);
+                    return dto;
+                })
                 .map(this::enrichWithAwbs);
     }
 
@@ -129,8 +238,11 @@ public class UldServiceImpl implements UldService {
         if (dto.getUldType() != null) validateUldType(dto.getUldType());
         Uld e = UldDTO.toEntity(dto);
         if (e.getStatus() == null) e.setStatus(UldStatus.OPEN);
+        if (!dto.isSkipOperatorValidation()) validateOperatorsPresent(e);
         computeMetricWeights(e);
         Uld saved = uldRepository.save(e);
+        if (!dto.isSkipOperatorValidation()) upsertFlightOperator(saved);
+        publishUldUpdated(saved);
         return enrichWithAwbs(UldDTO.fromEntity(saved));
     }
 
@@ -144,6 +256,13 @@ public class UldServiceImpl implements UldService {
     @Transactional
     @CacheEvict(value = {"ulds", "uld-awbs"}, allEntries = true)
     public Optional<UldDTO> update(UUID id, UldDTO dto) {
+        return update(id, dto, true);
+    }
+
+    @Override
+    @Transactional
+    @CacheEvict(value = {"ulds", "uld-awbs"}, allEntries = true)
+    public Optional<UldDTO> update(UUID id, UldDTO dto, boolean enforceOperatorMandatory) {
         return uldRepository.findById(id)
                 .map(existing -> {
                     if (dto.getAirlineId() != null) existing.setAirlineId(dto.getAirlineId());
@@ -180,9 +299,19 @@ public class UldServiceImpl implements UldService {
                     if (dto.getLoadedAt() != null) existing.setLoadedAt(dto.getLoadedAt());
                     if (dto.getNotes() != null) existing.setNotes(dto.getNotes());
                     if (dto.getDestination() != null) existing.setDestination(dto.getDestination());
-                    if (dto.getBuiltBy() != null) existing.setBuiltBy(dto.getBuiltBy());
+                    if (dto.getLoadedBy() != null) existing.setLoadedBy(dto.getLoadedBy());
+                    if (dto.getWeighedBy() != null) existing.setWeighedBy(dto.getWeighedBy());
                     if (dto.getConfirmedWith() != null) existing.setConfirmedWith(dto.getConfirmedWith());
+                    if (enforceOperatorMandatory && !dto.isSkipOperatorValidation()) validateOperatorsPresent(existing);
                     return uldRepository.save(existing);
+                })
+                .map(saved -> {
+                    publishUldUpdated(saved);
+                    return saved;
+                })
+                .map(saved -> {
+                    upsertFlightOperator(saved);
+                    return saved;
                 })
                 .map(UldDTO::fromEntity)
                 .map(this::enrichWithAwbs);
@@ -203,6 +332,8 @@ public class UldServiceImpl implements UldService {
         }
         uld.setNotes(note);
         Uld saved = uldRepository.save(uld);
+        ensureFlightOperatorCopy(saved);
+        publishUldUpdated(saved);
         return enrichWithAwbs(UldDTO.fromEntity(saved));
     }
 
@@ -214,6 +345,8 @@ public class UldServiceImpl implements UldService {
                 .orElseThrow(() -> new IllegalArgumentException("ULD not found: " + id));
         uld.setFlightId(flightId);
         Uld saved = uldRepository.save(uld);
+        ensureFlightOperatorCopy(saved);
+        publishUldUpdated(saved);
 
         // Auto-set MAWB status to MANIFESTED when ULD is assigned to a flight
         if (flightId != null) {
@@ -256,8 +389,10 @@ public class UldServiceImpl implements UldService {
     @Transactional
     @CacheEvict(value = {"ulds", "uld-awbs"}, allEntries = true)
     public boolean delete(UUID id) {
-        if (!uldRepository.existsById(id)) return false;
+        Optional<Uld> existing = uldRepository.findById(id);
+        if (existing.isEmpty()) return false;
         uldRepository.deleteById(id);
+        publishUldUpdated(existing.get());
         return true;
     }
 }

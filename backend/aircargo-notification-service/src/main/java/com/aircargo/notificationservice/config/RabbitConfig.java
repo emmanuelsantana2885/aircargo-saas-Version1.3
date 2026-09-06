@@ -11,6 +11,7 @@ import org.springframework.amqp.rabbit.config.RetryInterceptorBuilder;
 import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.retry.RejectAndDontRequeueRecoverer;
+import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -88,14 +89,22 @@ public class RabbitConfig {
     // en la tabla compartida audit_log (com.aircargo.common.audit.AuditService).
     // El binding+consumidor anterior generaba un registro duplicado por evento.
 
+    /** All producers publish JSON (Jackson2JsonMessageConverter) — consume the same way. */
+    @Bean
+    public Jackson2JsonMessageConverter jackson2JsonMessageConverter() {
+        return new Jackson2JsonMessageConverter();
+    }
+
     /**
      * Factory con reintentos: 3 intentos (1s, 2s, 4s) y sin re-encolar —
      * los mensajes que siguen fallando terminan en la DLQ vía el recoverer.
      */
     @Bean
-    public SimpleRabbitListenerContainerFactory retryListenerFactory(ConnectionFactory connectionFactory) {
+    public SimpleRabbitListenerContainerFactory retryListenerFactory(ConnectionFactory connectionFactory,
+                                                                     Jackson2JsonMessageConverter messageConverter) {
         SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
         factory.setConnectionFactory(connectionFactory);
+        factory.setMessageConverter(messageConverter);
         factory.setDefaultRequeueRejected(false);
         factory.setAdviceChain(RetryInterceptorBuilder.stateless()
                 .maxAttempts(3)

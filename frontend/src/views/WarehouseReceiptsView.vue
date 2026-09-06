@@ -10,7 +10,7 @@
         <div class="flex flex-col gap-0.5 min-w-[140px]">
           <span class="ds-label hidden sm:block">{{ t('common.flight') }}</span>
           <select v-model="localFlightId" @change="onReceiptFlightChange"
-            class="ds-input font-black uppercase tracking-widest cursor-pointer min-w-[160px]">
+            class="ds-input font-bold uppercase tracking-wider cursor-pointer min-w-[160px]">
             <option value="">{{ t('common.all') }}</option>
             <option v-for="f in store.flights" :key="f.id" :value="f.id">
               {{ airlineCodeById(f.airlineId) }}-{{ f.flightNumber }} ({{ f.origin }}→{{ f.destination }})
@@ -69,7 +69,7 @@
           </span>
           <div v-if="headerFilterOpen === 'mawb'"
             class="absolute top-full left-0 mt-1 bg-white border border-slate-300 rounded shadow-lg z-50 min-w-[200px] max-h-[200px] overflow-y-auto text-[13px] text-slate-950 font-normal normal-case">
-            <div @click="setColumnFilter('mawb', null)" class="px-3 py-1.5 cursor-pointer hover:bg-slate-100 font-bold" :class="!columnFilters.mawb ? 'bg-slate-100' : ''">Todos</div>
+            <div @click="setColumnFilter('mawb', null)" class="px-3 py-1.5 cursor-pointer hover:bg-slate-100 font-bold" :class="!columnFilters.mawb ? 'bg-slate-100' : ''">{{ t('common.all') }}</div>
             <div v-for="v in uniqueValues.mawb" :key="v" @click="setColumnFilter('mawb', v)"
               class="px-3 py-1.5 cursor-pointer hover:bg-slate-100 truncate" :class="columnFilters.mawb === v ? 'bg-slate-50 text-slate-700 font-bold' : ''">{{ v }}</div>
           </div>
@@ -82,13 +82,37 @@
           </span>
           <div v-if="headerFilterOpen === 'shipper'"
             class="absolute top-full left-0 mt-1 bg-white border border-slate-300 rounded shadow-lg z-50 min-w-[200px] max-h-[200px] overflow-y-auto text-[13px] text-slate-950 font-normal normal-case">
-            <div @click="setColumnFilter('shipper', null)" class="px-3 py-1.5 cursor-pointer hover:bg-slate-100 font-bold" :class="!columnFilters.shipper ? 'bg-slate-100' : ''">Todos</div>
+            <div @click="setColumnFilter('shipper', null)" class="px-3 py-1.5 cursor-pointer hover:bg-slate-100 font-bold" :class="!columnFilters.shipper ? 'bg-slate-100' : ''">{{ t('common.all') }}</div>
             <div v-for="v in uniqueValues.shipper" :key="v" @click="setColumnFilter('shipper', v)"
               class="px-3 py-1.5 cursor-pointer hover:bg-slate-100 truncate" :class="columnFilters.shipper === v ? 'bg-slate-50 text-slate-700 font-bold' : ''">{{ v }}</div>
           </div>
         </div>
-        <div class="col-span-1 text-center">{{ t('common.pieces') }}</div>
-        <div class="col-span-1 text-right pr-2">Peso (kg)</div>
+        <div class="col-span-1 text-center relative">
+          <span @click="toggleHeaderFilter('pieces')"
+            class="cursor-pointer select-none transition-all duration-150"
+            :class="columnFilters.pieces ? 'text-slate-300' : 'hover:text-white/80'">
+            {{ t('common.pieces') }} <span class="text-[10px]" :class="columnFilters.pieces ? 'opacity-100' : 'opacity-40'">&#9660;</span>
+          </span>
+          <div v-if="headerFilterOpen === 'pieces'"
+            class="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-white border border-slate-300 rounded shadow-lg z-50 min-w-[150px] max-h-[200px] overflow-y-auto text-[13px] text-slate-950 font-normal normal-case">
+            <div @click="setColumnFilter('pieces', null)" class="px-3 py-1.5 cursor-pointer hover:bg-slate-100 font-bold text-center" :class="!columnFilters.pieces ? 'bg-slate-100' : ''">{{ t('common.all') }}</div>
+            <div v-for="v in uniqueValues.pieces" :key="v" @click="setColumnFilter('pieces', v)"
+              class="px-3 py-1.5 cursor-pointer hover:bg-slate-100 text-center" :class="columnFilters.pieces === v ? 'bg-slate-50 text-slate-700 font-bold' : ''">{{ v }}</div>
+          </div>
+        </div>
+        <div class="col-span-1 text-right pr-2 relative">
+          <span @click="toggleHeaderFilter('weight')"
+            class="cursor-pointer select-none transition-all duration-150"
+            :class="columnFilters.weight ? 'text-slate-300' : 'hover:text-white/80'">
+            Peso (kg) <span class="text-[10px]" :class="columnFilters.weight ? 'opacity-100' : 'opacity-40'">&#9660;</span>
+          </span>
+          <div v-if="headerFilterOpen === 'weight'"
+            class="absolute top-full right-0 mt-1 bg-white border border-slate-300 rounded shadow-lg z-50 min-w-[150px] max-h-[200px] overflow-y-auto text-[13px] text-slate-950 font-normal normal-case">
+            <div @click="setColumnFilter('weight', null)" class="px-3 py-1.5 cursor-pointer hover:bg-slate-100 font-bold text-center" :class="!columnFilters.weight ? 'bg-slate-100' : ''">{{ t('common.all') }}</div>
+            <div v-for="v in uniqueValues.weight" :key="v" @click="setColumnFilter('weight', v)"
+              class="px-3 py-1.5 cursor-pointer hover:bg-slate-100 text-center" :class="columnFilters.weight === v ? 'bg-slate-50 text-slate-700 font-bold' : ''">{{ v }}</div>
+          </div>
+        </div>
         <div class="col-span-1 text-center relative receipt-list-cell" data-col="dest">
           <span @click="toggleHeaderFilter('dest')"
             class="cursor-pointer select-none transition-all duration-150"
@@ -97,7 +121,7 @@
           </span>
           <div v-if="headerFilterOpen === 'dest'"
             class="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-white border border-slate-300 rounded shadow-lg z-50 min-w-[120px] max-h-[200px] overflow-y-auto text-[13px] text-slate-950 font-normal normal-case">
-            <div @click="setColumnFilter('dest', null)" class="px-3 py-1.5 cursor-pointer hover:bg-slate-100 font-bold" :class="!columnFilters.dest ? 'bg-slate-100' : ''">Todos</div>
+            <div @click="setColumnFilter('dest', null)" class="px-3 py-1.5 cursor-pointer hover:bg-slate-100 font-bold" :class="!columnFilters.dest ? 'bg-slate-100' : ''">{{ t('common.all') }}</div>
             <div v-for="v in uniqueValues.dest" :key="v" @click="setColumnFilter('dest', v)"
               class="px-3 py-1.5 cursor-pointer hover:bg-slate-100 truncate" :class="columnFilters.dest === v ? 'bg-slate-50 text-slate-700 font-bold' : ''">{{ v }}</div>
           </div>
@@ -113,7 +137,7 @@
           </span>
           <div v-if="headerFilterOpen === 'status'"
             class="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-white border border-slate-300 rounded shadow-lg z-50 min-w-[160px] text-[13px] text-slate-950 font-normal normal-case">
-            <div @click="setColumnFilter('status', null)" class="px-3 py-1.5 cursor-pointer hover:bg-slate-100 font-bold text-center" :class="!columnFilters.status ? 'bg-slate-100' : ''">Todos</div>
+            <div @click="setColumnFilter('status', null)" class="px-3 py-1.5 cursor-pointer hover:bg-slate-100 font-bold text-center" :class="!columnFilters.status ? 'bg-slate-100' : ''">{{ t('common.all') }}</div>
             <div v-for="opt in statusOptions" :key="opt.key" @click="setColumnFilter('status', opt.key)"
               class="px-3 py-1.5 cursor-pointer hover:bg-slate-100 flex items-center gap-2" :class="columnFilters.status === opt.key ? 'bg-slate-50 text-slate-700 font-bold' : ''">
               <span class="w-2 h-2 rounded-full" :class="opt.dotClass"></span>
@@ -152,10 +176,10 @@
               <span class="text-[12px] text-slate-950 transition-transform duration-200" :class="{ 'rotate-90': expandedId === m.id }">&#9654;</span>
               {{ m.awbNumber || m.id?.slice(0, 8) || '—' }}
               <span v-if="receiptHawbs[m.id] && receiptHawbs[m.id].length > 1"
-                class="text-[13px] font-black text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded leading-none"
+                class="text-[13px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded leading-none"
                 title="Múltiples HAWBs">{{ receiptHawbs[m.id].length }} HAWBs</span>
               <span v-else-if="receiptHawbs[m.id] && receiptHawbs[m.id].length === 1"
-                class="text-[13px] font-black text-slate-950 bg-slate-100 px-1.5 py-0.5 rounded leading-none">1 HAWB</span>
+                class="text-[13px] font-bold text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded leading-none">1 HAWB</span>
             </div>
             <div class="col-span-2 text-slate-950 font-semibold relative z-10 truncate pr-3 receipt-list-cell" data-col="shipper">{{ m.shipperName || '—' }}</div>
             <div class="col-span-1 text-center font-mono font-bold relative z-10"
@@ -211,7 +235,7 @@
                     <div @click="localStep = si + 1"
                       class="flex flex-col items-center cursor-pointer group flex-1 min-w-0">
                       <div class="flex items-center w-full">
-                        <div class="flex items-center justify-center w-7 h-7 rounded-full text-[14px] font-black font-mono transition-all duration-200 border-2 shrink-0"
+                        <div class="flex items-center justify-center w-7 h-7 rounded-full text-[14px] font-bold font-mono transition-all duration-200 border-2 shrink-0"
                           :class="stepClass(si)">
                           <span v-if="stepDone(si)">&#10003;</span>
                           <span v-else-if="stepError(si)">&#33;</span>
@@ -980,6 +1004,7 @@ import { receiptsApi } from '../api/receipts'
 import { useToastStore } from '../stores/toast'
 import { extractError } from '../utils/error'
 import { useConfirm } from '../composables/useConfirm'
+import { useLiveRefresh } from '../composables/useLiveRefresh'
 
 const store = useAppStore()
 const toast = useToastStore()
@@ -1183,7 +1208,15 @@ const filterDate = ref('')
 
 // Column header filters
 const headerFilterOpen = ref(null)
-const columnFilters = reactive({ mawb: null, shipper: null, dest: null, status: null })
+const columnFilters = reactive({ mawb: null, shipper: null, dest: null, status: null, pieces: null, weight: null })
+
+function displayPieces(m) {
+  return receiptTotals.value[m.id]?.pieces || m.pieces || 0
+}
+
+function displayWeightKg(m) {
+  return Math.round(Number(receiptTotals.value[m.id]?.weightKg || m.reportedWeightKg || 0))
+}
 
 const uniqueValues = computed(() => {
   const mawbs = store.mawbs
@@ -1191,6 +1224,8 @@ const uniqueValues = computed(() => {
     mawb: [...new Set(mawbs.map(m => m.awbNumber).filter(Boolean))].sort(),
     shipper: [...new Set(mawbs.map(m => m.shipperName).filter(Boolean))].sort(),
     dest: [...new Set(mawbs.map(m => m.destination).filter(Boolean))].sort(),
+    pieces: [...new Set(mawbs.map(displayPieces))].sort((a, b) => a - b),
+    weight: [...new Set(mawbs.map(displayWeightKg))].sort((a, b) => a - b),
   }
 })
 
@@ -1277,6 +1312,12 @@ const filteredMawbs = computed(() => {
   }
   if (columnFilters.dest) {
     list = list.filter(m => m.destination === columnFilters.dest)
+  }
+  if (columnFilters.pieces !== null) {
+    list = list.filter(m => displayPieces(m) === columnFilters.pieces)
+  }
+  if (columnFilters.weight !== null) {
+    list = list.filter(m => displayWeightKg(m) === columnFilters.weight)
   }
   if (filterDate.value) {
     const target = filterDate.value
@@ -2638,6 +2679,13 @@ function onDocumentClick(e) {
 
 onMounted(() => document.addEventListener('click', onDocumentClick))
 onUnmounted(() => document.removeEventListener('click', onDocumentClick))
+
+useLiveRefresh(() =>
+  Promise.all([
+    store.loadReceipts({ silent: true }),
+    store.selectedFlightId ? store.loadMawbs(store.selectedFlightId, { silent: true }) : store.loadAllMawbs({ silent: true }),
+  ]),
+{ interval: 45000, pauses: [submitting, showConfirmModal, showBookingCorrectionModal, showCamera] })
 </script>
 
 <style scoped>

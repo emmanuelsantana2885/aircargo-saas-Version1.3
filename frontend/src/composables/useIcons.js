@@ -1,193 +1,41 @@
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { iconLib } from '@/utils/iconLib'
 
-import {
-  IconAirTrafficControl,
-  IconAlertCircle,
-  IconAlertTriangle,
-  IconApi,
-  IconArrowsExchange,
-  IconCalendarEvent,
-  IconCamera,
-  IconCheck,
-  IconChevronRight,
-  IconClipboardList,
-  IconCrownFilled,
-  IconDownload,
-  IconEye,
-  IconFileDescription,
-  IconFileExport,
-  IconFileInvoice,
-  IconFileUpload,
-  IconForklift,
-  IconGauge,
-  IconKey,
-  IconLayoutGrid,
-  IconLayoutSidebarFilled,
-  IconLock,
-  IconLogout,
-  IconMenu,
-  IconMoon,
-  IconPackage,
-  IconPaperclip,
-  IconPencil,
-  IconPlaneDeparture,
-  IconPlus,
-  IconRefresh,
-  IconRoute,
-  IconScale,
-  IconSearch,
-  IconSettings,
-  IconShieldLock,
-  IconSun,
-  IconTrash,
-  IconUser,
-  IconUsers,
-  IconX,
-  IconBuildingStore
-} from '@tabler/icons-vue'
+const maps = new Map()
+const current = ref({})
 
-import {
-  RadioTower as IconRadioTower,
-  AlertCircle as LcAlertCircle,
-  AlertTriangle as LcAlertTriangle,
-  Webhook as IconWebhook,
-  ArrowLeftRight as IconArrowLeftRight,
-  CalendarDays as IconCalendarDays,
-  Camera as LcCamera,
-  Check as LcCheck,
-  ChevronRight as LcChevronRight,
-  ClipboardList as LcClipboardList,
-  Crown as IconCrown,
-  Download as LcDownload,
-  Eye as LcEye,
-  FileText as IconFileText,
-  FileOutput as IconFileOutput,
-  Upload as IconUpload,
-  Forklift as LcForklift,
-  Gauge as LcGauge,
-  Key as LcKey,
-  LayoutGrid as LcLayoutGrid,
-  PanelLeft as IconPanelLeft,
-  Lock as LcLock,
-  LogOut as IconLogOut,
-  Menu as LcMenu,
-  Moon as LcMoon,
-  Package as LcPackage,
-  Paperclip as LcPaperclip,
-  Pencil as LcPencil,
-  PlaneTakeoff as IconPlaneTakeoff,
-  Plus as LcPlus,
-  RefreshCw as IconRefreshCw,
-  Route as LcRoute,
-  Scale as LcScale,
-  Search as LcSearch,
-  Settings as LcSettings,
-  Shield as IconShield,
-  ShieldAlert as IconShieldAlert,
-  Sun as LcSun,
-  Trash2 as IconTrash2,
-  User as LcUser,
-  Users as LcUsers,
-  X as LcX,
-  Store as LcStore
-} from 'lucide-vue-next'
-
-const tablerIcons = {
-  AirTrafficControl: IconAirTrafficControl,
-  AlertCircle: IconAlertCircle,
-  AlertTriangle: IconAlertTriangle,
-  Api: IconApi,
-  ArrowsExchange: IconArrowsExchange,
-  CalendarEvent: IconCalendarEvent,
-  Camera: IconCamera,
-  Check: IconCheck,
-  ChevronRight: IconChevronRight,
-  ClipboardList: IconClipboardList,
-  CrownFilled: IconCrownFilled,
-  Download: IconDownload,
-  Eye: IconEye,
-  FileDescription: IconFileDescription,
-  FileExport: IconFileExport,
-  FileInvoice: IconFileInvoice,
-  FileUpload: IconFileUpload,
-  Forklift: IconForklift,
-  Gauge: IconGauge,
-  Key: IconKey,
-  LayoutGrid: IconLayoutGrid,
-  LayoutSidebarFilled: IconLayoutSidebarFilled,
-  Lock: IconLock,
-  Logout: IconLogout,
-  Menu: IconMenu,
-  Moon: IconMoon,
-  Package: IconPackage,
-  Paperclip: IconPaperclip,
-  Pencil: IconPencil,
-  PlaneDeparture: IconPlaneDeparture,
-  Plus: IconPlus,
-  Refresh: IconRefresh,
-  Route: IconRoute,
-  Scale: IconScale,
-  Search: IconSearch,
-  Settings: IconSettings,
-  ShieldLock: IconShieldLock,
-  ShieldAlert: IconShieldAlert,
-  Sun: IconSun,
-  Trash: IconTrash,
-  User: IconUser,
-  Users: IconUsers,
-  X: IconX,
-  BuildingStore: IconBuildingStore
+async function loadLib(lib) {
+  if (maps.has(lib)) return maps.get(lib)
+  let map
+  if (lib === 'lucide') map = (await import('./lucideIcons')).lucideIcons
+  else if (lib === 'mdi') map = (await import('@/mdi')).mdiIcons
+  else map = (await import('./tablerIcons')).tablerIcons
+  maps.set(lib, map)
+  return map
 }
 
-const lucideIcons = {
-  AirTrafficControl: IconRadioTower,
-  AlertCircle: LcAlertCircle,
-  AlertTriangle: LcAlertTriangle,
-  Api: IconWebhook,
-  ArrowsExchange: IconArrowLeftRight,
-  CalendarEvent: IconCalendarDays,
-  Camera: LcCamera,
-  Check: LcCheck,
-  ChevronRight: LcChevronRight,
-  ClipboardList: LcClipboardList,
-  CrownFilled: IconCrown,
-  Download: LcDownload,
-  Eye: LcEye,
-  FileDescription: IconFileText,
-  FileExport: IconFileOutput,
-  FileInvoice: IconFileText,
-  FileUpload: IconUpload,
-  Forklift: LcForklift,
-  Gauge: LcGauge,
-  Key: LcKey,
-  LayoutGrid: LcLayoutGrid,
-  LayoutSidebarFilled: IconPanelLeft,
-  Lock: LcLock,
-  Logout: IconLogOut,
-  Menu: LcMenu,
-  Moon: LcMoon,
-  Package: LcPackage,
-  Paperclip: LcPaperclip,
-  Pencil: LcPencil,
-  PlaneDeparture: IconPlaneTakeoff,
-  Plus: LcPlus,
-  Refresh: IconRefreshCw,
-  Route: LcRoute,
-  Scale: LcScale,
-  Search: LcSearch,
-  Settings: LcSettings,
-  ShieldLock: IconShield,
-  ShieldAlert: IconShieldAlert,
-  Sun: LcSun,
-  Trash: IconTrash2,
-  User: LcUser,
-  Users: LcUsers,
-  X: LcX,
-  BuildingStore: LcStore
+async function ensure(lib) {
+  try {
+    const map = await loadLib(lib)
+    if (map !== current.value) current.value = map
+  } catch {
+    // never let icon loading break the UI
+  }
+}
+
+watch(iconLib, (lib) => ensure(lib), { immediate: true })
+
+if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+  window.requestIdleCallback(() => {
+    const alt = iconLib.value === 'tabler'
+      ? ['lucide', 'mdi']
+      : iconLib.value === 'lucide'
+        ? ['tabler', 'mdi']
+        : ['tabler', 'lucide']
+    alt.forEach((lib) => loadLib(lib).catch(() => {}))
+  }, { timeout: 3000 })
 }
 
 export function useIcons() {
-  const icons = computed(() => iconLib.value === 'tabler' ? tablerIcons : lucideIcons)
-  return icons
+  return computed(() => current.value)
 }

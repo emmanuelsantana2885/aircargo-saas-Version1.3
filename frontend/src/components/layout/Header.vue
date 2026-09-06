@@ -1,40 +1,45 @@
 <template>
   <header class="flex items-center justify-between px-4 md:px-6 border-b flex-shrink-0 flex-wrap gap-y-1 relative overflow-hidden"
-    style="min-height: 44px; border-color: var(--border); background: linear-gradient(135deg, #1e293b 0%, #334155 25%, #1e3a5f 50%, #2d3a4e 75%, #1e293b 100%); background-size: 200% 200%;">
-    <div class="absolute inset-0 opacity-[0.08]" style="background-image: repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(148,163,184,0.3) 2px, rgba(148,163,184,0.3) 3px), repeating-linear-gradient(-45deg, transparent, transparent 3px, rgba(100,116,139,0.2) 3px, rgba(100,116,139,0.2) 4px);"></div>
-    <div class="absolute inset-0 opacity-[0.04]" style="background-image: radial-gradient(circle at 30% 50%, rgba(148,163,184,0.4) 0%, transparent 60%), radial-gradient(circle at 70% 30%, rgba(100,116,139,0.3) 0%, transparent 50%);"></div>
+    style="min-height: 44px; border-color: #0f172a; background: linear-gradient(135deg, #0f172a 0%, #1e293b 25%, #1e3a5f 50%, #2d3a4e 75%, #0f172a 100%); background-size: 200% 200%; animation: ds-gradient-pan 18s ease-in-out infinite;">
+    <div class="absolute inset-0 opacity-[0.06]" style="background-image: repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(148,163,184,0.3) 2px, rgba(148,163,184,0.3) 3px), repeating-linear-gradient(-45deg, transparent, transparent 3px, rgba(100,116,139,0.2) 3px, rgba(100,116,139,0.2) 4px);"></div>
+    <div class="absolute inset-0 opacity-[0.05]" style="background-image: radial-gradient(circle at 30% 50%, rgba(148,163,184,0.4) 0%, transparent 60%), radial-gradient(circle at 70% 30%, rgba(100,116,139,0.3) 0%, transparent 50%);"></div>
+    <div class="absolute inset-x-0 bottom-0 h-px" style="background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);"></div>
 
     <div class="flex items-center gap-2 relative z-10">
       <!-- Mobile hamburger -->
       <button v-if="isMobile" @click="$emit('toggleSidebar')"
-        class="flex items-center justify-center w-8 h-8 rounded hover:bg-white/10 transition lg:hidden">
+        class="flex items-center justify-center w-8 h-8 rounded-lg transition hover:bg-white/10">
         <component :is="icons.Menu" :size="20" :stroke-width="2" style="color: white" />
       </button>
       <component :is="icons.ChevronRight" :size="12" style="color: rgba(255,255,255,0.4)" :stroke-width="2" class="hidden sm:block" />
       <span class="text-[13px] md:text-xs font-bold uppercase text-white tracking-wide" style="text-shadow: 0 1px 2px rgba(0,0,0,0.3)">{{ title }}</span>
     </div>
 
-    <div class="flex items-center gap-2 md:gap-4 relative z-10">
-      <LanguageSwitcher />
-      <span class="text-[12px] md:text-xs text-slate-300">{{ date }}</span>
+    <div class="flex items-center gap-2 md:gap-3 relative z-10">
+      <div class="hidden sm:flex items-center rounded-lg border border-white/10 bg-white/5 px-2 py-1" style="backdrop-filter: blur(6px);">
+        <LanguageSwitcher />
+      </div>
+      <span class="text-[12px] md:text-xs text-slate-300 hidden md:block">{{ date }}</span>
       <button @click="toggleIconLib"
-        :title="iconLib === 'tabler' ? 'Switch to Lucide icons' : 'Switch to Tabler icons'"
-        class="flex items-center justify-center w-8 h-8 rounded hover:bg-white/10 transition text-[10px] font-bold"
-        style="color: rgba(255,255,255,0.7)">
-        {{ iconLib === 'tabler' ? 'TB' : 'LC' }}
+        :title="iconLib === 'tabler' ? 'Switch to Lucide icons' : iconLib === 'lucide' ? 'Switch to Material Design icons' : 'Switch to Tabler icons'"
+        class="flex items-center justify-center w-8 h-8 rounded-lg transition hover:bg-white/10 text-[10px] font-bold"
+        style="color: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04);">
+        {{ iconLib === 'tabler' ? 'TB' : iconLib === 'lucide' ? 'LC' : 'MD' }}
       </button>
       <button @click="cycleFont" :title="t('header.fontHint')"
-        class="flex items-center justify-center w-8 h-8 rounded hover:bg-white/10 transition text-[9px] font-bold tracking-tight"
-        style="color: rgba(255,255,255,0.7)">
+        class="flex items-center justify-center w-8 h-8 rounded-lg transition hover:bg-white/10 text-[9px] font-bold tracking-tight"
+        style="color: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04);">
         {{ fontLabel }}
       </button>
       <button @click="cycleDensity" :title="t('header.densityHint')"
-        class="flex items-center justify-center w-8 h-8 rounded hover:bg-white/10 transition text-[9px] font-bold tracking-tight"
-        style="color: rgba(255,255,255,0.7)">
+        class="flex items-center justify-center w-8 h-8 rounded-lg transition hover:bg-white/10 text-[9px] font-bold tracking-tight"
+        style="color: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04);">
         {{ densityLabel }}
       </button>
+      <div class="w-px h-6" style="background: rgba(255,255,255,0.15);"></div>
       <button @click="toggleTheme" :title="theme === 'tokyo' ? t('header.themeLight') : t('header.themeDark')"
-        class="flex items-center justify-center w-8 h-8 rounded hover:bg-white/10 transition">
+        class="flex items-center justify-center w-8 h-8 rounded-lg transition hover:bg-white/10"
+        style="border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04);">
         <component :is="icons.Moon" v-if="theme === 'light'" :size="17" style="color: white" :stroke-width="1.8" />
         <component :is="icons.Sun" v-else :size="17" style="color: #ff9e64" :stroke-width="1.8" />
       </button>

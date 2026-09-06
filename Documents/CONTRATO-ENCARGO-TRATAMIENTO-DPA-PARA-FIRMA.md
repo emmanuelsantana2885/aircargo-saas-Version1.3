@@ -1,0 +1,301 @@
+# CONTRATO DE ENCARGO DE TRATAMIENTO DE DATOS PERSONALES (DPA)
+
+**Aircargo SaaS — Versión 1.3**  
+**Fecha de firma:** [FECHA_FIRMA]  
+**Versión:** 1.0  
+**Referencia contrato principal:** [REF_CONTRATO_PRINCIPAL]  
+
+---
+
+## ENTRE
+
+**EL RESPONSABLE DEL TRATAMIENTO**  
+(en adelante, **"el Responsable"**)
+
+| Campo | Información |
+|-------|-------------|
+| **Denominación social** | [RAZÓN_SOCIAL_RESPONSABLE] |
+| **Nombre comercial** | [NOMBRE_COMERCIAL_RESPONSABLE] |
+| **RNC** | [RNC_RESPONSABLE] |
+| **Domicilio social** | [DIRECCION_RESPONSABLE] |
+| **Representado por** | [NOMBRE_REP_RESPONSABLE] |
+| **Cargo** | [CARGO_REP_RESPONSABLE] |
+| **Documento identidad** | [TIPO_DOC_REP_RESPONSABLE] No. [NUM_DOC_REP_RESPONSABLE] |
+
+**Y**
+
+**EL ENCARGADO DEL TRATAMIENTO**  
+(en adelante, **"el Encargado"**)
+
+| Campo | Información |
+|-------|-------------|
+| **Denominación social** | [RAZÓN_SOCIAL_ENCARGADO] |
+| **Nombre comercial** | [NOMBRE_COMERCIAL_ENCARGADO] |
+| **RNC** | [RNC_ENCARGADO] |
+| **Domicilio social** | [DIRECCION_ENCARGADO] |
+| **Representado por** | [NOMBRE_REP_ENCARGADO] |
+| **Cargo** | [CARGO_REP_ENCARGADO] |
+| **Documento identidad** | [TIPO_DOC_REP_ENCARGADO] No. [NUM_DOC_REP_ENCARGADO] |
+
+---
+
+## 1. OBJETO Y ALCANCE
+
+### 1.1 Objeto
+El presente Contrato regula el encargo de tratamiento de datos personales que **el Responsable** encomienda a **el Encargado** en el marco de la prestación del servicio **Aircargo SaaS** (plataforma de gestión de carga aérea), de conformidad con:
+- Ley 172-13 sobre Protección de Datos Personales (República Dominicana)
+- Reglamento de aplicación (cuando sea aprobado)
+- Contrato principal de prestación de servicios suscrito entre las partes
+
+### 1.2 Servicios cubiertos
+El Encargado tratará datos personales en nombre del Responsable exclusivamente para la prestación de los siguientes servicios:
+- Hospedaje y operación de la Plataforma Aircargo SaaS (módulos: Auth, Flight, Booking, MAWB, Warehouse, ULD, Load Planning, Export/BI, Notification, Gateway)
+- Gestión de infraestructura cloud (compute, storage, database, messaging, cache, CDN)
+- Servicios de seguridad (WAF, rate limiting, DDoS protection, certificados TLS)
+- Servicios de observabilidad (logs, métricas, trazas, alertas)
+- Servicios de backup y disaster recovery
+- Envío de notificaciones transaccionales (email)
+
+---
+
+## 2. DETALLES DEL TRATAMIENTO ENCARGADO
+
+### 2.1 Categorías de datos personales
+
+| Categoría | Descripción |
+|-----------|-------------|
+| Datos de identificación | Nombre, apellidos, cédula/RNC, pasaporte, foto documento, firma |
+| Datos de contacto | Email, teléfono, dirección, sitio web |
+| Datos profesionales | Cargo, empresa, departamento, roles/permisos |
+| Datos de autenticación | Email (usuario), hash contraseña (BCrypt), secreto MFA (TOTP cifrado), tokens JWT |
+| Datos de auditoría | IP pseudonimizada, user-agent, acción, entidad, timestamp, resultado |
+| Datos operacionales | Reservas, MAWB/HAWB, piezas, pesos, mercancía, vuelos, ULDs, almacén |
+| Datos de cumplimiento | Declaraciones DUA, estados, observaciones |
+
+### 2.2 Categorías de titulares
+- Usuarios internos del Responsable (empleados, colaboradores)
+- Clientes del Responsable (expedidores, consignatarios, agentes de carga)
+- Proveedores y subcontratistas del Responsable
+- Usuarios finales de la Plataforma (personal aeroportuario, aduanas, autoridades)
+
+### 2.3 Finalidades del tratamiento
+1. Ejecución de la Plataforma y sus módulos funcionales
+2. Gestión de acceso, autenticación y autorización (RBAC, MFA)
+3. Auditoría y trazabilidad de operaciones (event sourcing)
+4. Envío de notificaciones operativas transaccionales
+5. Backup, recuperación y continuidad de negocio
+6. Mejora del servicio mediante analítica agregada (sin identificación directa)
+7. Cumplimiento obligaciones legales (fiscales, aduaneras, aeronáuticas)
+
+### 2.4 Duración
+El presente Contrato entra en vigor en la fecha de firma y permanecerá vigente mientras dure la relación contractual principal. Tras la terminación, el Encargado mantendrá las obligaciones de confidencialidad y seguridad por **5 años adicionales**.
+
+---
+
+## 3. OBLIGACIONES DEL ENCARGADO
+
+### 3.1 Tratamiento conforme a instrucciones
+El Encargado tratará los datos **únicamente** según las instrucciones documentadas del Responsable (incluidas las establecidas en este Contrato y en el contrato principal). Si el Encargado considera que una instrucción infringe la normativa aplicable, lo notificará inmediatamente al Responsable por escrito.
+
+### 3.2 Confidencialidad
+El Encargado garantiza que:
+- El personal autorizado para tratar los datos ha suscrito compromiso de confidencialidad o está sujeto a obligación legal de secreto adecuada.
+- La confidencialidad se mantendrá tras la finalización del encargo.
+
+### 3.3 Medidas de seguridad (Art. 14-15 Ley 172-13)
+El Encargado implementa y mantiene las siguientes medidas técnicas y organizativas:
+
+| Medida | Implementación |
+|--------|----------------|
+| **Cifrado en tránsito** | TLS 1.2+ obligatorio (ingress, mTLS inter-servicios, DB, MQ, Redis, SMTP) |
+| **Cifrado en reposo** | AES-256-GCM (secretos: MFA, cédulas, firmas, docs ID); PostgreSQL TDE; backups cifrados S3 SSE-KMS |
+| **Control de acceso** | RBAC 7 roles, principio menor privilegio, JWT HS512 (rotación 1h/7d), revocación central |
+| **Autenticación fuerte** | MFA obligatorio (TOTP), re-enrolamiento automático, bloqueo 5 intentos (30 min) |
+| **Auditoría inmutable** | Event sourcing append-only, retención 24 meses, purge automático, pseudonimización IP |
+| **Seguridad perimetral** | WAF (nginx), rate limiting Redis HA, circuit breaker, CSP, HSTS, headers seguridad |
+| **Seguridad runtime** | Kyverno (Pod Security Restricted), Falco (reglas custom), non-root, read-only FS, drop ALL caps |
+| **Gestión vulnerabilidades** | Trivy (FS/imagen/secretos), Dependency Check, SBOM, Cosign signing |
+| **Backup y recuperación** | Diario 2 AM UTC, offsite S3 (30d/12m/7a), restore verificado, auto-restore ante fallo deploy |
+| **Observabilidad** | Loki+Vector (logs), Tempo+OTEL (trazas), Prometheus (métricas), 40+ alertas |
+| **Gestión de secretos** | External Secrets Operator (AWS Secrets Manager / Vault / GCP SM), rotación automática |
+
+### 3.4 Notificación de violaciones de seguridad (Art. 15 Ley 172-13)
+El Encargado notificará al Responsable **sin dilación indebida y, en cualquier caso, en el plazo máximo de 24 horas** desde que tenga conocimiento de una violación de seguridad que afecte a datos personales del Responsable. La notificación incluirá:
+- Naturaleza de la violación
+- Categorías y número aproximado de titulares afectados
+- Categorías y número aproximado de registros afectados
+- Probables consecuencias
+- Medidas adoptadas o propuestas para subsanar y mitigar efectos adversos
+- Datos de contacto del DPO o punto de contacto del Encargado
+
+### 3.5 Asistencia al Responsable
+El Encargado asistirá al Responsable en:
+- Respuesta al ejercicio de derechos ARCO (Art. 6, 11-24 Ley 172-13)
+- Notificación a la autoridad de control y a los titulares (Art. 15 Ley 172-13)
+- Evaluaciones de impacto (DPIA) (Art. 16 Ley 172-13)
+- Consultas previas a la autoridad (Art. 17 Ley 172-13)
+
+### 3.6 Subencargados (Subprocesadores)
+| Subencargado | Servicio | Ubicación | Garantías |
+|--------------|----------|-----------|-----------|
+| [PROVEEDOR_CLOUD] | Infraestructura IaaS/PaaS | [REGIÓN_CLOUD] | SCC, ISO 27001, SOC 2 |
+| [PROVEEDOR_DB] | PostgreSQL gestionado | [REGIÓN_DB] | Cifrado, backup, HA |
+| [PROVEEDOR_MQ] | RabbitMQ gestionado | [REGIÓN_MQ] | TLS, aislamiento |
+| [PROVEEDOR_REDIS] | Redis gestionado | [REGIÓN_REDIS] | TLS, ACL |
+| [PROVEEDOR_SMTP] | Email transaccional | [PROVEEDOR_SMTP] | TLS, SPF/DKIM/DMARC |
+| Let's Encrypt / Cert-manager | Certificados TLS | Global | ACME, validación dominio |
+
+**Regla:** El Encargado informará por escrito al Responsable de cualquier cambio en subencargados con **30 días de antelación**. El Responsable podrá oponerse en **15 días** si considera que no ofrecen garantías suficientes. En caso de objeción no resuelta, el Responsable podrá resolver el contrato principal.
+
+### 3.7 Transferencias internacionales
+El Encargado **no transferirá** datos personales a países terceros u organizaciones internacionales sin autorización previa por escrito del Responsable, salvo obligación legal. Las transferencias a subencargados fuera del EEE/República Dominicana se realizarán bajo cláusulas contractuales tipo (SCC) aprobadas o decisiones de adecuación.
+
+---
+
+## 4. DERECHOS DE LOS TITULARES
+
+El Encargado facilitará al Responsable el cumplimiento de su obligación de responder a las solicitudes de ejercicio de derechos (acceso, rectificación, cancelación, oposición, limitación, portabilidad, no decisiones automatizadas, hábeas data, revocación consentimiento) en los plazos legales (**10 días hábiles**), proporcionando la información y medios técnicos necesarios.
+
+---
+
+## 5. SUPRESIÓN Y DEVOLUCIÓN DE DATOS (FIN DEL ENCARGO)
+
+Al finalizar la prestación de servicios, el Encargado, a elección del Responsable:
+- **Suprimirá** todos los datos personales y copias de seguridad existentes, o
+- **Devolverá** los datos al Responsable en formato estructurado, de uso común y lectura mecánica (JSON/CSV/Parquet), y
+- **Certificará por escrito** la destrucción/devolución completa.
+
+**Excepción:** Conservación bloqueada durante los plazos de prescripción legales (fiscal: 10 años; aduanero: 5 años; laboral: 10 años) únicamente para atender posibles responsabilidades.
+
+---
+
+## 6. AUDITORÍAS Y CONTROLES
+
+### 6.1 Derecho de auditoría
+El Responsable (o tercero independiente designado) podrá auditar el cumplimiento de este Contrato mediante:
+- Revisión de documentación, políticas y procedimientos
+- Inspección de instalaciones y sistemas (previa notificación 15 días)
+- Pruebas técnicas de seguridad (pentesting, escaneo vulnerabilidades)
+
+### 6.2 Frecuencia y coste
+- **Auditoría anual ordinaria** coste a cargo del Encargado
+- **Auditoría extraordinaria** (tras incidente o cambio relevante) coste compartido 50/50
+- **Autoevaluación trimestral** del Encargado (cuestionario estandarizado)
+
+### 6.3 Certificaciones del Encargado
+El Encargado mantiene y aporta anualmente:
+- ISO 27001 / SOC 2 Type II
+- PCI DSS (si aplica a datos de pago)
+- Certificación de cumplimiento Ley 172-13 (cuando exista esquema oficial)
+
+---
+
+## 7. RESPONSABILIDAD E INDEMNIDAD
+
+### 7.1 Responsabilidad del Encargado
+El Encargado responderá ante el Responsable por:
+- Daños y perjuicios causados por incumplimiento de este Contrato o normativa aplicable
+- Sanciones administrativas impuestas al Responsable por actuaciones imputables al Encargado
+- Costes de notificación a titulares y autoridad, y medidas de mitigación tras incidente
+
+### 7.2 Limitación de responsabilidad
+La responsabilidad agregada del Encargado se limitará a **[MULTIPLICADOR] veces las tarifas anuales pagadas** al Encargado bajo el contrato principal, salvo dolo, negligencia grave o violación de obligaciones esenciales de confidencialidad y seguridad.
+
+### 7.3 Seguro
+El Encargado mantendrá vigente póliza de **ciberseguro / responsabilidad civil profesional** con cobertura mínima de **[MONTO_COBERTURA] USD** que cubra violaciones de datos, incidentes de seguridad y responsabilidad por tratamiento de datos.
+
+---
+
+## 8. DURACIÓN Y TERMINACIÓN
+
+### 8.1 Vigencia
+Vigente desde la firma hasta la terminación del contrato principal.
+
+### 8.2 Terminación anticipada
+Cualquiera de las partes podrá resolver con **30 días de preaviso escrito** por:
+- Incumplimiento grave no subsanado en 15 días tras requerimiento
+- Cambio en la normativa que haga imposible el cumplimiento
+- Pérdida de certificaciones de seguridad esenciales
+
+### 8.3 Efectos de la terminación
+Aplicación del Art. 5 (Supresión/Devolución). El Encargado colaborará en la transición ordenada (migración de datos, configuraciones, DNS, certificados) durante **90 días** tras terminación ("período de transición").
+
+---
+
+## 9. DISPOSICIONES GENERALES
+
+### 9.1 Cesión
+Ninguna parte podrá ceder este Contrato sin consentimiento previo por escrito de la otra, salvo a sociedad del mismo grupo (control >50%) previa notificación.
+
+### 9.2 Modificaciones
+Solo por escrito firmado por representantes autorizados de ambas partes.
+
+### 9.3 Confidencialidad del Contrato
+El contenido de este Contrato es confidencial. No se divulgará a terceros salvo obligación legal o consentimiento previo.
+
+### 9.4 Notificaciones
+Todas las notificaciones se realizarán por **email certificado / burofax / correo certificado con acuse de recibo** a las direcciones indicadas en el encabezado.
+
+### 9.5 Ley aplicable y jurisdicción
+**Ley aplicable:** Ley 172-13 y legislación dominicana.  
+**Jurisdicción:** Tribunales de **[CIUDAD_JURISDICCION]**, República Dominicana, renunciando las partes a cualquier otro fuero.
+
+### 9.6 Nulidad parcial
+Si alguna cláusula se declarase nula, las demás mantendrán su vigor, sustituyéndose la nula por otra válida que se aproxime a su finalidad.
+
+### 9.7 Idioma
+Versión en español prevalece sobre cualquier traducción.
+
+---
+
+## 10. ANEXOS
+
+| Anexo | Descripción |
+|-------|-------------|
+| **Anexo 1** | Instrucciones documentadas del Responsable (detalle técnico por servicio) |
+| **Anexo 2** | Medidas de seguridad detalladas (matriz técnica) |
+| **Anexo 3** | Lista actualizada de subencargados (actualizada trimestralmente) |
+| **Anexo 4** | Formulario de notificación de violación de seguridad |
+| **Anexo 5** | Certificado de destrucción/devolución de datos (modelo) |
+| **Anexo 6** | Cuestionario de autoevaluación trimestral |
+| **Anexo 7** | Póliza de ciberseguro (certificado de cobertura) |
+
+---
+
+## FIRMAS
+
+**EL RESPONSABLE DEL TRATAMIENTO**  
+En **[CIUDAD]**, a **[DÍA] de [MES] de [AÑO]**.
+
+__________________________________________
+**[NOMBRE_REP_RESPONSABLE]**  
+**[CARGO_REP_RESPONSABLE]**  
+**[RAZÓN_SOCIAL_RESPONSABLE]**  
+**RNC:** [RNC_RESPONSABLE]  
+**Cédula:** [TIPO_DOC_REP_RESPONSABLE] No. [NUM_DOC_REP_RESPONSABLE]  
+
+**EL ENCARGADO DEL TRATAMIENTO**  
+En **[CIUDAD]**, a **[DÍA] de [MES] de [AÑO]**.
+
+__________________________________________
+**[NOMBRE_REP_ENCARGADO]**  
+**[CARGO_REP_ENCARGADO]**  
+**[RAZÓN_SOCIAL_ENCARGADO]**  
+**RNC:** [RNC_ENCARGADO]  
+**Cédula:** [TIPO_DOC_REP_ENCARGADO] No. [NUM_DOC_REP_ENCARGADO]  
+
+---
+
+**TESTIGOS** (Opcional, según práctica corporativa)
+
+1. __________________________________________  
+   Nombre: _________________________________  
+   Cédula: _________________________________  
+
+2. __________________________________________  
+   Nombre: _________________________________  
+   Cédula: _________________________________  
+
+---
+
+*Documento generado desde plantilla. Cada parte conserva un original firmado. Versión controlada en repositorio de configuración.*

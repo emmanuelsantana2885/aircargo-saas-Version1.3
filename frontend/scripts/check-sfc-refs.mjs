@@ -460,11 +460,13 @@ function templateScope(template) {
       if (/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name)) scope.add(name)
     }
   }
-  const slotRe = /\bv-slot:[^\s=]*\s*=\s*["']\{?([^"']*)\}?["']|\#default\s*=\s*["']\{?([^"']*)\}?["']/g
+  const slotRe = /\bv-slot(?:[:\s][^\s=]*)?\s*=\s*["']\{?([^"']*)\}?["']|\#default\s*=\s*["']\{?([^"']*)\}?["']/g
   while ((m = slotRe.exec(template))) {
     const content = m[1] || m[2] || ''
-    for (const name of content.split(',').map(s => s.trim().split('=')[0].trim())) {
-      if (/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name)) scope.add(name)
+    for (const raw of content.split(',')) {
+      // "(a, b)" / "{ a }" / "{ a = x }" → solo el identificador
+      const name = raw.trim().split('=')[0].trim().replace(/^\.{3}/, '').match(/^[A-Za-z_$][A-Za-z0-9_$]*/)?.[0]
+      if (name) scope.add(name)
     }
   }
   return scope

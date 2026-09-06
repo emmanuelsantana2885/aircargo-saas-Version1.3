@@ -9,6 +9,8 @@ resources:
   - ../../base/02-secrets.yml
   - ../../base/03-postgres.yml
   - ../../base/04-rabbitmq.yml
+  - ../../base/redis.yml
+  - ../../base/cert-manager-issuers.yml
   - ../../base/05-auth-service.yml
   - ../../base/05-flight-service.yml
   - ../../base/05-booking-service.yml
@@ -64,6 +66,25 @@ configMapGenerator:
       - GATEWAY_RATE_LIMIT_TIMEOUT_MS=50
       - MFA_RESET_ON_STARTUP=false
       - MFA_MAX_AGE_DAYS=7
+      # HA: Redis cache + rate limiting
+      - SPRING_CACHE_TYPE=redis
+      - SPRING_CACHE_REDIS_TIME_TO_LIVE=300s
+      - REDIS_HOST=redis.aircargo.svc.cluster.local
+      - REDIS_PORT=6379
+      - RATE_LIMIT_USE_REDIS=true
+  # Service-specific cache TTLs (override base)
+  - name: aircargo-export-config
+    behavior: merge
+    literals:
+      - SPRING_CACHE_REDIS_TIME_TO_LIVE=60s
+  - name: aircargo-load-planning-config
+    behavior: merge
+    literals:
+      - SPRING_CACHE_REDIS_TIME_TO_LIVE=120s
+  - name: aircargo-auth-config
+    behavior: merge
+    literals:
+      - SPRING_CACHE_REDIS_TIME_TO_LIVE=600s
 
 # Production replica counts (higher)
 patches:
@@ -101,6 +122,86 @@ patches:
       apiVersion: apps/v1
       kind: Deployment
       metadata:
+        name: aircargo-flight-service
+      spec:
+        replicas: 2
+    target:
+      kind: Deployment
+      labelSelector: app=aircargo-flight-service
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: aircargo-booking-service
+      spec:
+        replicas: 2
+    target:
+      kind: Deployment
+      labelSelector: app=aircargo-booking-service
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: aircargo-mawb-service
+      spec:
+        replicas: 2
+    target:
+      kind: Deployment
+      labelSelector: app=aircargo-mawb-service
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: aircargo-warehouse-service
+      spec:
+        replicas: 2
+    target:
+      kind: Deployment
+      labelSelector: app=aircargo-warehouse-service
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: aircargo-uld-service
+      spec:
+        replicas: 2
+    target:
+      kind: Deployment
+      labelSelector: app=aircargo-uld-service
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: aircargo-load-planning-service
+      spec:
+        replicas: 2
+    target:
+      kind: Deployment
+      labelSelector: app=aircargo-load-planning-service
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: aircargo-export-service
+      spec:
+        replicas: 2
+    target:
+      kind: Deployment
+      labelSelector: app=aircargo-export-service
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: aircargo-notification-service
+      spec:
+        replicas: 2
+    target:
+      kind: Deployment
+      labelSelector: app=aircargo-notification-service
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
         name: postgres
       spec:
         replicas: 1
@@ -108,6 +209,79 @@ patches:
       kind: Deployment
       labelSelector: app=postgres
     # Enable read replicas via Cloud SQL / RDS in real production
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: redis
+      spec:
+        replicas: 1
+    target:
+      kind: Deployment
+      labelSelector: app=redis
+    # For HA: use Redis Sentinel/Cluster (3+ replicas)
+
+  # Service-specific cache TTL configmaps
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: aircargo-export-service
+      spec:
+        template:
+          spec:
+            containers:
+            - name: aircargo-export-service
+              envFrom:
+              - configMapRef:
+                  name: aircargo-config
+              - secretRef:
+                  name: aircargo-secrets
+              - configMapRef:
+                  name: aircargo-export-config
+    target:
+      kind: Deployment
+      labelSelector: app=aircargo-export-service
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: aircargo-load-planning-service
+      spec:
+        template:
+          spec:
+            containers:
+            - name: aircargo-load-planning-service
+              envFrom:
+              - configMapRef:
+                  name: aircargo-config
+              - secretRef:
+                  name: aircargo-secrets
+              - configMapRef:
+                  name: aircargo-load-planning-config
+    target:
+      kind: Deployment
+      labelSelector: app=aircargo-load-planning-service
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: aircargo-auth-service
+      spec:
+        template:
+          spec:
+            containers:
+            - name: aircargo-auth-service
+              envFrom:
+              - configMapRef:
+                  name: aircargo-config
+              - secretRef:
+                  name: aircargo-secrets
+              - configMapRef:
+                  name: aircargo-auth-config
+    target:
+      kind: Deployment
+      labelSelector: app=aircargo-auth-service
 
 # Production ingress hosts
 patchesJson6902:
@@ -123,6 +297,9 @@ patchesJson6902:
       - op: replace
         path: /spec/tls/0/hosts/0
         value: api.aircargo.example.com
+      - op: replace
+        path: /spec/tls/0/secretName
+        value: aircargo-gateway-tls
   - target:
       group: networking.k8s.io
       version: v1
@@ -135,6 +312,9 @@ patchesJson6902:
       - op: replace
         path: /spec/tls/0/hosts/0
         value: aircargo.example.com
+      - op: replace
+        path: /spec/tls/0/secretName
+        value: aircargo-frontend-tls
 
 # HPA production tuning
 patchesJson6902:

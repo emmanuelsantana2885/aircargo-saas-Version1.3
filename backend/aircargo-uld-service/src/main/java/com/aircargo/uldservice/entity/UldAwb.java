@@ -33,6 +33,9 @@ public class UldAwb {
     @Column(name = "destination", columnDefinition = "bpchar(3)")
     private String destination;
 
+    @Column(name = "status", length = 20)
+    private String status;
+
     @Column(name = "pieces")
     private Integer pieces = 0;
 
@@ -93,6 +96,8 @@ public class UldAwb {
     public void setDescription(CommodityType description) { this.description = description; }
     public String getDestination() { return destination; }
     public void setDestination(String destination) { this.destination = destination; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
     public Integer getPieces() { return pieces; }
     public void setPieces(Integer pieces) { this.pieces = pieces; }
     public Integer getPiecesPct() { return piecesPct; }

@@ -63,15 +63,15 @@ export const useAppStore = defineStore('app', () => {
 
   // ── Actions ────────────────────────────────────────────────────
 
-  async function loadFlights({ page = 0, size = 50 } = {}) {
+  async function loadFlights({ page = 0, size = 50, silent = false } = {}) {
     try {
-      loading.value = true
+      if (!silent) loading.value = true
       const res = await flightsApi.getAll({ page, size })
       flights.value = res.data.content || res.data
       if (flights.value.length && !selectedFlightId.value) {
         selectedFlightId.value = flights.value[0].id
       }
-    } catch (e) { toast.error(extractError(e)); error.value = e.message } finally { loading.value = false }
+    } catch (e) { if (!silent) { toast.error(extractError(e)); error.value = e.message } } finally { if (!silent) loading.value = false }
   }
 
   async function loadAirlines() {
@@ -99,14 +99,14 @@ export const useAppStore = defineStore('app', () => {
     flights.value = flights.value.filter(f => f.id !== id)
   }
 
-  async function loadBookings(flightId, { page = 0, size = 50 } = {}) {
+  async function loadBookings(flightId, { page = 0, size = 50, silent = false } = {}) {
     try {
-      loading.value = true
+      if (!silent) loading.value = true
       const params = { page, size }
       if (flightId) params.flightId = flightId
       const res = await bookingsApi.getAll(params)
       bookings.value = res.data.content || res.data
-    } catch (e) { toast.error(extractError(e)); error.value = e.message } finally { loading.value = false }
+    } catch (e) { if (!silent) { toast.error(extractError(e)); error.value = e.message } } finally { if (!silent) loading.value = false }
   }
 
   async function createBooking(dto) {
@@ -127,21 +127,21 @@ export const useAppStore = defineStore('app', () => {
     bookings.value = bookings.value.filter(b => b.id !== id)
   }
 
-  async function loadMawbs(flightId, { page = 0, size = 500 } = {}) {
+  async function loadMawbs(flightId, { page = 0, size = 500, silent = false } = {}) {
     if (!flightId) return
     try {
-      loading.value = true
+      if (!silent) loading.value = true
       const res = await mawbsApi.getByFlight(flightId, { page, size })
       mawbs.value = res.data.content || res.data
-    } catch (e) { toast.error(extractError(e)); error.value = e.message } finally { loading.value = false }
+    } catch (e) { if (!silent) { toast.error(extractError(e)); error.value = e.message } } finally { if (!silent) loading.value = false }
   }
 
-  async function loadAllMawbs({ page = 0, size = 500 } = {}) {
+  async function loadAllMawbs({ page = 0, size = 500, silent = false } = {}) {
     try {
-      loading.value = true
+      if (!silent) loading.value = true
       const res = await mawbsApi.getAll({ page, size })
       mawbs.value = res.data.content || res.data
-    } catch (e) { toast.error(extractError(e)); error.value = e.message } finally { loading.value = false }
+    } catch (e) { if (!silent) { toast.error(extractError(e)); error.value = e.message } } finally { if (!silent) loading.value = false }
   }
 
   async function createMawb(dto) {
@@ -152,12 +152,12 @@ export const useAppStore = defineStore('app', () => {
     return data
   }
 
-  async function loadReceipts({ page = 0, size = 500 } = {}) {
+  async function loadReceipts({ page = 0, size = 500, silent = false } = {}) {
     try {
-      loading.value = true
+      if (!silent) loading.value = true
       const res = await receiptsApi.getAll({ page, size })
       receipts.value = (res.data.content || res.data) || []
-    } catch (e) { toast.error(extractError(e)); error.value = e.message } finally { loading.value = false }
+    } catch (e) { if (!silent) { toast.error(extractError(e)); error.value = e.message } } finally { if (!silent) loading.value = false }
   }
 
   async function emitReceipt(payload) {
@@ -165,14 +165,14 @@ export const useAppStore = defineStore('app', () => {
     return res.data
   }
 
-  async function loadUlds(flightId, { page = 0, size = 50 } = {}) {
+  async function loadUlds(flightId, { page = 0, size = 50, silent = false } = {}) {
     try {
-      loading.value = true
+      if (!silent) loading.value = true
       const params = { page, size }
       if (flightId) params.flightId = flightId
       const res = await uldsApi.getAll(params)
       ulds.value = res.data.content || res.data
-    } catch (e) { toast.error(extractError(e)); error.value = e.message } finally { loading.value = false }
+    } catch (e) { if (!silent) { toast.error(extractError(e)); error.value = e.message } } finally { if (!silent) loading.value = false }
   }
 
   async function loadUldAwbs() {
@@ -197,7 +197,9 @@ export const useAppStore = defineStore('app', () => {
       status:        'BUILT',
       notes:         localUld.notes ?? null,
       destination:   localUld.destination ?? null,
-      builtBy:       localUld.builtBy ?? null,
+      loadedBy:      localUld.loadedBy ?? null,
+      weighedBy:     localUld.weighedBy ?? null,
+      confirmedWith: localUld.confirmedWith ?? null,
     }
     let saved
     if (localUld.backendId) {

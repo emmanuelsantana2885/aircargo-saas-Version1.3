@@ -91,12 +91,20 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             String email = claims.get("email", String.class);
             String fullName = claims.get("fullName", String.class);
 
-            // Revocación central por-request (solo servicios con BD; caché 30s)
-            if (jdbcTemplate != null && isStale(UUID.fromString(userId), claims)) {
-                log.info("Session REVOKED for {} {}", method, uri);
-                SecurityContextHolder.clearContext();
-                writeUnauthorized(response, "Session revoked");
-                return;
+            // Revocación central por-request (solo servicios con BD; caché 30s).
+            // Los tokens de servicio (subject "service:...") no son usuarios: se saltan
+            // el chequeo, que requiere un UUID real (UUID.fromString lanzaría).
+            if (jdbcTemplate != null && userId != null && !userId.startsWith("service:")) {
+                try {
+                    if (isStale(UUID.fromString(userId), claims)) {
+                        log.info("Session REVOKED for {} {}", method, uri);
+                        SecurityContextHolder.clearContext();
+                        writeUnauthorized(response, "Session revoked");
+                        return;
+                    }
+                } catch (IllegalArgumentException e) {
+                    log.debug("Subject no-UUID, omitting revocation check for {} {}", method, uri);
+                }
             }
 
             UserPrincipal principal = new UserPrincipal(userId, role, airlineId, email, fullName);

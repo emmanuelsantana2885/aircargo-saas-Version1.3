@@ -92,7 +92,7 @@ public class UldController {
                     if (fields.containsKey("grossWeightLbs") && fields.get("grossWeightLbs") instanceof Number n) {
                         dto.setGrossWeightLbs(new BigDecimal(n.toString()));
                     }
-                    return uldService.update(id, dto);
+                    return uldService.update(id, dto, false);
                 })
                 .flatMap(opt -> opt)
                 .map(ResponseEntity::ok)

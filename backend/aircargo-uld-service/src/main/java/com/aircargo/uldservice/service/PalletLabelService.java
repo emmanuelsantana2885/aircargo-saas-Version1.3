@@ -1,7 +1,10 @@
 package com.aircargo.uldservice.service;
 
 import com.aircargo.common.label.LabelRenderer;
+import com.aircargo.feign.client.FlightClient;
 import com.aircargo.feign.client.MawbClient;
+import com.aircargo.feign.dto.AirlineDTO;
+import com.aircargo.feign.dto.FlightDTO;
 import com.aircargo.feign.dto.LabelTemplateDTO;
 import com.aircargo.common.dto.LabelPrintRequest;
 import com.aircargo.uldservice.entity.Uld;
@@ -23,15 +26,18 @@ public class PalletLabelService {
     private final UldRepository uldRepository;
     private final UldAwbRepository uldAwbRepository;
     private final MawbClient mawbClient;
+    private final FlightClient flightClient;
     private final LabelRenderer renderer;
 
     public PalletLabelService(UldRepository uldRepository,
                               UldAwbRepository uldAwbRepository,
                               MawbClient mawbClient,
+                              FlightClient flightClient,
                               LabelRenderer renderer) {
         this.uldRepository = uldRepository;
         this.uldAwbRepository = uldAwbRepository;
         this.mawbClient = mawbClient;
+        this.flightClient = flightClient;
         this.renderer = renderer;
     }
 
@@ -95,6 +101,8 @@ public class PalletLabelService {
             data.put("TARE_KG", fmt(uld.getTareKg()));
             data.put("NET_KG", fmt(uld.getNetWeightKg()));
 
+            appendFlightAirline(data, uld);
+
             List<UldAwb> awbs = uldAwbRepository.findByUldId(id);
             int totalPieces = awbs.stream().mapToInt(a -> a.getPieces() != null ? a.getPieces() : 0).sum();
             data.put("PIECES", String.valueOf(totalPieces));
@@ -107,6 +115,29 @@ public class PalletLabelService {
             dataList.add(data);
         }
         return dataList;
+    }
+
+    private void appendFlightAirline(Map<String, String> data, Uld uld) {
+        FlightDTO flight = null;
+        AirlineDTO airline = null;
+        try {
+            if (uld.getFlightId() != null) flight = flightClient.getFlightById(uld.getFlightId());
+        } catch (Exception ignored) {
+            // best-effort: la etiqueta no debe fallar por un lookup remoto
+        }
+        try {
+            UUID airlineId = flight != null ? flight.getAirlineId() : null;
+            if (airlineId == null) airlineId = uld.getAirlineId();
+            if (airlineId != null) airline = flightClient.getAirlineById(airlineId);
+        } catch (Exception ignored) {
+            // best-effort
+        }
+        data.put("AIRLINE", airline != null && airline.getName() != null ? airline.getName() : "");
+        data.put("AIRLINE_CODE", airline != null && airline.getCode() != null ? airline.getCode() : "");
+        data.put("FLIGHT_NUMBER", flight != null && flight.getFlightNumber() != null ? flight.getFlightNumber() : "");
+        data.put("FLIGHT_DATE", flight != null && flight.getFlightDate() != null ? flight.getFlightDate().toString() : "");
+        data.put("FLIGHT_ROUTE", (flight != null && flight.getOrigin() != null ? flight.getOrigin() : "")
+                + "-" + (flight != null && flight.getDestination() != null ? flight.getDestination() : ""));
     }
 
     private static String fmt(java.math.BigDecimal v) {

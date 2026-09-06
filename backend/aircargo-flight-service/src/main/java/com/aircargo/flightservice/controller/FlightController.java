@@ -91,9 +91,16 @@ public class FlightController {
     }
 
     @PutMapping("/{id}/status")
-    public ResponseEntity<FlightDTO> updateStatus(@PathVariable UUID id, @RequestBody FlightStatus status,
+    public ResponseEntity<FlightDTO> updateStatus(@PathVariable UUID id, @RequestBody String rawStatus,
                                                      @AuthenticationPrincipal UserPrincipal principal,
                                                      HttpServletRequest request) {
+        FlightStatus status;
+        try {
+            status = FlightStatus.valueOf(rawStatus.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new org.springframework.http.converter.HttpMessageNotReadableException(
+                    "Unknown flight status: " + rawStatus);
+        }
         return flightService.updateStatus(id, status)
                 .map(updated -> {
                     if (principal != null) {

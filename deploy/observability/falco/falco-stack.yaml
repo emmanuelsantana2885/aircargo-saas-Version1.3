@@ -1,0 +1,383 @@
+# Falco Runtime Security for Aircargo
+# Deploy: kubectl apply -k deploy/observability/falco/
+# Requires: Falco installed (helm install falco falcosecurity/falco -n falco)
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: falco
+  labels:
+    name: falco
+    app: falco
+---
+# ─── Falco DaemonSet ──────────────────────────────────────────────
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: falco
+  namespace: falco
+  labels:
+    app: falco
+spec:
+  selector:
+    matchLabels:
+      app: falco
+  template:
+    metadata:
+      labels:
+        app: falco
+    spec:
+      serviceAccountName: falco
+      hostPID: true
+      hostNetwork: true
+      containers:
+      - name: falco
+        image: falcosecurity/falco:0.37.0
+        args:
+        - --pidfile=/var/run/falco.pid
+        - --daemon=false
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: falco-config
+          mountPath: /etc/falco
+        - name: falco-rules
+          mountPath: /etc/falco/rules.d
+        - name: host-root
+          mountPath: /host
+          readOnly: true
+        - name: docker-sock
+          mountPath: /var/run/docker.sock
+          readOnly: true
+        - name: kubelet-sock
+          mountPath: /var/run/kubelet.sock
+          readOnly: true
+        env:
+        - name: FALCO_JSON_OUTPUT
+          value: "true"
+        - name: FALCO_LOG_LEVEL
+          value: "info"
+        - name: FALCO_OUTPUTS
+          value: "stdout,falcosidekick:http://falcosidekick.falco.svc.cluster.local:2801/"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+      volumes:
+      - name: falco-config
+        configMap:
+          name: falco-config
+      - name: falco-rules
+        configMap:
+          name: falco-custom-rules
+      - name: host-root
+        hostPath:
+          path: /
+      - name: docker-sock
+        hostPath:
+          path: /var/run/docker.sock
+      - name: kubelet-sock
+        hostPath:
+          path: /var/run/kubelet.sock
+---
+# ─── Falco Config ─────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: falco-config
+  namespace: falco
+data:
+  falco.yaml: |
+    json_output: true
+    json_include_output_property: true
+    log_level: info
+    file_output:
+      enabled: false
+    syslog_output:
+      enabled: true
+    program_output:
+      enabled: false
+    http_output:
+      enabled: true
+      url: "http://falcosidekick.falco.svc.cluster.local:2801/"
+    grpc_output:
+      enabled: false
+    webserver:
+      enabled: true
+      listen_port: 8765
+      k8s_audit_endpoint: /k8s-audit
+    rules_files:
+      - /etc/falco/falco_rules.yaml
+      - /etc/falco/falco_rules.local.yaml
+      - /etc/falco/rules.d/
+    watch_config_files: true
+    disable_source_k8s_audit: false
+    k8s_audit:
+      enabled: true
+      uri: "http://falcosidekick.falco.svc.cluster.local:2801/k8s-audit"
+---
+# ─── Custom Rules for Aircargo ────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: falco-custom-rules
+  namespace: falco
+data:
+  aircargo_rules.yaml: |
+    # ─── Custom Rules for Aircargo Services ──────────────────────
+    
+    # Detect shell in container (potential compromise)
+    - rule: Shell in Container
+      desc: Detect interactive shell spawned in container
+      condition: >
+        spawned_process and container
+        and proc.name in (bash, sh, zsh, fish, csh, tcsh, ksh)
+        and proc.args contains "-i"
+        and not proc.pname in (sshd, sudo, su)
+      output: "Shell spawned in container (user=%user.name container=%container.name image=%container.image.repository cmdline=%proc.cmdline)"
+      priority: WARNING
+      tags: [container, shell, mitre_execution]
+    
+    # Detect sensitive file access
+    - rule: Sensitive File Access
+      desc: Access to sensitive files (shadow, passwd, ssh keys, kubeconfig)
+      condition: >
+        open_read and container
+        and fd.name in (/etc/shadow, /etc/passwd, /etc/sudoers,
+                        /root/.ssh/id_rsa, /root/.ssh/id_rsa.pub,
+                        /home/*/.ssh/id_rsa, /home/*/.ssh/authorized_keys,
+                        /etc/kubernetes/admin.conf, /var/run/secrets/kubernetes.io/serviceaccount/token)
+      output: "Sensitive file accessed (user=%user.name container=%container.name file=%fd.name)"
+      priority: CRITICAL
+      tags: [container, file, mitre_credential_access]
+    
+    # Detect network tools in container
+    - rule: Network Tools in Container
+      desc: Network reconnaissance tools executed in container
+      condition: >
+        spawned_process and container
+        and proc.name in (nmap, nc, netcat, socat, curl, wget, telnet, 
+                         dig, nslookup, host, whois, tcpdump, wireshark, tshark)
+      output: "Network tool executed in container (user=%user.name container=%container.name tool=%proc.name cmdline=%proc.cmdline)"
+      priority: WARNING
+      tags: [container, network, mitre_discovery]
+    
+    # Detect crypto mining
+    - rule: Crypto Miner
+      desc: Known cryptocurrency miners
+      condition: >
+        spawned_process and container
+        and proc.name in (xmrig, xmr-stak, cpuminer, minerd, ccminer, 
+                          ethminer, claymore, sgminer, bfgminer, cgminer)
+      output: "Crypto miner detected (user=%user.name container=%container.name miner=%proc.name)"
+      priority: CRITICAL
+      tags: [container, crypto, mitre_resource_development]
+    
+    # Detect privilege escalation via sudo/su
+    - rule: Privilege Escalation
+      desc: Sudo or su executed in container
+      condition: >
+        spawned_process and container
+        and proc.name in (sudo, su, doas, pkexec)
+      output: "Privilege escalation attempt (user=%user.name container=%container.name cmd=%proc.name cmdline=%proc.cmdline)"
+      priority: CRITICAL
+      tags: [container, privilege, mitre_privilege_escalation]
+    
+    # Detect mount of host filesystem
+    - rule: Host Filesystem Mount
+      desc: Container mounting host filesystem
+      condition: >
+        k8s.ns and k8s.pod
+        and ka.verb in (create, update)
+        and ka.target.resource = pods
+        and ka.target.subresource = ""
+        and (ka.target.namespace = "aircargo")
+        and (object.spec.volumes contains any item where item.hostPath.path != "")
+      output: "Pod with hostPath mount created/updated (pod=%ka.target.name ns=%ka.target.namespace volumes=%object.spec.volumes)"
+      priority: WARNING
+      tags: [k8s, host, mitre_persistence]
+    
+    # Detect container running as root (should be blocked by Kyverno but detect anyway)
+    - rule: Container Running as Root
+      desc: Container running as root user
+      condition: >
+        spawned_process and container
+        and user.uid = 0
+        and not proc.name in (falco, systemd, systemd-journald, kubelet, docker)
+      output: "Process running as root in container (user=%user.name container=%container.name cmdline=%proc.cmdline)"
+      priority: WARNING
+      tags: [container, root, mitre_privilege_escalation]
+    
+    # Detect unexpected process in Aircargo services
+    - rule: Unexpected Process in Aircargo
+      desc: Process not in expected list for Aircargo Java services
+      condition: >
+        spawned_process and container
+        and container.image.repository contains "aircargo"
+        and proc.name not in (java, sh, bash, tar, gzip, gunzip, tail, cat, sleep, 
+                             ps, lsof, netstat, ss, pidstat, top, htop, vmstat, iostat,
+                             jcmd, jstack, jmap, jstat, jinfo, jhat, jhsdb, java-gc, 
+                             dumb-init, tini, entrypoint.sh)
+      output: "Unexpected process in Aircargo container (container=%container.name proc=%proc.name cmdline=%proc.cmdline)"
+      priority: NOTICE
+      tags: [container, process, aircargo]
+    
+    # Detect writing to binary directories
+    - rule: Write Binary Directory
+      desc: Writing to /usr/bin, /bin, /sbin in container
+      condition: >
+        write and container
+        and fd.directory in (/usr/bin, /bin, /sbin, /usr/sbin, /usr/local/bin, /usr/local/sbin)
+        and not proc.name in (dpkg, apt, rpm, yum, apk, dpkg-deb, dpkg-split)
+      output: "Write to binary directory in container (user=%user.name container=%container.name file=%fd.name proc=%proc.name)"
+      priority: CRITICAL
+      tags: [container, write, mitre_persistence]
+    
+    # Detect Kubernetes secrets access from pods
+    - rule: K8s Secrets Access
+      desc: Pod accessing Kubernetes secrets
+      condition: >
+        open_read and container
+        and fd.name contains "/var/run/secrets/kubernetes.io/serviceaccount/"
+        and not proc.name in (kubectl, curl, wget, java)
+      output: "Kubernetes service account token accessed (container=%container.name proc=%proc.name file=%fd.name)"
+      priority: NOTICE
+      tags: [k8s, secrets, mitre_credential_access]
+    
+    # Detect RBAC changes in aircargo namespace
+    - rule: RBAC Changes in Aircargo
+      desc: Role/RoleBinding changes in aircargo namespace
+      condition: >
+        k8s.ns and k8s.pod
+        and ka.verb in (create, update, delete, patch)
+        and ka.target.resource in (roles, rolebindings, clusterroles, clusterrolebindings)
+        and ka.target.namespace = "aircargo"
+      output: "RBAC change in aircargo namespace (verb=%ka.verb resource=%ka.target.resource name=%ka.target.name user=%ka.user.name)"
+      priority: WARNING
+      tags: [k8s, rbac, mitre_persistence]
+---
+# ─── FalcoSidekick (Alert Forwarding) ─────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: falcosidekick
+  namespace: falco
+  labels:
+    app: falcosidekick
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: falcosidekick
+  template:
+    metadata:
+      labels:
+        app: falcosidekick
+    spec:
+      containers:
+      - name: falcosidekick
+        image: falcosecurity/falcosidekick:2.28.0
+        ports:
+        - containerPort: 2801
+        env:
+        - name: SLACK_WEBHOOKURL
+          valueFrom:
+            secretKeyRef:
+              name: falco-alerts
+              key: slack_webhook
+              optional: true
+        - name: TEAMS_WEBHOOKURL
+          valueFrom:
+            secretKeyRef:
+              name: falco-alerts
+              key: teams_webhook
+              optional: true
+        - name: EMAIL_SMTP_HOST
+          valueFrom:
+            secretKeyRef:
+              name: falco-alerts
+              key: smtp_host
+              optional: true
+        - name: EMAIL_SMTP_PORT
+          value: "587"
+        - name: EMAIL_FROM
+          valueFrom:
+            secretKeyRef:
+              name: falco-alerts
+              key: email_from
+              optional: true
+        - name: EMAIL_TO
+          valueFrom:
+            secretKeyRef:
+              name: falco-alerts
+              key: email_to
+              optional: true
+        - name: CUSTOMFIELDS
+          value: "cluster:aircargo-prod,environment:production"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: falcosidekick
+  namespace: falco
+  labels:
+    app: falcosidekick
+spec:
+  selector:
+    app: falcosidekick
+  ports:
+  - name: http
+    port: 2801
+    targetPort: 2801
+---
+# ─── Grafana Dashboard for Falco ──────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-falco-dashboard
+  namespace: falco
+  labels:
+    grafana_dashboard: "1"
+data:
+  falco-dashboard.json: |
+    {
+      "dashboard": {
+        "title": "Falco Runtime Security",
+        "uid": "falco-runtime",
+        "tags": ["falco", "security", "runtime"],
+        "timezone": "utc",
+        "panels": [
+          {
+            "title": "Alerts by Priority",
+            "type": "stat",
+            "targets": [{"expr": "sum by (priority) (rate(falco_alerts_total[5m]))", "legendFormat": "{{priority}}"}],
+            "gridPos": {"x": 0, "y": 0, "w": 6, "h": 4}
+          },
+          {
+            "title": "Alerts by Rule",
+            "type": "table",
+            "targets": [{"expr": "topk(20, sum by (rule) (rate(falco_alerts_total[5m])))", "format": "table"}],
+            "gridPos": {"x": 6, "y": 0, "w": 18, "h": 8}
+          },
+          {
+            "title": "Alerts Timeline",
+            "type": "timeseries",
+            "targets": [{"expr": "sum by (priority) (rate(falco_alerts_total[5m]))", "legendFormat": "{{priority}}"}],
+            "gridPos": {"x": 0, "y": 4, "w": 24, "h": 8}
+          }
+        ],
+        "time": {"from": "now-1h", "to": "now"},
+        "refresh": "30s"
+      }
+    }

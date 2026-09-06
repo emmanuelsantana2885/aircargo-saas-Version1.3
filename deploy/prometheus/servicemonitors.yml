@@ -1,0 +1,220 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: aircargo-services
+  namespace: aircargo
+  labels:
+    release: prometheus
+    app: aircargo
+spec:
+  selector:
+    matchLabels:
+      app: aircargo-gateway
+  namespaceSelector:
+    matchNames:
+      - aircargo
+  endpoints:
+  - port: http
+    path: /actuator/prometheus
+    interval: 30s
+    honorLabels: true
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: aircargo-auth-service
+  namespace: aircargo
+  labels:
+    release: prometheus
+    app: aircargo
+spec:
+  selector:
+    matchLabels:
+      app: aircargo-auth-service
+  namespaceSelector:
+    matchNames:
+      - aircargo
+  endpoints:
+  - port: http
+    path: /actuator/prometheus
+    interval: 30s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: aircargo-flight-service
+  namespace: aircargo
+  labels:
+    release: prometheus
+    app: aircargo
+spec:
+  selector:
+    matchLabels:
+      app: aircargo-flight-service
+  namespaceSelector:
+    matchNames:
+      - aircargo
+  endpoints:
+  - port: http
+    path: /actuator/prometheus
+    interval: 30s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: aircargo-booking-service
+  namespace: aircargo
+  labels:
+    release: prometheus
+    app: aircargo
+spec:
+  selector:
+    matchLabels:
+      app: aircargo-booking-service
+  namespaceSelector:
+    matchNames:
+      - aircargo
+  endpoints:
+  - port: http
+    path: /actuator/prometheus
+    interval: 30s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: aircargo-mawb-service
+  namespace: aircargo
+  labels:
+    release: prometheus
+    app: aircargo
+spec:
+  selector:
+    matchLabels:
+      app: aircargo-mawb-service
+  namespaceSelector:
+    matchNames:
+      - aircargo
+  endpoints:
+  - port: http
+    path: /actuator/prometheus
+    interval: 30s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: aircargo-warehouse-service
+  namespace: aircargo
+  labels:
+    release: prometheus
+    app: aircargo
+spec:
+  selector:
+    matchLabels:
+      app: aircargo-warehouse-service
+  namespaceSelector:
+    matchNames:
+      - aircargo
+  endpoints:
+  - port: http
+    path: /actuator/prometheus
+    interval: 30s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: aircargo-uld-service
+  namespace: aircargo
+  labels:
+    release: prometheus
+    app: aircargo
+spec:
+  selector:
+    matchLabels:
+      app: aircargo-uld-service
+  namespaceSelector:
+    matchNames:
+      - aircargo
+  endpoints:
+  - port: http
+    path: /actuator/prometheus
+    interval: 30s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: aircargo-load-planning-service
+  namespace: aircargo
+  labels:
+    release: prometheus
+    app: aircargo
+spec:
+  selector:
+    matchLabels:
+      app: aircargo-load-planning-service
+  namespaceSelector:
+    matchNames:
+      - aircargo
+  endpoints:
+  - port: http
+    path: /actuator/prometheus
+    interval: 30s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: aircargo-export-service
+  namespace: aircargo
+  labels:
+    release: prometheus
+    app: aircargo
+spec:
+  selector:
+    matchLabels:
+      app: aircargo-export-service
+  namespaceSelector:
+    matchNames:
+      - aircargo
+  endpoints:
+  - port: http
+    path: /actuator/prometheus
+    interval: 30s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: aircargo-notification-service
+  namespace: aircargo
+  labels:
+    release: prometheus
+    app: aircargo
+spec:
+  selector:
+    matchLabels:
+      app: aircargo-notification-service
+  namespaceSelector:
+    matchNames:
+      - aircargo
+  endpoints:
+  - port: http
+    path: /actuator/prometheus
+    interval: 30s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: aircargo-frontend
+  namespace: aircargo
+  labels:
+    release: prometheus
+    app: aircargo
+spec:
+  selector:
+    matchLabels:
+      app: aircargo-frontend
+  namespaceSelector:
+    matchNames:
+      - aircargo
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 30s

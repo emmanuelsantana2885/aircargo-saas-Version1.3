@@ -1,5 +1,6 @@
 package com.aircargo.feign.dto;
 
+import com.aircargo.common.entity.CommodityType;
 import java.math.BigDecimal;
 import java.util.UUID;
 
@@ -8,8 +9,9 @@ public class UldAwbDTO {
     private UUID uldId;
     private UUID mawbId;
     private String mawbLabel;
-    private String description;
+    private CommodityType description;
     private String destination;
+    private String status;
     private Integer pieces;
     private Integer piecesPct;
     private BigDecimal tempInbound;
@@ -28,10 +30,12 @@ public class UldAwbDTO {
     public void setMawbId(UUID mawbId) { this.mawbId = mawbId; }
     public String getMawbLabel() { return mawbLabel; }
     public void setMawbLabel(String mawbLabel) { this.mawbLabel = mawbLabel; }
-    public String getDescription() { return description; }
-    public void setDescription(String description) { this.description = description; }
+    public CommodityType getDescription() { return description; }
+    public void setDescription(CommodityType description) { this.description = description; }
     public String getDestination() { return destination; }
     public void setDestination(String destination) { this.destination = destination; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
     public Integer getPieces() { return pieces; }
     public void setPieces(Integer pieces) { this.pieces = pieces; }
     public Integer getPiecesPct() { return piecesPct; }

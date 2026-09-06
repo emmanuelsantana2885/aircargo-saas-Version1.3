@@ -11,6 +11,9 @@ public interface UldAwbRepository extends JpaRepository<UldAwb, UUID> {
     List<UldAwb> findByUldId(UUID uldId);
     List<UldAwb> findByUldIdIn(List<UUID> uldIds);
     List<UldAwb> findByMawbId(UUID mawbId);
+    List<UldAwb> findByMawbIdIn(List<UUID> mawbIds);
+    List<UldAwb> findByMawbLabel(String mawbLabel);
+    List<UldAwb> findByMawbLabelIn(List<String> mawbLabels);
     Optional<UldAwb> findByUldIdAndMawbId(UUID uldId, UUID mawbId);
     void deleteByUldId(UUID uldId);
 }

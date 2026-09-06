@@ -1,21 +1,20 @@
 <template>
   <Teleport to="body">
-    <div v-if="visible" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="onCancel">
-      <div class="bg-white rounded-xl shadow-2xl mx-4 w-full max-w-md overflow-hidden" @keydown.esc="onCancel">
-        <div v-if="title" class="px-5 py-3 border-b border-slate-200">
-          <h3 class="text-sm font-mono font-black uppercase tracking-wider text-slate-950">{{ title }}</h3>
+    <div v-if="visible" class="fixed inset-0 z-50 flex items-center justify-center p-4 ds-confirm-backdrop" @click.self="onCancel">
+      <div class="ds-modal-panel max-w-md py-5 animate-pop" @keydown.esc="onCancel">
+        <div v-if="title" class="mb-4 pb-3 border-b border-slate-200">
+          <h3 class="ds-modal-title">{{ title }}</h3>
         </div>
-        <div class="px-5 py-4">
-          <p class="text-sm font-mono text-slate-900 whitespace-pre-wrap">{{ message }}</p>
+        <div class="mb-5">
+          <p class="text-sm font-mono text-slate-900 whitespace-pre-wrap leading-relaxed">{{ message }}</p>
         </div>
-        <div class="flex justify-end gap-2 px-5 py-3 border-t border-slate-200 bg-slate-50">
-          <button v-if="cancelText" @click="onCancel"
-            class="text-sm px-4 py-2 rounded-lg border border-slate-300 font-mono font-bold text-slate-950 hover:bg-white transition">
+        <div class="flex justify-end gap-2">
+          <button v-if="cancelText" @click="onCancel" class="ds-btn-secondary text-sm">
             {{ cancelText }}
           </button>
           <button @click="onConfirm"
-            class="text-sm px-4 py-2 rounded-lg font-mono font-bold text-white transition"
-            :class="danger ? 'bg-slate-600 hover:bg-slate-500' : 'bg-slate-950 hover:bg-slate-800'">
+            class="ds-btn-primary text-sm"
+            :class="danger ? 'ds-confirm-danger' : ''">
             {{ confirmText || 'Aceptar' }}
           </button>
         </div>

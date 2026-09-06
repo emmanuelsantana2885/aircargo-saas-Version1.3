@@ -1,6 +1,9 @@
 package com.aircargo.mawbservice.service;
 
 import com.aircargo.common.dto.PageResponse;
+import com.aircargo.common.event.MawbStatusChangedEvent;
+import com.aircargo.common.event.MawbUpdatedEvent;
+import com.aircargo.mawbservice.config.RabbitConfig;
 import com.aircargo.mawbservice.dto.MawbDTO;
 import com.aircargo.mawbservice.entity.Mawb;
 import com.aircargo.mawbservice.entity.MawbStatus;
@@ -9,6 +12,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
@@ -31,10 +35,12 @@ public class MawbServiceImpl implements MawbService {
 
     private final MawbRepository mawbRepository;
     private final ObjectMapper objectMapper;
+    private final RabbitTemplate rabbitTemplate;
 
-    public MawbServiceImpl(MawbRepository mawbRepository, ObjectMapper objectMapper) {
+    public MawbServiceImpl(MawbRepository mawbRepository, ObjectMapper objectMapper, RabbitTemplate rabbitTemplate) {
         this.mawbRepository = mawbRepository;
         this.objectMapper = objectMapper;
+        this.rabbitTemplate = rabbitTemplate;
     }
 
     @Override
@@ -140,7 +146,10 @@ public class MawbServiceImpl implements MawbService {
                     if (dto.getNotes() != null) existing.setNotes(dto.getNotes());
                     return mawbRepository.save(existing);
                 })
-                .map(MawbDTO::fromEntity);
+                .map(saved -> {
+                    publishUpdated(saved);
+                    return MawbDTO.fromEntity(saved);
+                });
     }
 
     @Override
@@ -161,7 +170,30 @@ public class MawbServiceImpl implements MawbService {
     }
 
     private void publishStatusChanged(Mawb mawb, MawbStatus oldStatus, MawbStatus newStatus) {
-        log.warn("RabbitMQ not available - event not published: mawb.status.changed");
+        try {
+            rabbitTemplate.convertAndSend(RabbitConfig.EXCHANGE, "mawb.status.changed",
+                    new MawbStatusChangedEvent(mawb.getId(), mawb.getAwbNumber(),
+                            String.valueOf(oldStatus), String.valueOf(newStatus)));
+        } catch (Exception e) {
+            log.warn("mawb.status.changed not published for {}: {}", mawb.getAwbNumber(), e.getMessage());
+        }
+        publishUpdated(mawb);
+    }
+
+    /**
+     * Best-effort: notifies consumers (uld-service, load-planning-service) that the
+     * MAWB commodity/destination/status changed. Never breaks the save.
+     */
+    private void publishUpdated(Mawb mawb) {
+        try {
+            rabbitTemplate.convertAndSend(RabbitConfig.EXCHANGE, "mawb.updated",
+                    new MawbUpdatedEvent(mawb.getId(), mawb.getAwbNumber(),
+                            String.valueOf(mawb.getCommodityType()),
+                            String.valueOf(mawb.getStatus()),
+                            mawb.getDestination()));
+        } catch (Exception e) {
+            log.warn("mawb.updated not published for {}: {}", mawb.getAwbNumber(), e.getMessage());
+        }
     }
 
     @Override

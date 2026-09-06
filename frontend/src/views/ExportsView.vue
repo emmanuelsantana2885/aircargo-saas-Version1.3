@@ -127,6 +127,7 @@
 import { ref, computed, reactive } from 'vue'
 import { exportData } from '../api/exports'
 import { useIcons } from '../composables/useIcons'
+import { useLiveRefresh } from '../composables/useLiveRefresh'
 import FilterBar from '../components/FilterBar.vue'
 
 const icons = useIcons()
@@ -211,8 +212,8 @@ function colStyle(colIdx) {
   return { width: w + 'px', minWidth: w + 'px', maxWidth: w + 'px' }
 }
 
-async function loadData() {
-  loading.value = true
+async function loadData(silent = false) {
+  if (!silent) loading.value = true
   tableError.value = ''
 
   try {
@@ -222,11 +223,13 @@ async function loadData() {
     cols.value = parsed.headers
     rows.value = parsed.rows
   } catch {
-    tableError.value = 'Error al consultar datos'
-    cols.value = []
-    rows.value = []
+    if (!silent) {
+      tableError.value = 'Error al consultar datos'
+      cols.value = []
+      rows.value = []
+    }
   } finally {
-    loading.value = false
+    if (!silent) loading.value = false
   }
 }
 
@@ -286,4 +289,9 @@ function handleExport() {
       tableError.value = 'Error al exportar CSV'
     })
 }
+
+useLiveRefresh(() => {
+  if (!cols.value.length) return
+  return loadData(true)
+}, { interval: 30000, pauses: [loading, () => resizeColIndex !== null] })
 </script>

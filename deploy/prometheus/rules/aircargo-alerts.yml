@@ -1,0 +1,418 @@
+groups:
+- name: aircargo-infrastructure
+  interval: 30s
+  rules:
+  # ─── Node / Cluster ──────────────────────────────────────────────
+  - alert: NodeDown
+    expr: up{job="node-exporter"} == 0
+    for: 2m
+    labels:
+      severity: critical
+      team: platform
+    annotations:
+      summary: "Node {{ $labels.instance }} down"
+      description: "{{ $labels.instance }} has been down for > 2 minutes"
+      runbook_url: "https://runbooks.yourcompany.com/node-down"
+
+  - alert: NodeCPUHigh
+    expr: (100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)) > 85
+    for: 5m
+    labels:
+      severity: warning
+      team: platform
+    annotations:
+      summary: "Node {{ $labels.instance }} CPU > 85%"
+      description: "CPU usage on {{ $labels.instance }} is {{ $value | humanizePercentage }}"
+
+  - alert: NodeMemoryHigh
+    expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.9
+    for: 5m
+    labels:
+      severity: warning
+      team: platform
+    annotations:
+      summary: "Node {{ $labels.instance }} Memory > 90%"
+      description: "Available memory on {{ $labels.instance }} is critically low"
+
+  - alert: NodeDiskFull
+    expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) < 0.1
+    for: 5m
+    labels:
+      severity: critical
+      team: platform
+    annotations:
+      summary: "Node {{ $labels.instance }} disk < 10% free"
+      description: "Root filesystem on {{ $labels.instance }} has {{ $value | humanizePercentage }} free"
+
+  # ─── Kubernetes ──────────────────────────────────────────────────
+  - alert: KubePodNotReady
+    expr: kube_pod_status_phase{phase=~"Pending|Unknown|Failed",namespace="aircargo"} == 1
+    for: 5m
+    labels:
+      severity: warning
+      team: platform
+    annotations:
+      summary: "Pod {{ $labels.namespace }}/{{ $labels.pod }} not ready"
+      description: "Pod has been in {{ $labels.phase }} phase for > 5 minutes"
+
+  - alert: KubePodCrashLooping
+    expr: rate(kube_pod_container_status_restarts_total{namespace="aircargo"}[15m]) > 0
+    for: 2m
+    labels:
+      severity: critical
+      team: platform
+    annotations:
+      summary: "Pod {{ $labels.namespace }}/{{ $labels.pod }} crash looping"
+      description: "Container {{ $labels.container }} restarted {{ $value | humanize }} times/min"
+
+  - alert: KubeDeploymentReplicasMismatch
+    expr: kube_deployment_spec_replicas{namespace="aircargo"} != kube_deployment_status_replicas_available{namespace="aircargo"}
+    for: 5m
+    labels:
+      severity: warning
+      team: platform
+    annotations:
+      summary: "Deployment {{ $labels.namespace }}/{{ $labels.deployment }} replica mismatch"
+      description: "Desired: {{ kube_deployment_spec_replicas }}, Available: {{ kube_deployment_status_replicas_available }}"
+
+  - alert: KubeHPAMaxedOut
+    expr: kube_horizontalpodautoscaler_status_current_replicas == kube_horizontalpodautoscaler_spec_max_replicas
+    for: 10m
+    labels:
+      severity: warning
+      team: platform
+    annotations:
+      summary: "HPA {{ $labels.namespace }}/{{ $labels.horizontalpodautoscaler }} at max replicas"
+      description: "HPA has been at max replicas for > 10 minutes, consider increasing maxReplicas"
+
+  # ─── PostgreSQL ──────────────────────────────────────────────────
+  - alert: PostgresDown
+    expr: pg_up == 0
+    for: 1m
+    labels:
+      severity: critical
+      team: platform
+    annotations:
+      summary: "PostgreSQL instance {{ $labels.instance }} down"
+      description: "PostgreSQL has been down for > 1 minute"
+
+  - alert: PostgresConnectionsHigh
+    expr: (pg_stat_activity_count / pg_settings_max_connections) > 0.8
+    for: 5m
+    labels:
+      severity: warning
+      team: platform
+    annotations:
+      summary: "PostgreSQL connections > 80%"
+      description: "Active connections: {{ $value | humanizePercentage }} of max_connections"
+
+  - alert: PostgresReplicationLag
+    expr: pg_replication_lag_bytes > 1073741824
+    for: 5m
+    labels:
+      severity: warning
+      team: platform
+    annotations:
+      summary: "PostgreSQL replication lag > 1GB"
+      description: "Replica {{ $labels.instance }} is {{ $value | humanize }} bytes behind primary"
+
+  - alert: PostgresLongRunningQueries
+    expr: max(pg_stat_activity_max_tx_duration_seconds) > 300
+    for: 5m
+    labels:
+      severity: warning
+      team: platform
+    annotations:
+      summary: "PostgreSQL long running transaction > 5min"
+      description: "Query running for {{ $value | humanizeDuration }} on {{ $labels.instance }}"
+
+  # ─── RabbitMQ ────────────────────────────────────────────────────
+  - alert: RabbitMQDown
+    expr: rabbitmq_up == 0
+    for: 1m
+    labels:
+      severity: critical
+      team: platform
+    annotations:
+      summary: "RabbitMQ node {{ $labels.instance }} down"
+      description: "RabbitMQ has been down for > 1 minute"
+
+  - alert: RabbitMQQueueMessagesHigh
+    expr: rabbitmq_queue_messages_ready > 10000
+    for: 5m
+    labels:
+      severity: warning
+      team: platform
+    annotations:
+      summary: "RabbitMQ queue {{ $labels.queue }} has > 10k messages"
+      description: "Queue {{ $labels.queue }} in vhost {{ $labels.vhost }} has {{ $value | humanize }} ready messages"
+
+  - alert: RabbitMQQueueNoConsumers
+    expr: rabbitmq_queue_consumers == 0 and rabbitmq_queue_messages_ready > 0
+    for: 5m
+    labels:
+      severity: critical
+      team: platform
+    annotations:
+      summary: "RabbitMQ queue {{ $labels.queue }} has no consumers"
+      description: "Queue {{ $labels.queue }} has {{ $value | humanize }} messages but 0 consumers"
+
+  - alert: RabbitMQMemoryHigh
+    expr: (rabbitmq_process_resident_memory_bytes / rabbitmq_process_resident_memory_limit_bytes) > 0.8
+    for: 5m
+    labels:
+      severity: warning
+      team: platform
+    annotations:
+      summary: "RabbitMQ memory > 80% limit"
+      description: "Node {{ $labels.instance }} using {{ $value | humanizePercentage }} of memory limit"
+
+  # ─── Redis ───────────────────────────────────────────────────────
+  - alert: RedisDown
+    expr: redis_up == 0
+    for: 1m
+    labels:
+      severity: critical
+      team: platform
+    annotations:
+      summary: "Redis instance {{ $labels.instance }} down"
+      description: "Redis has been down for > 1 minute"
+
+  - alert: RedisMemoryHigh
+    expr: (redis_memory_used_bytes / redis_memory_max_bytes) > 0.85
+    for: 5m
+    labels:
+      severity: warning
+      team: platform
+    annotations:
+      summary: "Redis memory > 85%"
+      description: "Redis {{ $labels.instance }} using {{ $value | humanizePercentage }} of maxmemory"
+
+  - alert: RedisConnectionsHigh
+    expr: (redis_connected_clients / redis_config_maxclients) > 0.8
+    for: 5m
+    labels:
+      severity: warning
+      team: platform
+    annotations:
+      summary: "Redis connections > 80%"
+      description: "Redis {{ $labels.instance }} has {{ $value | humanizePercentage }} of maxclients connected"
+
+- name: aircargo-application
+  interval: 30s
+  rules:
+  # ─── JVM / Spring Boot ───────────────────────────────────────────
+  - alert: JVMMemoryHigh
+    expr: (jvm_memory_used_bytes{area="heap"} / jvm_memory_max_bytes{area="heap"}) > 0.85
+    for: 5m
+    labels:
+      severity: warning
+      team: backend
+    annotations:
+      summary: "JVM heap > 85% on {{ $labels.application }}"
+      description: "Heap usage is {{ $value | humanizePercentage }} on {{ $labels.application }} (pod: {{ $labels.pod }})"
+
+  - alert: JVMMemoryCritical
+    expr: (jvm_memory_used_bytes{area="heap"} / jvm_memory_max_bytes{area="heap"}) > 0.95
+    for: 2m
+    labels:
+      severity: critical
+      team: backend
+    annotations:
+      summary: "JVM heap > 95% on {{ $labels.application }} - OOM risk"
+      description: "Heap usage is {{ $value | humanizePercentage }} on {{ $labels.application }} - imminent OOM"
+
+  - alert: JVMGCOverhead
+    expr: (rate(jvm_gc_pause_seconds_sum[5m]) / rate(jvm_gc_pause_seconds_count[5m])) > 0.1
+    for: 5m
+    labels:
+      severity: warning
+      team: backend
+    annotations:
+      summary: "JVM GC overhead high on {{ $labels.application }}"
+      description: "Average GC pause > 100ms on {{ $labels.application }} (pod: {{ $labels.pod }})"
+
+  - alert: JVMThreadsHigh
+    expr: jvm_threads_live > 500
+    for: 5m
+    labels:
+      severity: warning
+      team: backend
+    annotations:
+      summary: "JVM thread count > 500 on {{ $labels.application }}"
+      description: "{{ $labels.application }} has {{ $value | humanize }} live threads (potential leak)"
+
+  # ─── HTTP / API ──────────────────────────────────────────────────
+  - alert: HTTPErrorRateHigh
+    expr: |
+      (
+        sum(rate(http_server_requests_seconds_count{status=~"5..",application=~"aircargo-.*"}[5m])) by (application)
+        /
+        sum(rate(http_server_requests_seconds_count{application=~"aircargo-.*"}[5m])) by (application)
+      ) > 0.01
+    for: 5m
+    labels:
+      severity: warning
+      team: backend
+    annotations:
+      summary: "HTTP 5xx error rate > 1% on {{ $labels.application }}"
+      description: "{{ $value | humanizePercentage }} of requests returning 5xx errors"
+
+  - alert: HTTPErrorRateCritical
+    expr: |
+      (
+        sum(rate(http_server_requests_seconds_count{status=~"5..",application=~"aircargo-.*"}[5m])) by (application)
+        /
+        sum(rate(http_server_requests_seconds_count{application=~"aircargo-.*"}[5m])) by (application)
+      ) > 0.05
+    for: 2m
+    labels:
+      severity: critical
+      team: backend
+    annotations:
+      summary: "HTTP 5xx error rate > 5% on {{ $labels.application }}"
+      description: "{{ $value | humanizePercentage }} of requests returning 5xx errors - immediate attention needed"
+
+  - alert: HTTPLatencyP99High
+    expr: |
+      histogram_quantile(0.99, 
+        sum(rate(http_server_requests_seconds_bucket{application=~"aircargo-.*"}[5m])) by (application, le)
+      ) > 2
+    for: 5m
+    labels:
+      severity: warning
+      team: backend
+    annotations:
+      summary: "HTTP P99 latency > 2s on {{ $labels.application }}"
+      description: "P99 latency is {{ $value | humanizeDuration }} on {{ $labels.application }}"
+
+  - alert: HTTPLatencyP99Critical
+    expr: |
+      histogram_quantile(0.99, 
+        sum(rate(http_server_requests_seconds_bucket{application=~"aircargo-.*"}[5m])) by (application, le)
+      ) > 5
+    for: 2m
+    labels:
+      severity: critical
+      team: backend
+    annotations:
+      summary: "HTTP P99 latency > 5s on {{ $labels.application }}"
+      description: "P99 latency is {{ $value | humanizeDuration }} on {{ $labels.application }} - severe degradation"
+
+  - alert: HTTPRequestRateDrop
+    expr: |
+      sum(rate(http_server_requests_seconds_count{application=~"aircargo-.*"}[5m])) by (application)
+        < 0.1 * sum(rate(http_server_requests_seconds_count{application=~"aircargo-.*"}[1h])) by (application)
+    for: 10m
+    labels:
+      severity: warning
+      team: backend
+    annotations:
+      summary: "HTTP request rate dropped > 90% on {{ $labels.application }}"
+      description: "Current rate: {{ $value | humanize }}/s, 1h avg: {{ sum(rate(http_server_requests_seconds_count{application=~\"aircargo-.*\"}[1h])) by (application) | humanize }}/s"
+
+  # ─── Gateway Specific ────────────────────────────────────────────
+  - alert: GatewayRateLimitExceeded
+    expr: rate(gateway_ratelimiter_requests_rejected_total[5m]) > 10
+    for: 2m
+    labels:
+      severity: warning
+      team: backend
+    annotations:
+      summary: "Gateway rate limiting rejecting > 10 req/s"
+      description: "Rate limiter rejecting {{ $value | humanize }}/s requests - check for abuse or increase limits"
+
+  - alert: GatewayCircuitBreakerOpen
+    expr: resilience4j_circuitbreaker_state{state="open"} == 1
+    for: 1m
+    labels:
+      severity: critical
+      team: backend
+    annotations:
+      summary: "Gateway circuit breaker OPEN for {{ $labels.circuitbreaker }}"
+      description: "Circuit breaker {{ $labels.circuitbreaker }} on {{ $labels.application }} is OPEN - downstream failing"
+
+  # ─── Business Metrics ────────────────────────────────────────────
+  - alert: NoActiveUsers
+    expr: aircargo_active_users < 1
+    for: 15m
+    labels:
+      severity: info
+      team: product
+    annotations:
+      summary: "No active users for 15 minutes"
+      description: "Active user count is {{ $value | humanize }} - possible outage or off-hours"
+
+  - alert: BackupFailed
+    expr: aircargo_backup_last_success_timestamp < (time() - 86400)
+    for: 0
+    labels:
+      severity: critical
+      team: platform
+    annotations:
+      summary: "Database backup failing for > 24 hours"
+      description: "Last successful backup was {{ $value | humanizeTimestamp }} - check backup CronJob logs"
+
+  - alert: BackupRunningTooLong
+    expr: time() - aircargo_backup_started_timestamp > 7200
+    for: 0
+    labels:
+      severity: warning
+      team: platform
+    annotations:
+      summary: "Backup running for > 2 hours"
+      description: "Backup started at {{ $value | humanizeTimestamp }} - may be stuck"
+
+  - alert: MFAEnrollmentSpike
+    expr: rate(aircargo_mfa_enrollment_total[5m]) > 10
+    for: 2m
+    labels:
+      severity: info
+      team: security
+    annotations:
+      summary: "MFA enrollment spike detected"
+      description: "{{ $value | humanize }}/min MFA enrollments - possible attack or legitimate onboarding wave"
+
+  - alert: FailedLoginSpike
+    expr: rate(aircargo_login_failed_total[5m]) > 20
+    for: 2m
+    labels:
+      severity: warning
+      team: security
+    annotations:
+      summary: "Failed login spike > 20/min"
+      description: "{{ $value | humanize }}/min failed logins - possible brute force attack"
+
+- name: aircargo-certificates
+  interval: 1h
+  rules:
+  # ─── TLS Certificates ────────────────────────────────────────────
+  - alert: CertificateExpiringSoon
+    expr: cert_manager_certificate_expiration_timestamp_seconds - time() < 2592000
+    for: 0
+    labels:
+      severity: warning
+      team: platform
+    annotations:
+      summary: "Certificate {{ $labels.certificate }} expires in < 30 days"
+      description: "Certificate in namespace {{ $labels.namespace }} expires on {{ $value | humanizeTimestamp }}"
+
+  - alert: CertificateExpiringCritical
+    expr: cert_manager_certificate_expiration_timestamp_seconds - time() < 604800
+    for: 0
+    labels:
+      severity: critical
+      team: platform
+    annotations:
+      summary: "Certificate {{ $labels.certificate }} expires in < 7 days"
+      description: "URGENT: Certificate in namespace {{ $labels.namespace }} expires on {{ $value | humanizeTimestamp }}"
+
+  - alert: CertificateRenewalFailed
+    expr: cert_manager_certificate_renewal_timestamp_seconds < (time() - 86400)
+    for: 0
+    labels:
+      severity: critical
+      team: platform
+    annotations:
+      summary: "Certificate {{ $labels.certificate }} renewal failed"
+      description: "Certificate hasn't been renewed in > 24 hours - check cert-manager logs"

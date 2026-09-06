@@ -1,5 +1,6 @@
 package com.aircargo.loadplanningservice.service;
 
+import com.aircargo.common.entity.CommodityType;
 import com.aircargo.feign.client.*;
 import com.aircargo.feign.dto.*;
 import com.aircargo.loadplanningservice.dto.LoadPlanningBatchImportResultDTO;
@@ -22,6 +23,7 @@ import java.util.regex.Pattern;
 public class LoadPlanningBatchImportService {
 
     private static final Pattern AWB_PATTERN = Pattern.compile("^\\d{3}-\\d{8}$");
+    private static final Pattern TYPE_PREFIX_PATTERN = Pattern.compile("^[A-Z]{2,5}");
 
     private final FlightClient flightClient;
     private final UldClient uldClient;
@@ -124,9 +126,10 @@ public class LoadPlanningBatchImportService {
                 }
 
                 if (uldNumber != null && !uldNumber.isBlank()) {
+                    String normalized = normalizeUldNumber(uldNumber);
                     List<UldDTO> existingUlds = uldClient.getUlds(null, flightId);
                     UldDTO uld = existingUlds.stream()
-                            .filter(u -> uldNumber.equals(u.getUldNumber()))
+                            .filter(u -> normalized.equals(normalizeUldNumber(u.getUldNumber())))
                             .findFirst().orElse(null);
 
                     boolean isNew = (uld == null);
@@ -134,8 +137,9 @@ public class LoadPlanningBatchImportService {
                         UldDTO createDto = new UldDTO();
                         createDto.setAirlineId(flight.getAirlineId());
                         createDto.setFlightId(flightId);
-                        createDto.setUldNumber(uldNumber);
-                        createDto.setUldType(detectUldType(uldNumber));
+                        createDto.setUldNumber(normalized);
+                        createDto.setUldType(detectUldType(normalized));
+                        createDto.setSkipOperatorValidation(true);
                         if (position != null) createDto.setPosition(position);
                         if (config != null) createDto.setConfig(config);
                         if (seal != null) createDto.setSealNumber(seal);
@@ -146,6 +150,7 @@ public class LoadPlanningBatchImportService {
                         uldsCreated++;
                     } else {
                         UldDTO updateDto = new UldDTO();
+                        updateDto.setSkipOperatorValidation(true);
                         if (position != null) updateDto.setPosition(position);
                         if (config != null) updateDto.setConfig(config);
                         if (seal != null) updateDto.setSealNumber(seal);
@@ -218,11 +223,12 @@ public class LoadPlanningBatchImportService {
                     mawbLabel = guia;
                 }
 
+                CommodityType commodityType = mapCommodityType(description);
                 UldAwbDTO uldAwbDto = new UldAwbDTO();
                 uldAwbDto.setUldId(currentUld.getId());
                 if (mawb != null) uldAwbDto.setMawbId(mawb.getId());
                 uldAwbDto.setMawbLabel(mawbLabel);
-                uldAwbDto.setDescription(description);
+                uldAwbDto.setDescription(commodityType);
                 uldAwbDto.setDestination(dest);
                 uldAwbDto.setPieces(pieces);
                 uldAwbDto.setPiecesPct(piecesPct);
@@ -295,9 +301,16 @@ public class LoadPlanningBatchImportService {
     private LocalDate getDateValue(Cell cell) {
         if (cell == null) return null;
         try {
-            if (cell.getCellType() == CellType.NUMERIC && DateUtil.isCellDateFormatted(cell)) {
-                LocalDateTime ldt = cell.getLocalDateTimeCellValue();
-                return ldt.toLocalDate();
+            if (cell.getCellType() == CellType.NUMERIC) {
+                double v = cell.getNumericCellValue();
+                if (DateUtil.isCellDateFormatted(cell)) {
+                    return cell.getLocalDateTimeCellValue().toLocalDate();
+                }
+                if (v > 20000 && v < 80000) {
+                    return DateUtil.getJavaDate(v).toInstant()
+                            .atZone(java.time.ZoneId.systemDefault()).toLocalDate();
+                }
+                return null;
             }
             if (cell.getCellType() == CellType.STRING) {
                 String s = cell.getStringCellValue().trim();
@@ -316,13 +329,30 @@ public class LoadPlanningBatchImportService {
         }
     }
 
+    private String normalizeUldNumber(String uldNumber) {
+        if (uldNumber == null) return null;
+        return uldNumber.trim().toUpperCase(java.util.Locale.ROOT).replace("-", "");
+    }
+
     private String detectUldType(String uldNumber) {
         if (uldNumber == null) return "BULK";
-        String prefix = uldNumber.split("-")[0].toUpperCase(java.util.Locale.ROOT);
+        String norm = normalizeUldNumber(uldNumber);
+        java.util.regex.Matcher matcher = TYPE_PREFIX_PATTERN.matcher(norm);
+        if (matcher.find()) {
+            return matcher.group();
+        }
+        return "BULK";
+    }
+
+    private CommodityType mapCommodityType(String description) {
+        if (description == null || description.isBlank()) {
+            return CommodityType.GENERAL;
+        }
+        String normalized = description.trim().toUpperCase(java.util.Locale.ROOT).replace(" ", "_").replace("-", "_");
         try {
-            return prefix;
+            return CommodityType.valueOf(normalized);
         } catch (IllegalArgumentException e) {
-            return "BULK";
+            return CommodityType.GENERAL;
         }
     }
 }

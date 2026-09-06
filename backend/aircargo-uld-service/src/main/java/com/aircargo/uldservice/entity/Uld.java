@@ -74,8 +74,11 @@ public class Uld {
     @Column(name = "destination", length = 100)
     private String destination;
 
-    @Column(name = "built_by", length = 100)
-    private String builtBy;
+    @Column(name = "loaded_by", length = 100)
+    private String loadedBy;
+
+    @Column(name = "weighed_by", length = 100)
+    private String weighedBy;
 
     @Column(name = "confirmed_with", length = 100)
     private String confirmedWith;
@@ -133,8 +136,10 @@ public class Uld {
     public void setNotes(String notes) { this.notes = notes; }
     public String getDestination() { return destination; }
     public void setDestination(String destination) { this.destination = destination; }
-    public String getBuiltBy() { return builtBy; }
-    public void setBuiltBy(String builtBy) { this.builtBy = builtBy; }
+    public String getLoadedBy() { return loadedBy; }
+    public void setLoadedBy(String loadedBy) { this.loadedBy = loadedBy; }
+    public String getWeighedBy() { return weighedBy; }
+    public void setWeighedBy(String weighedBy) { this.weighedBy = weighedBy; }
     public String getConfirmedWith() { return confirmedWith; }
     public void setConfirmedWith(String confirmedWith) { this.confirmedWith = confirmedWith; }
     public OffsetDateTime getCompletedAt() { return completedAt; }

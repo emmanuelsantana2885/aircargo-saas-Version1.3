@@ -13,6 +13,7 @@ public interface UldService {
     Optional<UldDTO> getById(UUID id);
     UldDTO create(UldDTO dto);
     Optional<UldDTO> update(UUID id, UldDTO dto);
+    Optional<UldDTO> update(UUID id, UldDTO dto, boolean enforceOperatorMandatory);
     UldDTO assignFlight(UUID id, UUID flightId);
     UldDTO transferUld(UUID uldId, UUID destinationFlightId, String reason);
     boolean delete(UUID id);

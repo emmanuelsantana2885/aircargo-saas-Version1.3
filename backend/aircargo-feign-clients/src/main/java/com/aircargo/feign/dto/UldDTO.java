@@ -22,10 +22,12 @@ public class UldDTO {
     private String status;
     private String notes;
     private String destination;
-    private String builtBy;
+    private String loadedBy;
+    private String weighedBy;
     private String confirmedWith;
     private String completedAt;
     private List<UldAwbDTO> awbs;
+    private boolean skipOperatorValidation;
 
     public UldDTO() {}
 
@@ -63,12 +65,16 @@ public class UldDTO {
     public void setNotes(String notes) { this.notes = notes; }
     public String getDestination() { return destination; }
     public void setDestination(String destination) { this.destination = destination; }
-    public String getBuiltBy() { return builtBy; }
-    public void setBuiltBy(String builtBy) { this.builtBy = builtBy; }
+    public String getLoadedBy() { return loadedBy; }
+    public void setLoadedBy(String loadedBy) { this.loadedBy = loadedBy; }
+    public String getWeighedBy() { return weighedBy; }
+    public void setWeighedBy(String weighedBy) { this.weighedBy = weighedBy; }
     public String getConfirmedWith() { return confirmedWith; }
     public void setConfirmedWith(String confirmedWith) { this.confirmedWith = confirmedWith; }
     public String getCompletedAt() { return completedAt; }
     public void setCompletedAt(String completedAt) { this.completedAt = completedAt; }
     public List<UldAwbDTO> getAwbs() { return awbs; }
     public void setAwbs(List<UldAwbDTO> awbs) { this.awbs = awbs; }
+    public boolean isSkipOperatorValidation() { return skipOperatorValidation; }
+    public void setSkipOperatorValidation(boolean skipOperatorValidation) { this.skipOperatorValidation = skipOperatorValidation; }
 }

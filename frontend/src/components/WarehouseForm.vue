@@ -4,7 +4,7 @@
       <div class="flex items-center gap-1">
         <template v-for="(step, idx) in steps" :key="step.key">
           <div class="flex items-center gap-1.5 cursor-pointer" @click="currentStep = idx + 1">
-            <div class="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-mono font-black border-2 transition-all"
+            <div class="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-mono font-bold border-2 transition-all"
               :class="currentStep === idx + 1
                 ? 'bg-slate-950 text-white border-slate-950 scale-110'
                 : currentStep > idx + 1
@@ -39,7 +39,7 @@
             class="w-full text-xs font-mono px-3 py-2 rounded border border-slate-200 bg-white outline-none focus:border-slate-950 transition shadow-pencil-marine" />
           <div v-if="field.key === 'awbReportedPieces'" class="mt-1.5 flex items-center gap-1.5 text-[11px] font-mono flex-wrap">
             <span class="text-slate-400 uppercase tracking-wide">Total medido (Paso 2):</span>
-            <span class="font-black" :class="piecesMismatch ? 'text-slate-500' : 'text-slate-700'">{{ totalQty }}</span>
+            <span class="font-bold" :class="piecesMismatch ? 'text-slate-500' : 'text-slate-700'">{{ totalQty }}</span>
             <span v-if="piecesMismatch" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-50 border border-slate-200 text-slate-600 uppercase font-bold">
               <component :is="icons.AlertTriangle" :size="10" :stroke-width="2.5" /> No coincide
             </span>
@@ -69,10 +69,10 @@
         <h3 class="text-xs font-mono uppercase tracking-widest font-bold text-slate-400">Detalle de Piezas por Grupo Dimensional</h3>
         <div class="flex items-center gap-2 text-[11px] font-mono">
           <span class="text-slate-400 uppercase tracking-wide">Reportado:</span>
-          <span class="font-black text-slate-700">{{ form.awbReportedPieces ?? '—' }}</span>
+          <span class="font-bold text-slate-700">{{ form.awbReportedPieces ?? '—' }}</span>
           <span class="text-slate-300">/</span>
           <span class="text-slate-400 uppercase tracking-wide">Total:</span>
-          <span class="font-black" :class="piecesMismatch ? 'text-slate-500' : 'text-slate-700'">{{ totalQty }}</span>
+          <span class="font-bold" :class="piecesMismatch ? 'text-slate-500' : 'text-slate-700'">{{ totalQty }}</span>
           <span v-if="piecesMismatch" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-50 border border-slate-200 text-slate-600 uppercase font-bold">
             <component :is="icons.AlertTriangle" :size="10" :stroke-width="2.5" /> Revisar
           </span>

@@ -4,7 +4,7 @@
       <div class="bg-white rounded-lg shadow-2xl overflow-hidden mx-4 flex flex-col" style="max-width: 960px; width: 100%; max-height: 90vh;">
         <div class="flex items-center justify-between px-4 py-2.5 border-b border-slate-300 bg-slate-50 shrink-0">
           <div class="flex items-center gap-2">
-            <span class="text-[14px] font-mono font-black uppercase tracking-widest text-slate-950">
+            <span class="text-[14px] font-mono font-bold uppercase tracking-widest text-slate-950">
               Editar Recibo
             </span>
             <span v-if="loading" class="text-[12px] font-mono text-slate-400 uppercase">Cargando...</span>
@@ -82,7 +82,7 @@
           <!-- PIECES TABLE -->
           <div>
             <div class="flex items-center justify-between mb-1">
-              <span class="text-[13px] font-mono font-black uppercase tracking-wider text-slate-950">
+              <span class="text-[13px] font-mono font-bold uppercase tracking-wider text-slate-950">
                 Piezas ({{ pieces.length }})
               </span>
               <div class="flex items-center gap-2 text-[12px] font-mono text-slate-500">

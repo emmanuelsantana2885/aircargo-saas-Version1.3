@@ -321,7 +321,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
+import { useLiveRefresh } from '../composables/useLiveRefresh'
 import { useI18n } from 'vue-i18n'
 import { usersApi } from '../api/users'
 
@@ -442,48 +443,49 @@ function actionColor(action) {
 }
 
 // ── Tab: Connected ──
-async function loadConnected() {
+async function loadConnected(silent = false) {
   try {
     const res = await usersApi.getConnected()
     connected.value = res.data
-  } catch (e) { toast.error(extractError(e)) }
+  } catch (e) { if (!silent) toast.error(extractError(e)) }
 }
 
 // ── Tab: Audit ──
-async function loadLogs() {
+async function loadLogs(silent = false) {
   try {
     const res = await usersApi.getAuditLogs(filterUser.value || undefined)
     logs.value = res.data
-  } catch (e) { toast.error(extractError(e)) }
+  } catch (e) { if (!silent) toast.error(extractError(e)) }
 }
 
-async function loadUserOptions() {
+async function loadUserOptions(silent = false) {
   try {
     const res = await usersApi.getAll()
     userOptions.value = res.data
-  } catch (e) { toast.error(extractError(e)) }
+  } catch (e) { if (!silent) toast.error(extractError(e)) }
 }
 
 // ── Tab: Roles ──
-async function loadRoles() {
+async function loadRoles(silent = false) {
   try {
     const res = await rolesApi.getAllRoles()
     allRoles.value = res.data
-  } catch (e) { toast.error(extractError(e)) }
+  } catch (e) { if (!silent) toast.error(extractError(e)) }
 }
 
-async function loadViews() {
+async function loadViews(silent = false) {
   try {
     const res = await rolesApi.getAllViews()
     allViews.value = res.data
-  } catch (e) { toast.error(extractError(e)) }
+  } catch (e) { if (!silent) toast.error(extractError(e)) }
 }
 
-async function loadAllUsers() {
+async function loadAllUsers(silent = false) {
   try {
     const res = await usersApi.getAll()
     allUsers.value = res.data
-  } catch (e) { toast.error(extractError(e)) }
+    if (selectedRole.value) filterRoleUsers()
+  } catch (e) { if (!silent) toast.error(extractError(e)) }
 }
 
 function filterRoleUsers() {
@@ -613,14 +615,13 @@ watch(activeTab, (tab) => {
   }
 })
 
-let connectedTimer = null
-
-onMounted(async () => {
-  loadConnected()
-  connectedTimer = setInterval(loadConnected, 30000)
-})
-
-onUnmounted(() => {
-  if (connectedTimer) clearInterval(connectedTimer)
-})
+useLiveRefresh(() => {
+  if (activeTab.value === 'audit') {
+    return Promise.all([loadLogs(true), loadUserOptions(true)])
+  }
+  if (activeTab.value === 'roles' && (auth.role === 'SUPER_USER' || auth.role === 'ADMIN')) {
+    return Promise.all([loadRoles(true), loadViews(true), loadAllUsers(true)])
+  }
+  return loadConnected(true)
+}, { interval: 30000, pauses: [showViewEditor] })
 </script>

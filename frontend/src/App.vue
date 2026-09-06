@@ -3,9 +3,13 @@
     <Sidebar ref="sidebarRef" />
     <div class="flex flex-col flex-1 min-w-0 overflow-hidden">
       <Header @toggle-sidebar="toggleSidebar" />
-      <main class="flex-1 overflow-auto">
+      <main class="flex-1 overflow-auto relative">
         <ErrorBoundary>
-          <router-view />
+          <router-view v-slot="{ Component }">
+            <transition name="page">
+              <component :is="Component" :key="$route.path" />
+            </transition>
+          </router-view>
         </ErrorBoundary>
       </main>
     </div>

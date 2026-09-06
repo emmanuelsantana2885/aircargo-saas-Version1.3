@@ -1,0 +1,405 @@
+# Tempo Stack for Aircargo - Distributed Tracing
+# Deploy: kubectl apply -k deploy/observability/tempo/
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tracing
+  labels:
+    name: tracing
+    app: tempo-stack
+---
+# ─── Tempo (Trace Storage) ────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tempo
+  namespace: tracing
+  labels:
+    app: tempo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tempo
+  template:
+    metadata:
+      labels:
+        app: tempo
+    spec:
+      containers:
+      - name: tempo
+        image: grafana/tempo:2.3.0
+        args:
+        - -config.file=/etc/tempo.yaml
+        - -target=all
+        ports:
+        - containerPort: 3200
+          name: http
+        - containerPort: 9096
+          name: grpc
+        - containerPort: 4317
+          name: otlp-grpc
+        - containerPort: 4318
+          name: otlp-http
+        - containerPort: 14268
+          name: jaeger-thrift
+        - containerPort: 6831
+          name: jaeger-compact
+        - containerPort: 6832
+          name: jaeger-binary
+        volumeMounts:
+        - name: config
+          mountPath: /etc/tempo
+        - name: data
+          mountPath: /var/tempo
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+      volumes:
+      - name: config
+        configMap:
+          name: tempo-config
+      - name: data
+        emptyDir:
+          sizeLimit: 50Gi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tempo-config
+  namespace: tracing
+data:
+  tempo.yaml: |
+    server:
+      http_listen_port: 3200
+      grpc_listen_port: 9096
+    
+    distributor:
+      receivers:
+        otlp:
+          protocols:
+            grpc:
+              endpoint: 0.0.0.0:4317
+            http:
+              endpoint: 0.0.0.0:4318
+        jaeger:
+          protocols:
+            thrift_http:
+              endpoint: 0.0.0.0:14268
+            grpc:
+              endpoint: 0.0.0.0:14250
+            thrift_binary:
+              endpoint: 0.0.0.0:6832
+            thrift_compact:
+              endpoint: 0.0.0.0:6831
+        zipkin:
+          endpoint: 0.0.0.0:9411
+    
+    ingester:
+      trace_idle_period: 30s
+      max_block_bytes: 1_000_000
+      max_block_duration: 5m
+    
+    compactor:
+      compaction:
+        block_retention: 72h
+        compacted_block_retention: 1h
+    
+    storage:
+      trace:
+        backend: local
+        local:
+          path: /var/tempo
+        pool:
+          max_workers: 100
+          queue_depth: 10000
+    
+    limits:
+      max_search_bytes_per_trace: 10485760
+      max_traces_per_user: 10000
+      ingestion_rate_limit_bytes: 10485760
+      ingestion_burst_size_bytes: 20971520
+    
+    overrides:
+      defaults:
+        traces_to_metrics:
+          enabled: true
+          histogram_buckets: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tempo
+  namespace: tracing
+  labels:
+    app: tempo
+spec:
+  selector:
+    app: tempo
+  ports:
+  - name: http
+    port: 3200
+    targetPort: 3200
+  - name: grpc
+    port: 9096
+    targetPort: 9096
+  - name: otlp-grpc
+    port: 4317
+    targetPort: 4317
+  - name: otlp-http
+    port: 4318
+    targetPort: 4318
+  - name: jaeger
+    port: 14268
+    targetPort: 14268
+  clusterIP: None
+---
+# ─── OpenTelemetry Collector ──────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-collector-config
+  namespace: tracing
+data:
+  otel-config.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+      jaeger:
+        protocols:
+          thrift_http:
+            endpoint: 0.0.0.0:14268
+          grpc:
+            endpoint: 0.0.0.0:14250
+          thrift_binary:
+            endpoint: 0.0.0.0:6832
+          thrift_compact:
+            endpoint: 0.0.0.0:6831
+      zipkin:
+        endpoint: 0.0.0.0:9411
+      prometheus:
+        config:
+          scrape_configs:
+          - job_name: 'aircargo-services'
+            kubernetes_sd_configs:
+            - role: pod
+              namespaces:
+                names:
+                - aircargo
+            relabel_configs:
+            - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+              action: keep
+              regex: true
+            - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+              action: replace
+              target_label: __metrics_path__
+              regex: (.+)
+            - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+              action: replace
+              regex: ([^:]+)(?::\d+)?;(\d+)
+              replacement: $1:$2
+              target_label: __address__
+            - action: labelmap
+              regex: __meta_kubernetes_pod_label_(.+)
+    
+    processors:
+      batch:
+        timeout: 5s
+        send_batch_max_size: 1000
+      memory_limiter:
+        check_interval: 1s
+        limit_mib: 512
+        spike_limit_mib: 128
+      k8sattributes:
+        auth_type: service_account
+        extract:
+          metadata:
+          - k8s.pod.name
+          - k8s.pod.uid
+          - k8s.namespace.name
+          - k8s.deployment.name
+          - k8s.container.name
+          - k8s.pod.start_time
+        filter:
+          node_from_env_var: KUBE_NODE_NAME
+      resource:
+        attributes:
+        - key: service.name
+          from_attribute: k8s.deployment.name
+          action: upsert
+        - key: service.namespace
+          from_attribute: k8s.namespace.name
+          action: upsert
+        - key: service.instance.id
+          from_attribute: k8s.pod.uid
+          action: upsert
+        - key: cloud.provider
+          value: kubernetes
+          action: upsert
+        - key: cloud.platform
+          value: kubernetes
+          action: upsert
+        - key: cloud.region
+          value: ${KUBE_CLUSTER_REGION}
+          action: upsert
+        - key: deployment.environment
+          value: production
+          action: upsert
+      transform:
+        trace_statements:
+        - context: span
+          statements:
+          - set(attributes["http.target"], attributes["http.route"]) where attributes["http.route"] != nil
+          - set(attributes["net.peer.name"], attributes["net.peer.ip"]) where attributes["net.peer.ip"] != nil
+    
+    exporters:
+      tempo:
+        endpoint: "tempo.tracing.svc.cluster.local:4317"
+        tls:
+          insecure: true
+      prometheus:
+        endpoint: "0.0.0.0:8889"
+        namespace: aircargo
+      logging:
+        loglevel: debug
+    
+    extensions:
+      health_check:
+      pprof:
+        endpoint: 0.0.0.0:1777
+      zpages:
+        endpoint: 0.0.0.0:55679
+    
+    service:
+      extensions: [health_check, pprof, zpages]
+      pipelines:
+        traces:
+          receivers: [otlp, jaeger, zipkin]
+          processors: [memory_limiter, batch, k8sattributes, resource, transform]
+          exporters: [tempo, logging]
+        metrics:
+          receivers: [prometheus]
+          processors: [memory_limiter, batch, k8sattributes, resource]
+          exporters: [prometheus, logging]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-collector
+  namespace: tracing
+  labels:
+    app: otel-collector
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: otel-collector
+  template:
+    metadata:
+      labels:
+        app: otel-collector
+    spec:
+      containers:
+      - name: otel-collector
+        image: otel/opentelemetry-collector-contrib:0.103.0
+        args:
+        - --config=/etc/otel-config.yaml
+        ports:
+        - containerPort: 4317
+          name: otlp-grpc
+        - containerPort: 4318
+          name: otlp-http
+        - containerPort: 14268
+          name: jaeger-thrift
+        - containerPort: 9411
+          name: zipkin
+        - containerPort: 8889
+          name: prometheus
+        - containerPort: 1777
+          name: pprof
+        volumeMounts:
+        - name: config
+          mountPath: /etc
+        env:
+        - name: KUBE_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: KUBE_CLUSTER_REGION
+          value: "us-east-1"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+      volumes:
+      - name: config
+        configMap:
+          name: otel-collector-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-collector
+  namespace: tracing
+  labels:
+    app: otel-collector
+spec:
+  selector:
+    app: otel-collector
+  ports:
+  - name: otlp-grpc
+    port: 4317
+    targetPort: 4317
+  - name: otlp-http
+    port: 4318
+    targetPort: 4318
+  - name: jaeger
+    port: 14268
+    targetPort: 14268
+  - name: zipkin
+    port: 9411
+    targetPort: 9411
+  - name: prometheus
+    port: 8889
+    targetPort: 8889
+  clusterIP: None
+---
+# ─── Grafana Datasource for Tempo ─────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-tempo-datasource
+  namespace: tracing
+  labels:
+    grafana_datasource: "1"
+data:
+  tempo.yaml: |
+    apiVersion: 1
+    datasources:
+    - name: Tempo
+      type: tempo
+      access: proxy
+      url: http://tempo.tracing.svc.cluster.local:3200
+      jsonData:
+        serviceMap:
+          datasourceUid: prometheus
+        nodeGraph:
+          enabled: true
+        tracesToLogs:
+          datasourceUid: loki
+          tags: ["service", "pod", "namespace"]
+          spanStartTimeShift: "-1h"
+          spanEndTimeShift: "1h"

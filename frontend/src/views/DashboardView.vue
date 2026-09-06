@@ -198,7 +198,7 @@
                     <span class="text-[12px] transition-transform duration-200" :style="{ transform: isExpanded(f.id) ? 'rotate(180deg)' : '' }">▼</span>
                   </button>
                 </td>
-                <td class="px-2 py-2 font-mono text-slate-950">UPS-{{ f.flightNumber }}</td>
+                <td class="px-2 py-2 font-mono text-slate-900">UPS-{{ f.flightNumber }}</td>
                 <td class="text-center px-2 py-2 text-slate-700">{{ f.origin }}→{{ f.destination }}</td>
                 <td class="text-center px-2 py-2 text-slate-500">{{ f.flightDate }}</td>
                 <td class="text-center px-2 py-2">
@@ -209,7 +209,7 @@
                 </td>
                 <td class="text-center px-2 py-2 font-mono text-slate-900">{{ flightUlds(f.id).length }}</td>
                 <td class="text-center px-2 py-2 font-mono text-slate-600">{{ flightPositions(f.id) }}<span class="text-slate-300">/</span>{{ f.totalPositions || '—' }}</td>
-                <td class="text-right px-2 py-2 font-mono text-slate-950">{{ grossLbs(f.id) }}</td>
+                <td class="text-right px-2 py-2 font-mono text-slate-900">{{ grossLbs(f.id) }}</td>
                 <td class="text-right px-2 py-2 font-mono text-slate-600">{{ totalTareLbs(f.id) }}</td>
                 <td class="text-right px-2 py-2 font-mono text-slate-900">{{ netLbs(f.id) }}</td>
                 <td class="text-right px-2 py-2 font-bold text-emerald-700" style="font-family: 'SF Mono', 'Fira Code', monospace;">{{ payloadLbs(f.id) }}</td>
@@ -475,6 +475,7 @@ import FilterBar from '../components/FilterBar.vue'
 import EmptyState from '../components/EmptyState.vue'
 import { useIcons } from '../composables/useIcons'
 import { useHeaderFilters } from '../composables/useHeaderFilters'
+import { useLiveRefresh } from '../composables/useLiveRefresh'
 
 const { t } = useI18n()
 const icons = useIcons()
@@ -934,6 +935,18 @@ onMounted(async () => {
   }
   loading.value = false
 })
+
+useLiveRefresh(() => {
+  if (!appStore.flights.length) return
+  const tasks = [
+    appStore.loadFlights({ silent: true }),
+    appStore.loadUlds({ silent: true }),
+    appStore.loadAllMawbs({ silent: true }),
+    appStore.loadUldAwbs(),
+  ]
+  if (activeTab.value === 'weight-report') tasks.push(loadWeightReport())
+  return Promise.all(tasks)
+}, { interval: 30000 })
 </script>
 
 <style scoped>

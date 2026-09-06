@@ -1,0 +1,93 @@
+# Production Overlay with Managed PostgreSQL (RDS/CloudSQL) + Managed RabbitMQ
+# Deploy: kubectl apply -k deploy/observability/managed-db/overlays/production/
+
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: aircargo
+
+resources:
+- ../../../k8s/overlays/production/kustomization.yml
+
+# Remove in-cluster postgres and rabbitmq
+patches:
+# Disable postgres deployment
+- patch: |-
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: postgres
+      namespace: aircargo
+    spec:
+      replicas: 0
+  target:
+    kind: Deployment
+    labelSelector: app=postgres
+
+# Disable postgres PVC
+- patch: |-
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      name: postgres-pvc
+      namespace: aircargo
+  target:
+    kind: PersistentVolumeClaim
+    name: postgres-pvc
+
+# Disable rabbitmq deployment
+- patch: |-
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: rabbitmq
+      namespace: aircargo
+    spec:
+      replicas: 0
+  target:
+    kind: Deployment
+    labelSelector: app=rabbitmq
+
+# Disable rabbitmq PVC
+- patch: |-
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      name: rabbitmq-pvc
+      namespace: aircargo
+  target:
+    kind: PersistentVolumeClaim
+    name: rabbitmq-pvc
+
+# Update ConfigMap with managed service endpoints
+configMapGenerator:
+- name: aircargo-config
+  behavior: merge
+  literals:
+    # Managed PostgreSQL (RDS/CloudSQL)
+    POSTGRES_HOST: "aircargo-prod.cluster-xxxxx.us-east-1.rds.amazonaws.com"
+    POSTGRES_PORT: "5432"
+    POSTGRES_DB: "aircargo"
+    # SSL mode for managed PG
+    SPRING_DATASOURCE_URL: "jdbc:postgresql://aircargo-prod.cluster-xxxxx.us-east-1.rds.amazonaws.com:5432/aircargo?sslmode=require&currentSchema={{schema}}"
+    
+    # Managed RabbitMQ (CloudAMQP/AmazonMQ)
+    RABBITMQ_HOST: "aircargo-prod.xxxxx.us-east-1.mq.amazonaws.com"
+    RABBITMQ_PORT: "5671"
+    RABBITMQ_USE_SSL: "true"
+    
+    # Connection pool tuned for managed services
+    SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "20"
+    SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: "5"
+    SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT: "30000"
+    SPRING_DATASOURCE_HIKARI_IDLE_TIMEOUT: "600000"
+    SPRING_DATASOURCE_HIKARI_MAX_LIFETIME: "1800000"
+
+# Add secrets for managed services (referenced from External Secrets)
+# These are already in aircargo-secrets via External Secrets
+# POSTGRES_USER, POSTGRES_PASSWORD, RABBITMQ_USER, RABBITMQ_PASSWORD
+
+commonAnnotations:
+  aircargo.managed-db: "true"
+  aircargo.managed-rabbitmq: "true"

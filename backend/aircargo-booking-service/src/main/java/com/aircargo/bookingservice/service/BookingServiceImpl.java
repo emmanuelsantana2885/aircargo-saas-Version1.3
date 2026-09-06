@@ -4,8 +4,10 @@ import com.aircargo.bookingservice.dto.BookingDTO;
 import com.aircargo.bookingservice.entity.Booking;
 import com.aircargo.bookingservice.repository.BookingRepository;
 import com.aircargo.common.dto.PageResponse;
+import com.aircargo.common.entity.CommodityType;
 import com.aircargo.feign.client.FlightClient;
 import com.aircargo.feign.client.MawbClient;
+import com.aircargo.feign.dto.MawbDTO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
@@ -150,7 +152,15 @@ public class BookingServiceImpl implements BookingService {
                     if (dto.getLastWeekPositions() != null) existing.setLastWeekPositions(dto.getLastWeekPositions());
                     if (dto.getIsConfirmed() != null) existing.setIsConfirmed(dto.getIsConfirmed());
                     if (dto.getNotes() != null) existing.setNotes(dto.getNotes());
-                    return bookingRepository.save(existing);
+                    Booking saved = bookingRepository.save(existing);
+
+                    // Sync MAWB if relevant fields changed
+                    if (dto.getAwbNumber() != null || dto.getCommodityType() != null ||
+                        dto.getDestination() != null || dto.getSkids() != null) {
+                        syncMawbWithBooking(saved, saved.getAwbNumber());
+                    }
+
+                    return saved;
                 })
                 .map(BookingDTO::fromEntity);
     }
@@ -164,9 +174,86 @@ public class BookingServiceImpl implements BookingService {
                     booking.setAwbNumber(awbNumber);
                     Booking saved = bookingRepository.save(booking);
 
-                    log.warn("RabbitMQ not available - event not published: booking.awb.updated");
+                    // Sync with MAWB service
+                    syncMawbWithBooking(saved, awbNumber);
+
                     return BookingDTO.fromEntity(saved);
                 });
+    }
+
+    private void syncMawbWithBooking(Booking booking, String awbNumber) {
+        if (booking.getFlight() == null || booking.getFlight().getId() == null) {
+            log.warn("Booking {} has no flightId, cannot sync MAWB", booking.getId());
+            return;
+        }
+        UUID flightId = booking.getFlight().getId();
+        UUID airlineId = booking.getAirline() != null ? booking.getAirline().getId() : null;
+
+        // Fetch origin/destination from flight service
+        String origin = null;
+        String destination = booking.getDestination();
+        try {
+            var flight = flightClient.getFlightById(flightId);
+            if (flight != null) {
+                origin = flight.getOrigin();
+                if (destination == null) destination = flight.getDestination();
+            }
+        } catch (Exception e) {
+            log.warn("Could not fetch flight {} for MAWB sync", flightId);
+        }
+
+        try {
+            MawbDTO mawb = null;
+            try {
+                mawb = mawbClient.getMawbByAwbNumber(awbNumber);
+            } catch (Exception e) {
+                log.info("MAWB {} not found, will create", awbNumber);
+            }
+
+            if (mawb == null) {
+                // Create new MAWB
+                MawbDTO createDto = new MawbDTO();
+                createDto.setAwbNumber(awbNumber);
+                createDto.setFlightId(flightId);
+                createDto.setAirlineId(airlineId);
+                createDto.setOrigin(origin);
+                createDto.setDestination(destination);
+                createDto.setPieces(booking.getSkids() != null ? booking.getSkids() : 1);
+                createDto.setCommodityType(booking.getCommodityType() != null ? booking.getCommodityType().name() : CommodityType.GENERAL.name());
+                createDto.setStatus("BOOKED");
+                mawb = mawbClient.createMawb(createDto);
+                log.info("Created MAWB {} from booking {}", awbNumber, booking.getId());
+            } else {
+                // Update existing MAWB with booking info
+                boolean updated = false;
+                String bookingCommodity = booking.getCommodityType() != null ? booking.getCommodityType().name() : null;
+                if (bookingCommodity != null && !bookingCommodity.equals(mawb.getCommodityType())) {
+                    mawb.setCommodityType(bookingCommodity);
+                    updated = true;
+                }
+                if (booking.getDestination() != null && !booking.getDestination().equals(mawb.getDestination())) {
+                    mawb.setDestination(booking.getDestination());
+                    updated = true;
+                }
+                if (booking.getSkids() != null && (mawb.getPieces() == null || !booking.getSkids().equals(mawb.getPieces()))) {
+                    mawb.setPieces(booking.getSkids());
+                    updated = true;
+                }
+                if (updated) {
+                    mawbClient.updateMawb(mawb.getId(), mawb);
+                    log.info("Updated MAWB {} from booking {}", awbNumber, booking.getId());
+                }
+            }
+
+            // Link booking to MAWB
+            if (mawb != null && (booking.getMawbId() == null || !booking.getMawbId().equals(mawb.getId()))) {
+                booking.setMawbId(mawb.getId());
+                bookingRepository.save(booking);
+            }
+
+        } catch (Exception e) {
+            log.warn("Failed to sync MAWB for booking {}: {}", booking.getId(), e.getMessage());
+        }
     }
 
     @Override
