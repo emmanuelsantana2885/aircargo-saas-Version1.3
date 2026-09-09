@@ -13,7 +13,7 @@
             class="ds-input font-bold uppercase tracking-wider cursor-pointer min-w-[160px]">
             <option value="">{{ t('common.all') }}</option>
             <option v-for="f in store.flights" :key="f.id" :value="f.id">
-              {{ airlineCodeById(f.airlineId) }}-{{ f.flightNumber }} ({{ f.origin }}→{{ f.destination }})
+              {{ airlineCodeById(f.airlineId) }}-{{ f.flightNumber }} ({{ f.origin }}→{{ f.destination }}){{ f.flightDate ? ' · ' + fmtFlightDate(f.flightDate) : '' }}
             </option>
           </select>
         </div>
@@ -138,6 +138,12 @@
           <div v-if="headerFilterOpen === 'status'"
             class="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-white border border-slate-300 rounded shadow-lg z-50 min-w-[160px] text-[13px] text-slate-950 font-normal normal-case">
             <div @click="setColumnFilter('status', null)" class="px-3 py-1.5 cursor-pointer hover:bg-slate-100 font-bold text-center" :class="!columnFilters.status ? 'bg-slate-100' : ''">{{ t('common.all') }}</div>
+            <div v-for="opt in extraStatusOptions" :key="opt.key" @click="setColumnFilter('status', opt.key)"
+              class="px-3 py-1.5 cursor-pointer hover:bg-slate-100 flex items-center gap-2" :class="columnFilters.status === opt.key ? 'bg-slate-50 text-slate-700 font-bold' : ''">
+              <span class="w-2 h-2 rounded-full" :class="opt.dotClass"></span>
+              {{ opt.label }}
+            </div>
+            <div class="my-1 border-t border-slate-200"></div>
             <div v-for="opt in statusOptions" :key="opt.key" @click="setColumnFilter('status', opt.key)"
               class="px-3 py-1.5 cursor-pointer hover:bg-slate-100 flex items-center gap-2" :class="columnFilters.status === opt.key ? 'bg-slate-50 text-slate-700 font-bold' : ''">
               <span class="w-2 h-2 rounded-full" :class="opt.dotClass"></span>
@@ -1016,6 +1022,34 @@ function airlineCodeById(airlineId) {
   return a?.code || 'AIR'
 }
 
+function fmtFlightDate(iso) {
+  if (!iso) return ''
+  try {
+    const localeCode = t('common.monthsShort[0]') === 'Jan' ? 'en-US' : 'es-DO'
+    return new Intl.DateTimeFormat(localeCode, { day: '2-digit', month: 'short', year: 'numeric' })
+      .format(new Date(iso + 'T00:00:00'))
+  } catch {
+    return iso
+  }
+}
+
+function normAwbCode(s) {
+  return (s || '').toUpperCase().replace(/[\s\-_/]/g, '')
+}
+
+function isMawbReceived(m) {
+  return (store.receipts || []).some(r => (r.mawb?.id || r.mawbId) === m.id)
+}
+
+function isMawbDispatched(m) {
+  const target = normAwbCode(m.awbNumber)
+  if (!target) return false
+  return (store.uldAwbs || []).some(ua => {
+    if (ua.mawbId && ua.mawbId === m.id) return true
+    return ua.mawbLabel && normAwbCode(ua.mawbLabel) === target
+  })
+}
+
 const localFlightId = ref(store.selectedFlightId || '')
 watch(() => store.selectedFlightId, (id) => { localFlightId.value = id || '' })
 async function onReceiptFlightChange() {
@@ -1236,11 +1270,18 @@ const statusOptions = [
   { key: 'DEPARTED', label: 'Despachados', dotClass: 'bg-blue-500' },
 ]
 
+const extraStatusOptions = computed(() => [
+  { key: '__NOT_RECEIVED', label: t('warehouse.notReceived'), dotClass: 'bg-slate-300 border border-slate-400' },
+  { key: '__NOT_DISPATCHED', label: t('warehouse.notDispatched'), dotClass: 'bg-white border border-blue-400' },
+])
+
 const statusDotClass = {
   BOOKED: 'bg-slate-400',
   RECEIVED: 'bg-amber-400',
   MANIFESTED: 'bg-emerald-500',
   DEPARTED: 'bg-blue-500',
+  __NOT_RECEIVED: 'bg-slate-400',
+  __NOT_DISPATCHED: 'bg-blue-400',
 }
 
 function toggleHeaderFilter(col) {
@@ -1300,6 +1341,10 @@ const filteredMawbs = computed(() => {
   if (columnFilters.status) {
     if (columnFilters.status === 'BOOKED') {
       list = list.filter(m => !m.status || m.status === 'BOOKED')
+    } else if (columnFilters.status === '__NOT_RECEIVED') {
+      list = list.filter(m => !isMawbReceived(m))
+    } else if (columnFilters.status === '__NOT_DISPATCHED') {
+      list = list.filter(m => !isMawbDispatched(m))
     } else {
       list = list.filter(m => m.status === columnFilters.status)
     }
@@ -2544,7 +2589,7 @@ onMounted(async () => {
   if (!store.airlines.length) await store.loadAirlines()
   if (!store.flights.length) await store.loadFlights()
   await store.loadReceipts()
-  await store.loadAllMawbs()
+  await Promise.all([store.loadUldAwbs(), store.loadAllMawbs()])
   if (route.query.mawbId && store.mawbs.length) {
     const m = store.mawbs.find(x => x.id === route.query.mawbId)
     if (m) {
@@ -2683,6 +2728,7 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick))
 useLiveRefresh(() =>
   Promise.all([
     store.loadReceipts({ silent: true }),
+    store.loadUldAwbs({ silent: true }),
     store.selectedFlightId ? store.loadMawbs(store.selectedFlightId, { silent: true }) : store.loadAllMawbs({ silent: true }),
   ]),
 { interval: 45000, pauses: [submitting, showConfirmModal, showBookingCorrectionModal, showCamera] })

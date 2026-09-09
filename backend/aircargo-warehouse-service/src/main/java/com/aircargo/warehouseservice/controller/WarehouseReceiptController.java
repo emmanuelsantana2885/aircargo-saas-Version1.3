@@ -19,11 +19,14 @@ import java.util.UUID;
 public class WarehouseReceiptController {
 
     private final WarehouseReceiptService receiptService;
+    private final com.aircargo.warehouseservice.service.WarehouseService warehouseService;
     private final AuditService auditService;
 
     public WarehouseReceiptController(WarehouseReceiptService receiptService,
+                                      com.aircargo.warehouseservice.service.WarehouseService warehouseService,
                                       AuditService auditService) {
         this.receiptService = receiptService;
+        this.warehouseService = warehouseService;
         this.auditService = auditService;
     }
 
@@ -43,7 +46,7 @@ public class WarehouseReceiptController {
     public ResponseEntity<WarehouseReceiptDTO> create(@Valid @RequestBody WarehouseReceiptDTO dto,
                                                        @AuthenticationPrincipal UserPrincipal principal,
                                                        HttpServletRequest request) {
-        WarehouseReceiptDTO created = receiptService.save(dto);
+        WarehouseReceiptDTO created = warehouseService.emitReceipt(dto, principal, request);
         auditService.log(
                 principal != null ? principal.getUserIdAsUuid() : null,
                 principal != null ? principal.email() : "system",
@@ -60,10 +63,8 @@ public class WarehouseReceiptController {
                                                        @Valid @RequestBody WarehouseReceiptDTO dto,
                                                        @AuthenticationPrincipal UserPrincipal principal,
                                                        HttpServletRequest request) {
-        return receiptService.getById(id)
-                .map(existing -> {
-                    dto.setId(id);
-                    WarehouseReceiptDTO updated = receiptService.save(dto);
+        return warehouseService.updateReceipt(id, dto, principal, request)
+                .map(updated -> {
                     auditService.log(
                             principal != null ? principal.getUserIdAsUuid() : null,
                             principal != null ? principal.email() : "system",

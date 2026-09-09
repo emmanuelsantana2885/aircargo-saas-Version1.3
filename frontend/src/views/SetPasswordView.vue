@@ -1,18 +1,23 @@
 <template>
-  <div class="min-h-screen flex items-center justify-center p-3 md:p-8" style="background: var(--bg)">
-    <div class="w-full max-w-sm p-6 md:p-8 rounded-2xl shadow-xl" style="background: var(--surface); border: 1px solid var(--border)">
+  <div class="auth-shell">
+    <div class="auth-card">
       <div class="text-center mb-6">
         <div class="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3" style="background: var(--accent)">
           <component :is="icons.Lock" :size="28" color="white" :stroke-width="2" />
         </div>
-        <h1 class="text-xl font-bold" style="color: var(--text)">{{ t('setPassword.title') }}</h1>
-        <p class="text-sm mt-1" style="color: var(--muted)">{{ t('setPassword.subtitle') }}</p>
+        <h1 class="text-xl font-bold" style="color: var(--text)">
+          {{ t('setPassword.title') }}
+        </h1>
+        <p class="text-sm mt-1" style="color: var(--muted)">
+          {{ t('setPassword.subtitle') }}
+        </p>
       </div>
 
       <form @submit.prevent="handleSetPassword" class="space-y-4">
         <div v-if="tokenValid === false" class="p-3 rounded-xl text-[13px] bg-red-50 border border-red-200 text-red-700">
           {{ t('setPassword.error.badLink') }}
         </div>
+
         <div v-if="!tokenMode">
           <label class="block text-xs font-medium mb-1" style="color: var(--text)">{{ t('setPassword.email') }}</label>
           <input
@@ -111,11 +116,10 @@ import { useI18n } from 'vue-i18n'
 import { authApi } from '../api/auth'
 import { useIcons } from '../composables/useIcons'
 import { useToastStore } from '../stores/toast'
-
-const icons = useIcons()
 import { extractError } from '../utils/error'
 import { checkPasswordStrength, isStrongPassword, passwordRuleLabels } from '../utils/password'
 
+const icons = useIcons()
 const { t } = useI18n()
 const route = useRoute()
 const toast = useToastStore()
@@ -182,16 +186,22 @@ async function handleSetPassword() {
   try {
     if (tokenMode.value) {
       await authApi.setPasswordWithToken(String(route.query.token), newPassword.value)
+    } else {
+      await authApi.setPassword(email.value, newPassword.value, currentPassword.value || undefined)
+    }
+    successMsg.value = t('setPassword.success')
+    setTimeout(() => { router.push('/login') }, 2000)
+  } catch (e) {
+    const status = e.response?.status
+    const data = e.response?.data
+    // 428 mfaEnrollmentRequired: la contraseña YA quedó guardada en el backend;
+    // el MFA se (re)configura en el login, que tiene su propio flujo guiado.
+    if (status === 428 && data?.mfaEnrollmentRequired) {
       successMsg.value = t('setPassword.success')
       setTimeout(() => { router.push('/login') }, 2000)
       return
     }
-    await authApi.setPassword(email.value, newPassword.value, currentPassword.value || undefined)
-    successMsg.value = t('setPassword.success')
-    setTimeout(() => { router.push('/login') }, 2000)
-  } catch (e) {
     toast.error(extractError(e))
-    const status = e.response?.status
     if (status === 404) errorMsg.value = t('login.error.invalidCredentials')
     else if (status === 403) errorMsg.value = t('login.error.inactive')
     else if (status === 401) errorMsg.value = t('setPassword.error.wrongCurrent')

@@ -3,24 +3,27 @@
 @tailwind utilities;
 
 :root {
-  --bg: #eef1f7;
+  --bg: #eef2fb;
   --surface: #ffffff;
   --text: #0f172a;
-  --muted: #64748b;
-  --accent: #2563eb;
-  --accent-strong: #1d4ed8;
-  --accent-soft: rgba(37, 99, 235, 0.1);
-  --accent-soft-strong: rgba(37, 99, 235, 0.16);
-  --accent-violet: #6d28d9;
-  --border: #d6dce9;
-  --border-strong: #a8b4c8;
+  --muted: #5b6b85;
+  --accent: #3e7bfa;
+  --accent-strong: #2b5fd9;
+  --accent-soft: rgba(62, 123, 250, 0.1);
+  --accent-soft-strong: rgba(62, 123, 250, 0.18);
+  --accent-violet: #8b5cf6;
+  --accent-cyan: #06b6d4;
+  --border: #dbe4f2;
+  --border-strong: #9fb0cd;
+  --warn-bg: #fffbeb;
+  --warn: #b45309;
   --sidebar-width: 230px;
   --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.05);
   --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 8px 24px -16px rgba(15, 23, 42, 0.13);
-  --shadow-lg: 0 8px 40px -12px rgba(15, 23, 42, 0.22);
-  --shadow-glow: 0 8px 28px -8px rgba(37, 99, 235, 0.45);
-  --gradient-accent: linear-gradient(135deg, #111827 0%, #1e3a8a 52%, #2563eb 125%);
-  --gradient-title: linear-gradient(120deg, #0f172a 0%, #1d4ed8 62%, #6d28d9 125%);
+  --shadow-lg: 0 12px 48px -16px rgba(15, 23, 42, 0.28);
+  --shadow-glow: 0 8px 28px -8px color-mix(in srgb, var(--accent) 50%, transparent), 0 0 0 1px color-mix(in srgb, var(--accent-violet) 12%, transparent);
+  --gradient-accent: linear-gradient(135deg, #0d1f4d 0%, color-mix(in srgb, var(--accent-strong) 80%, #0b1a3d) 45%, var(--accent) 82%, var(--accent-cyan) 130%);
+  --gradient-title: linear-gradient(120deg, #0f172a 0%, color-mix(in srgb, var(--accent-strong) 78%, #0f172a) 60%, var(--accent-violet) 130%);
   /* Font selector (data-font on <html>): 'consolas' | 'nerd' | 'sans' | 'cascadia' | 'bodoni' | 'combo' */
   --font-family-mono: 'JetBrains Mono', 'Courier New', monospace;
   --font-family-sans: 'JetBrains Mono', 'Courier New', monospace;
@@ -151,6 +154,7 @@ input, select, textarea {
   color: var(--text);
   padding: 4px 6px;
   border-radius: 6px;
+  max-width: 100%;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -169,11 +173,11 @@ input:focus, select:focus, textarea:focus {
   .ds-page {
     @apply p-3 md:p-4 bg-slate-50/70 h-screen max-h-screen flex flex-col
            text-slate-900 font-sans antialiased overflow-hidden select-none;
-    background-color: #f5f7fc;
+    background-color: #f2f5fd;
     background-image:
-      radial-gradient(1100px 480px at 100% -10%, rgba(37, 99, 235, 0.08), transparent 60%),
-      radial-gradient(900px 560px at -10% 110%, rgba(124, 58, 237, 0.06), transparent 60%),
-      radial-gradient(1200px 600px at 50% -25%, rgba(37, 99, 235, 0.05), transparent 55%),
+      radial-gradient(1100px 480px at 100% -10%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 60%),
+      radial-gradient(900px 560px at -10% 110%, color-mix(in srgb, var(--accent-violet) 8%, transparent), transparent 60%),
+      radial-gradient(1200px 600px at 50% -25%, color-mix(in srgb, var(--accent-cyan) 5%, transparent), transparent 55%),
       radial-gradient(circle at 1px 1px, rgba(15, 23, 42, 0.035) 1px, transparent 1.5px);
     background-size: auto, auto, auto, 22px 22px;
   }
@@ -181,13 +185,13 @@ input:focus, select:focus, textarea:focus {
   /* ── Card (elevación en capas + hover lift) ─── */
   .ds-card {
     @apply bg-white border px-3.5 py-2.5 rounded-xl transition-all duration-200;
-    border-color: #e2e8f0;
+    border-color: #dbe4f2;
     box-shadow: var(--shadow-xs), 0 8px 24px -16px rgba(15, 23, 42, 0.14);
   }
   .ds-card:hover {
     transform: translateY(-1px);
-    border-color: #d3dcec;
-    box-shadow: 0 2px 4px rgba(15, 23, 42, 0.05), 0 16px 32px -18px rgba(37, 99, 235, 0.25);
+    border-color: #cfd9ee;
+    box-shadow: 0 2px 4px rgba(15, 23, 42, 0.05), 0 16px 32px -18px color-mix(in srgb, var(--accent) 28%, transparent);
   }
 
   .ds-card-label {
@@ -216,7 +220,7 @@ input:focus, select:focus, textarea:focus {
     @apply bg-slate-800 text-white text-[13px] font-bold uppercase
            tracking-wider grid grid-cols-12 py-2 px-4 items-center
            shrink-0 font-mono;
-    background-image: linear-gradient(140deg, #0f172a 0%, #1e293b 50%, #172554 100%);
+    background-image: linear-gradient(140deg, #0f172a 0%, #172554 46%, #1d4ed8 128%);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 0 rgba(15, 23, 42, 0.25);
   }
 
@@ -233,7 +237,7 @@ input:focus, select:focus, textarea:focus {
   /* ── Primary button (gradiente + glow) ────── */
   .ds-btn-primary {
     @apply flex items-center gap-1.5 text-[13px] px-3.5 py-1.5 rounded-xl
-           font-mono uppercase tracking-wider font-bold text-white
+           font-mono uppercase tracking-wider font-bold text-white whitespace-nowrap
            transition-all active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none
            hover:-translate-y-0.5;
     background-image: var(--gradient-accent);
@@ -250,12 +254,12 @@ input:focus, select:focus, textarea:focus {
   /* ── Secondary button (outline claro) ─────── */
   .ds-btn-secondary {
     @apply flex items-center gap-1.5 text-[13px] px-3.5 py-1.5 rounded-xl
-           border font-mono uppercase tracking-wider font-bold
+           border font-mono uppercase tracking-wider font-bold whitespace-nowrap
            transition-all active:scale-[0.97] disabled:opacity-40 disabled:pointer-events-none
            hover:-translate-y-0.5;
-    color: #0f172a;
-    border-color: #d3dbea;
-    background: linear-gradient(180deg, #ffffff, #f6f8fc);
+    color: #101a33;
+    border-color: #cfd9ea;
+    background: linear-gradient(180deg, #ffffff, #f3f6fc);
     box-shadow: var(--shadow-xs);
   }
   .ds-btn-secondary:hover {
@@ -266,7 +270,7 @@ input:focus, select:focus, textarea:focus {
   /* ── Danger button (soft rojo) ────────────── */
   .ds-btn-danger {
     @apply flex items-center justify-center text-[12px] px-2.5 py-1.5 rounded-lg
-           font-mono font-bold uppercase tracking-wider
+           font-mono font-bold uppercase tracking-wider whitespace-nowrap
            border border-rose-200 text-rose-700 bg-rose-50
            transition-all active:scale-95 disabled:opacity-40 hover:-translate-y-0.5;
   }
@@ -276,18 +280,25 @@ input:focus, select:focus, textarea:focus {
     box-shadow: 0 6px 16px -8px rgba(225, 29, 72, 0.4);
   }
 
-  /* ── Modal backdrop (glass blur + entrada) ─── */
+  /* ── Modal backdrop (glass blur + entrada, safe-area nativo) ─── */
   .ds-modal-backdrop {
-    @apply fixed inset-0 z-50 flex items-center justify-center p-4;
+    @apply fixed inset-0 z-50 flex items-center justify-center;
+    padding:
+      max(16px, env(safe-area-inset-top))
+      max(16px, env(safe-area-inset-right))
+      max(24px, env(safe-area-inset-bottom))
+      max(16px, env(safe-area-inset-left));
     background: rgba(15, 23, 42, 0.5);
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
     animation: ds-backdrop-in 0.18s ease-out;
   }
 
-  /* ── Modal panel (pop escalado) ───────────── */
+  /* ── Modal panel (pop escalado, ancho fluido) ─ */
   .ds-modal-panel {
-    @apply bg-white rounded-2xl border w-full max-w-xl p-5 max-h-[90vh] overflow-y-auto;
+    @apply bg-white rounded-2xl border w-full p-5 overflow-y-auto;
+    max-width: min(560px, 92vw);
+    max-height: min(92vh, 92dvh);
     border-color: rgba(226, 232, 240, 0.9);
     box-shadow: 0 24px 80px -24px rgba(15, 23, 42, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.7);
     animation: ds-pop 0.22s cubic-bezier(0.22, 1, 0.36, 1);
@@ -330,7 +341,7 @@ input:focus, select:focus, textarea:focus {
   .ds-input:hover { border-color: var(--border-strong); }
   .ds-input:focus {
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12), inset 0 1px 2px rgba(15, 23, 42, 0.02);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent), inset 0 1px 2px rgba(15, 23, 42, 0.02);
   }
   .ds-input::placeholder { color: #94a3b8; }
 
@@ -376,10 +387,14 @@ input:focus, select:focus, textarea:focus {
            text-[14px] font-mono text-slate-500;
   }
 
-  /* ── Tabs (subrayado gradiente animado) ───── */
+  /* ── Tabs (subrayado gradiente, scroll nativo) ─ */
   .ds-tabs {
     @apply flex items-center gap-0.5 border-b border-slate-200 shrink-0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
   }
+  .ds-tabs::-webkit-scrollbar { display: none; }
   .ds-tab {
     @apply relative px-3.5 py-1.5 text-[13px] font-mono font-bold uppercase
            tracking-widest text-slate-400 transition-colors rounded-t-lg;
@@ -390,7 +405,7 @@ input:focus, select:focus, textarea:focus {
     content: '';
     @apply absolute bottom-0 left-2 right-2 h-0.5 rounded-full;
     background: linear-gradient(90deg, var(--accent), var(--accent-violet));
-    box-shadow: 0 0 10px rgba(37, 99, 235, 0.55);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 55%, transparent);
   }
 
   /* ── Compact icon button (toolbars) ───────── */
@@ -422,7 +437,7 @@ input:focus, select:focus, textarea:focus {
   /* ── Status strip chips ───────────────────── */
   .ds-stat-chip {
     @apply inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg
-           bg-white border border-slate-200 text-[12px] font-mono;
+           bg-white border border-slate-200 text-[12px] font-mono whitespace-nowrap;
     box-shadow: var(--shadow-xs);
   }
 
@@ -435,7 +450,7 @@ input:focus, select:focus, textarea:focus {
   /* ── Loading spinner (accent) ─────────────── */
   .ds-spinner {
     @apply inline-block w-5 h-5 rounded-full;
-    border: 2px solid rgba(37, 99, 235, 0.15);
+    border: 2px solid color-mix(in srgb, var(--accent) 15%, transparent);
     border-top-color: var(--accent);
     animation: ds-spin 0.7s linear infinite;
   }
@@ -443,7 +458,7 @@ input:focus, select:focus, textarea:focus {
   /* ── ULD detail (main form area) ──────────── */
   .ds-split-detail {
     @apply flex-1 min-h-0 overflow-y-auto bg-slate-50;
-    background-color: #f6f7fb;
+    background-color: #f2f5fd;
     background-image: radial-gradient(circle at 1px 1px, rgba(15, 23, 42, 0.03) 1px, transparent 1.5px);
     background-size: 22px 22px;
   }
@@ -472,12 +487,38 @@ input:focus, select:focus, textarea:focus {
   .shadow-lift { transition: transform 0.18s ease, box-shadow 0.18s ease; }
   .shadow-lift:hover {
     transform: translateY(-2px);
-    box-shadow: 0 12px 32px -16px rgba(37, 99, 235, 0.35);
+    box-shadow: 0 12px 32px -16px color-mix(in srgb, var(--accent) 40%, transparent);
   }
   .bg-anim { background-size: 200% 200%; animation: ds-gradient-pan 8s ease infinite; }
   .animate-fade-up { animation: ds-fade-up 0.35s ease-out both; }
   .animate-pop { animation: ds-pop 0.2s ease-out both; }
   .animate-pulse-dot { animation: ds-pulse 1.6s ease-in-out infinite; }
+
+  /* ── Auth pages (login, MFA, passwords): shell+card consistentes ── */
+  .auth-shell {
+    min-height: 100vh;
+    min-height: 100dvh;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(14px, 4vw, 40px);
+    background-color: var(--bg);
+    background-image:
+      radial-gradient(900px 460px at 88% -8%, var(--accent-soft-strong), transparent 60%),
+      radial-gradient(800px 520px at -10% 112%, color-mix(in srgb, var(--accent-violet) 12%, transparent), transparent 62%),
+      radial-gradient(1000px 540px at 50% -24%, var(--accent-soft), transparent 55%);
+  }
+  .auth-card {
+    width: min(100%, 402px);
+    padding: clamp(20px, 4vw, 34px);
+    border-radius: 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-lg), 0 0 0 1px color-mix(in srgb, var(--accent) 7%, transparent),
+      inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    animation: ds-pop 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  }
 }
 
 /* ── Keyframes ────────────────────────────────── */
@@ -668,14 +709,17 @@ input:focus, select:focus, textarea:focus {
   --accent-strong: #9db8f9;
   --accent-soft: rgba(122, 162, 247, 0.14);
   --accent-violet: #a78bfa;
+  --accent-cyan: #2cc5e0;
   --border: #334155;
   --border-strong: #64748b;
+  --warn-bg: rgba(180, 83, 9, 0.16);
+  --warn: #fbbf24;
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4), 0 8px 24px -16px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 8px 40px -12px rgba(0, 0, 0, 0.6);
-  --shadow-glow: 0 8px 28px -8px rgba(122, 162, 247, 0.4);
-  --gradient-accent: linear-gradient(135deg, #1e293b 0%, #1e3a5f 60%, #2563eb 130%);
-  --gradient-title: linear-gradient(120deg, #f8fafc 0%, #7aa2f7 70%, #a78bfa 130%);
+  --shadow-lg: 0 12px 48px -16px rgba(0, 0, 0, 0.65);
+  --shadow-glow: 0 8px 28px -8px color-mix(in srgb, var(--accent) 45%, transparent), 0 0 0 1px color-mix(in srgb, var(--accent-violet) 14%, transparent);
+  --gradient-accent: linear-gradient(135deg, #101c34 0%, #141f3d 55%, color-mix(in srgb, var(--accent) 55%, #0b1220) 130%);
+  --gradient-title: linear-gradient(120deg, #f8fafc 0%, var(--accent) 70%, var(--accent-violet) 130%);
   color-scheme: dark;
 }
 
@@ -683,18 +727,18 @@ input:focus, select:focus, textarea:focus {
 :root[data-theme='tokyo'] .ds-page {
   background-color: #0b1220;
   background-image:
-    radial-gradient(1100px 480px at 100% -10%, rgba(122, 162, 247, 0.08), transparent 60%),
-    radial-gradient(900px 560px at -10% 110%, rgba(167, 139, 250, 0.06), transparent 60%),
+    radial-gradient(1100px 480px at 100% -10%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 60%),
+    radial-gradient(900px 560px at -10% 110%, color-mix(in srgb, var(--accent-violet) 6%, transparent), transparent 60%),
     radial-gradient(circle at 1px 1px, rgba(148, 163, 184, 0.04) 1px, transparent 1.5px);
   background-size: auto, auto, 22px 22px;
   color: #e2e8f0;
 }
 :root[data-theme='tokyo'] .ds-card { background: #111827; border-color: #334155; box-shadow: var(--shadow-xs), 0 8px 24px -16px rgba(0, 0, 0, 0.5); }
-:root[data-theme='tokyo'] .ds-card:hover { border-color: #475569; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4), 0 16px 32px -18px rgba(122, 162, 247, 0.25); }
+:root[data-theme='tokyo'] .ds-card:hover { border-color: #475569; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4), 0 16px 32px -18px color-mix(in srgb, var(--accent) 25%, transparent); }
 :root[data-theme='tokyo'] .ds-table-section { background: #111827; border-color: #334155; box-shadow: var(--shadow-xs), 0 12px 32px -20px rgba(0, 0, 0, 0.5); }
 :root[data-theme='tokyo'] .ds-table-row { border-color: #1e293b; }
 :root[data-theme='tokyo'] .ds-table-row:hover { background: rgb(51 65 85 / 0.45) !important; box-shadow: inset 3px 0 0 0 var(--accent); }
-:root[data-theme='tokyo'] .ds-table-header { background: #1e293b; background-image: linear-gradient(140deg, #0f172a 0%, #1e293b 50%, #172554 100%); }
+:root[data-theme='tokyo'] .ds-table-header { background: #1e293b; background-image: linear-gradient(140deg, #0f172a 0%, #1e293b 50%, #1d4ed8 128%); }
 :root[data-theme='tokyo'] .ds-btn-primary { background-image: var(--gradient-accent); color: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1); }
 :root[data-theme='tokyo'] .ds-btn-primary:hover { box-shadow: var(--shadow-glow), inset 0 1px 0 rgba(255, 255, 255, 0.12); }
 :root[data-theme='tokyo'] .ds-btn-primary:disabled { opacity: 0.4; }
@@ -709,7 +753,7 @@ input:focus, select:focus, textarea:focus {
 :root[data-theme='tokyo'] .ds-modal-title { color: #f8fafc; }
 :root[data-theme='tokyo'] .ds-input { background: #0f172a; border-color: #475569; color: #e2e8f0; box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3); }
 :root[data-theme='tokyo'] .ds-input:hover { border-color: #64748b; }
-:root[data-theme='tokyo'] .ds-input:focus { border-color: #7aa2f7; box-shadow: 0 0 0 3px rgba(122, 162, 247, 0.2); }
+:root[data-theme='tokyo'] .ds-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent); }
 :root[data-theme='tokyo'] .ds-input::placeholder { color: #64748b; }
 :root[data-theme='tokyo'] .ds-label { color: #cbd5e1; }
 :root[data-theme='tokyo'] .ds-title { background: var(--gradient-title); -webkit-background-clip: text; background-clip: text; color: transparent; }
@@ -723,13 +767,13 @@ input:focus, select:focus, textarea:focus {
 :root[data-theme='tokyo'] .ds-empty { color: #94a3b8; }
 :root[data-theme='tokyo'] .ds-tabs { border-color: #334155; }
 :root[data-theme='tokyo'] .ds-tab { color: #64748b; }
-:root[data-theme='tokyo'] .ds-tab:hover { color: #cbd5e1; background: rgba(122, 162, 247, 0.1); }
+:root[data-theme='tokyo'] .ds-tab:hover { color: #cbd5e1; background: color-mix(in srgb, var(--accent) 10%, transparent); }
 :root[data-theme='tokyo'] .ds-tab-active { color: #f8fafc; }
-:root[data-theme='tokyo'] .ds-tab-active::after { background: linear-gradient(90deg, var(--accent), var(--accent-violet)); box-shadow: 0 0 10px rgba(122, 162, 247, 0.5); }
+:root[data-theme='tokyo'] .ds-tab-active::after { background: linear-gradient(90deg, var(--accent), var(--accent-violet)); box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 50%, transparent); }
 :root[data-theme='tokyo'] .ds-icon-btn { background: #1e293b; border-color: #334155; color: #cbd5e1; }
 :root[data-theme='tokyo'] .ds-icon-btn:hover { background: #334155; color: #f8fafc; border-color: #64748b; }
 :root[data-theme='tokyo'] .ds-stat-chip { background: #1e293b; border-color: #334155; box-shadow: var(--shadow-xs); }
-:root[data-theme='tokyo'] .ds-spinner { border: 2px solid rgba(122, 162, 247, 0.15); border-top-color: var(--accent); }
+:root[data-theme='tokyo'] .ds-spinner { border: 2px solid color-mix(in srgb, var(--accent) 15%, transparent); border-top-color: var(--accent); }
 :root[data-theme='tokyo'] .ds-split-detail { background-color: #0b1220; background-image: radial-gradient(circle at 1px 1px, rgba(148, 163, 184, 0.04) 1px, transparent 1.5px); }
 :root[data-theme='tokyo'] .ds-list-card { background: #1e293b; box-shadow: var(--shadow-xs); }
 
@@ -740,7 +784,7 @@ input:focus, select:focus, textarea:focus {
 
 /* ── Text-gradient Tokyo ─────────────────────────── */
 :root[data-theme='tokyo'] .text-gradient { background: var(--gradient-title); -webkit-background-clip: text; background-clip: text; color: transparent; }
-:root[data-theme='tokyo'] .shadow-lift:hover { box-shadow: 0 12px 32px -16px rgba(122, 162, 247, 0.4); }
+:root[data-theme='tokyo'] .shadow-lift:hover { box-shadow: 0 12px 32px -16px color-mix(in srgb, var(--accent) 40%, transparent); }
 
 /* ── Backgrounds (light surfaces → dark) ──────────────── */
 :root[data-theme='tokyo'] .bg-white { background-color: #1e293b; }
@@ -849,9 +893,9 @@ input:focus, select:focus, textarea:focus {
 :root[data-theme='tokyo'] .ds-page {
   background-color: #0b1220;
   background-image:
-    radial-gradient(1100px 480px at 100% -10%, rgba(122, 162, 247, 0.08), transparent 60%),
-    radial-gradient(900px 560px at -10% 110%, rgba(167, 139, 250, 0.06), transparent 60%),
-    radial-gradient(1200px 600px at 50% -25%, rgba(122, 162, 247, 0.05), transparent 55%),
+    radial-gradient(1100px 480px at 100% -10%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 60%),
+    radial-gradient(900px 560px at -10% 110%, color-mix(in srgb, var(--accent-violet) 6%, transparent), transparent 60%),
+    radial-gradient(1200px 600px at 50% -25%, color-mix(in srgb, var(--accent) 5%, transparent), transparent 55%),
     radial-gradient(circle at 1px 1px, rgba(148, 163, 184, 0.04) 1px, transparent 1.5px);
   background-size: auto, auto, auto, 22px 22px;
 }

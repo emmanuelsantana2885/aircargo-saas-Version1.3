@@ -9,20 +9,20 @@
 
     <button v-if="!isMobile" @click="collapsed = !collapsed"
       class="absolute -right-3.5 top-5 z-20 w-7 h-7 flex items-center justify-center transition-opacity hover:opacity-70 active:opacity-50"
-      style="background: #2563eb; color: white">
+      style="background: var(--accent); color: white">
       <component :is="icons.LayoutSidebarFilled" :size="16" :stroke-width="2" />
     </button>
 
     <!-- Logo -->
-    <div class="px-4 py-4 border-b relative overflow-hidden" style="border-color: #e2e8f0; background: linear-gradient(135deg, #f8fafc 0%, #eef2f7 30%, #e8eefc 60%, #e2e8f0 80%, #ffffff 100%);">
-      <div class="absolute inset-0 opacity-[0.05]" style="background-image: repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(37,99,235,0.25) 2px, rgba(37,99,235,0.25) 3px), repeating-linear-gradient(-45deg, transparent, transparent 3px, rgba(37,99,235,0.15) 3px, rgba(37,99,235,0.15) 4px);"></div>
-      <div class="absolute inset-0 opacity-[0.05]" style="background-image: radial-gradient(circle at 30% 50%, rgba(37,99,235,0.3) 0%, transparent 60%), radial-gradient(circle at 70% 30%, rgba(124,58,237,0.2) 0%, transparent 50%);"></div>
+    <div class="px-4 py-4 border-b relative overflow-hidden" style="border-color: #e2e8f0; background: linear-gradient(135deg, #f8fafc 0%, #eef2fb 30%, #e6edfd 60%, #e0e8f8 80%, #ffffff 100%);">
+      <div class="absolute inset-0 opacity-[0.05]" style="background-image: repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(62,123,250,0.25) 2px, rgba(62,123,250,0.25) 3px), repeating-linear-gradient(-45deg, transparent, transparent 3px, rgba(62,123,250,0.15) 3px, rgba(62,123,250,0.15) 4px);"></div>
+      <div class="absolute inset-0 opacity-[0.05]" style="background-image: radial-gradient(circle at 30% 50%, rgba(62,123,250,0.3) 0%, transparent 60%), radial-gradient(circle at 70% 30%, rgba(139,92,246,0.2) 0%, transparent 50%);"></div>
       <div class="flex items-center" :class="showCollapsed ? 'justify-center' : 'gap-2.5'">
         <div v-if="!showCollapsed" class="overflow-hidden whitespace-nowrap relative z-10">
           <div class="font-extrabold title text-gradient" style="font-size: 18px; letter-spacing: 0.08em;">AirCargo</div>
           <div class="text-[13px] font-medium tracking-wide" style="color: #64748b">{{ auth.selectedSite?.code || 'SDQ' }} Operations</div>
         </div>
-        <div v-else class="w-8 h-8 flex items-center justify-center shrink-0 rounded-lg glow-accent" style="background: linear-gradient(135deg,#1e3a8a,#2563eb); box-shadow: 0 4px 14px -4px rgba(37,99,235,0.5);">
+        <div v-else class="w-8 h-8 flex items-center justify-center shrink-0 rounded-lg glow-accent" style="background: linear-gradient(135deg,#1e3fae,#3e7bfa); box-shadow: 0 4px 14px -4px rgba(62,123,250,0.5);">
           <component :is="icons.PlaneDeparture" :size="20" color="white" :stroke-width="1.8" />
         </div>
       </div>
@@ -134,7 +134,7 @@ const showCollapsed = computed(() => {
 const isActive = (path) => path === '/' ? route.path === '/' : route.path.startsWith(path)
 
 const sidebarStyle = computed(() => {
-  if (isMobile.value) return { width: '260px' }
+  if (isMobile.value) return { width: 'min(260px, 86vw)' }
   if (isTablet.value) return { width: '60px' }
   return { width: collapsed.value ? '60px' : 'var(--sidebar-width)' }
 })
@@ -158,7 +158,7 @@ onUnmounted(() => { window.removeEventListener('resize', checkViewport) })
 
 const allMenuItems = computed(() => [
   { path: '/',              label: t('sidebar.dashboard'),   iconKey: 'Gauge',          view: 'DASHBOARD',     color: '#e11d48' },
-  { path: '/bookings',      label: t('sidebar.bookings'),    iconKey: 'CalendarEvent',  view: 'BOOKINGS',      color: '#2563eb' },
+  { path: '/bookings',      label: t('sidebar.bookings'),    iconKey: 'CalendarEvent',  view: 'BOOKINGS',      color: '#3e7bfa' },
   { path: '/receipts',      label: t('sidebar.receipts'),    iconKey: 'FileInvoice',    view: 'RECEIPTS',      color: '#d97706' },
   { path: '/flights',       label: t('sidebar.flights'),     iconKey: 'PlaneDeparture', view: 'FLIGHTS',       color: '#7c3aed' },
   { path: '/mawbs',         label: t('sidebar.mawbs'),       iconKey: 'ClipboardList',  view: 'MAWBS',         color: '#16a34a' },
@@ -179,8 +179,8 @@ const settingsMenu = computed(() => {
 
 <style scoped>
 .nav-default { color: #64748b; }
-.nav-default:hover { background: rgba(37,99,235,.05); color: #1e293b; }
-.nav-active { background: rgba(37,99,235,.10); color: #1e293b; font-weight: 700; box-shadow: inset 3px 0 0 0 rgba(37,99,235,.6); }
+.nav-default:hover { background: var(--accent-soft); color: #1e293b; }
+.nav-active { background: var(--accent-soft); color: #1e293b; font-weight: 700; box-shadow: inset 3px 0 0 0 var(--accent); }
 .nav-label { font-size: 14px; letter-spacing: 0.02em; }
 
 /* Icon frame — light theme */
@@ -207,4 +207,10 @@ const settingsMenu = computed(() => {
   border-width: 1.5px;
 }
 .ico-frame-active::before { opacity: 0.6; }
+
+@media (max-width: 767px) {
+  aside {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
 </style>

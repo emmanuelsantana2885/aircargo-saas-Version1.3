@@ -1,8 +1,8 @@
-import { computed, ref, watch } from 'vue'
+import { computed, shallowRef, watch } from 'vue'
 import { iconLib } from '@/utils/iconLib'
 
 const maps = new Map()
-const current = ref({})
+const current = shallowRef({})
 
 async function loadLib(lib) {
   if (maps.has(lib)) return maps.get(lib)

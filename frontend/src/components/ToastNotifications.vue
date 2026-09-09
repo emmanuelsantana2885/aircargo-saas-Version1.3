@@ -35,8 +35,8 @@ function iconFor(type) {
 <style scoped>
 .toast-container {
   position: fixed;
-  top: 16px;
-  right: 16px;
+  top: max(16px, env(safe-area-inset-top));
+  right: max(16px, env(safe-area-inset-right));
   z-index: 9999;
   display: flex;
   flex-direction: column;
@@ -94,6 +94,15 @@ function iconFor(type) {
   line-height: 1; flex-shrink: 0;
 }
 .toast-close:hover { opacity: 0.9; }
+
+@media (max-width: 640px) {
+  .toast-container {
+    top: max(12px, env(safe-area-inset-top));
+    left: 12px;
+    right: 12px;
+    max-width: none;
+  }
+}
 
 .toast-enter-active { transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1); }
 .toast-leave-active { transition: all 0.2s ease; }

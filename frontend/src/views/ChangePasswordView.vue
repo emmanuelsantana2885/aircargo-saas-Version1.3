@@ -1,6 +1,6 @@
 <template>
-  <div class="min-h-screen flex items-center justify-center p-3 md:p-5" style="background: var(--bg)">
-    <div class="w-full max-w-sm p-6 md:p-8 rounded-lg shadow-md" style="background: var(--surface); border: 1px solid var(--border)">
+  <div class="auth-shell">
+    <div class="auth-card">
       <!-- Header -->
       <div class="text-center mb-6">
         <div class="w-12 h-12 rounded-lg flex items-center justify-center mx-auto mb-3" style="background: var(--accent)">

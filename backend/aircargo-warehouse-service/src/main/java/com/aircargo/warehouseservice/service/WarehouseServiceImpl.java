@@ -84,9 +84,7 @@ public class WarehouseServiceImpl implements WarehouseService {
         WarehouseReceipt saved = receiptRepository.save(entity);
 
         // Supersede existing receipts for this MAWB — must happen AFTER save so excludeId is not null
-        if (saved.getMawbId() != null) {
-            receiptRepository.supersedeAllByMawbId(saved.getMawbId(), saved.getId());
-        }
+        supersedeExistingReceipts(saved.getMawbId(), saved.getId());
 
         // Save pieces
         List<ReceiptPiece> pieceEntities = pieces.stream()
@@ -175,6 +173,9 @@ public class WarehouseServiceImpl implements WarehouseService {
             existing.setActualWeightKg(dto.getActualWeightKg());
             existing.setChargeableWeightLbs(dto.getChargeableWeightLbs());
             existing.setChargeableWeightKg(dto.getChargeableWeightKg());
+
+            existing.setPdfData(null);
+            existing.setExcelData(null);
 
             WarehouseReceipt saved = receiptRepository.save(existing);
 
@@ -603,7 +604,7 @@ public class WarehouseServiceImpl implements WarehouseService {
                 receiptFullPdfService.generateReceiptPdf(receiptId);
             });
         } catch (Exception e) {
-            // Log error
+            log.error("Failed to generate persisted artifacts for receipt {}", receiptId, e);
         }
     }
 

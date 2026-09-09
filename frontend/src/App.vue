@@ -43,10 +43,12 @@ import api from './api/client'
 import { initTheme } from './utils/theme'
 import { initFont } from './utils/font'
 import { initDensity } from './utils/density'
+import { initAccent } from './utils/accent'
 
 initTheme()
 initFont()
 initDensity()
+initAccent()
 
 
 const auth = useAuthStore()

@@ -1,6 +1,6 @@
 <template>
   <header class="flex items-center justify-between px-4 md:px-6 border-b flex-shrink-0 flex-wrap gap-y-1 relative overflow-hidden"
-    style="min-height: 44px; border-color: #0f172a; background: linear-gradient(135deg, #0f172a 0%, #1e293b 25%, #1e3a5f 50%, #2d3a4e 75%, #0f172a 100%); background-size: 200% 200%; animation: ds-gradient-pan 18s ease-in-out infinite;">
+    style="min-height: 44px; border-color: #0f172a; background: linear-gradient(135deg, #0b1226 0%, #182c57 26%, #1b3f8f 52%, #1a5680 78%, #0b1226 100%); background-size: 200% 200%; animation: ds-gradient-pan 18s ease-in-out infinite;">
     <div class="absolute inset-0 opacity-[0.06]" style="background-image: repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(148,163,184,0.3) 2px, rgba(148,163,184,0.3) 3px), repeating-linear-gradient(-45deg, transparent, transparent 3px, rgba(100,116,139,0.2) 3px, rgba(100,116,139,0.2) 4px);"></div>
     <div class="absolute inset-0 opacity-[0.05]" style="background-image: radial-gradient(circle at 30% 50%, rgba(148,163,184,0.4) 0%, transparent 60%), radial-gradient(circle at 70% 30%, rgba(100,116,139,0.3) 0%, transparent 50%);"></div>
     <div class="absolute inset-x-0 bottom-0 h-px" style="background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);"></div>
@@ -15,7 +15,7 @@
       <span class="text-[13px] md:text-xs font-bold uppercase text-white tracking-wide" style="text-shadow: 0 1px 2px rgba(0,0,0,0.3)">{{ title }}</span>
     </div>
 
-    <div class="flex items-center gap-2 md:gap-3 relative z-10">
+    <div class="flex items-center gap-2 md:gap-3 relative z-10 header-actions">
       <div class="hidden sm:flex items-center rounded-lg border border-white/10 bg-white/5 px-2 py-1" style="backdrop-filter: blur(6px);">
         <LanguageSwitcher />
       </div>
@@ -43,17 +43,44 @@
         <component :is="icons.Moon" v-if="theme === 'light'" :size="17" style="color: white" :stroke-width="1.8" />
         <component :is="icons.Sun" v-else :size="17" style="color: #ff9e64" :stroke-width="1.8" />
       </button>
+      <div class="relative" ref="accentBtnRef" @click.stop>
+        <button @click="openAccentPop" :title="t('header.accentHint')"
+          class="flex items-center justify-center w-8 h-8 rounded-lg transition hover:bg-white/10"
+          style="border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04);">
+          <span class="w-[18px] h-[18px] rounded-md ring-2 ring-white/30" :style="{ background: accent ? ACCENTS[accent].accent : 'var(--accent)' }"></span>
+        </button>
+      </div>
     </div>
   </header>
+  <Teleport to="body">
+    <div v-if="accentOpen" @click.stop class="fixed z-[100]"
+      :style="{ top: accentPopStyle.top, right: accentPopStyle.right }">
+      <div class="p-2 rounded-xl shadow-xl w-[220px]"
+        style="background: #0f172a; border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 24px 56px -16px rgba(0,0,0,0.6);">
+        <div class="px-1 pb-1.5 flex items-center justify-between">
+          <span class="text-[11px] font-bold uppercase tracking-wide" style="color: rgba(255,255,255,0.7)">{{ t('header.accentTitle') }}</span>
+          <button @click="resetAccent" class="text-[10px] font-bold underline" :class="accent ? 'text-slate-300 hover:text-white' : 'opacity-40 pointer-events-none text-slate-400'">{{ t('header.accentAuto') }}</button>
+        </div>
+        <div class="grid grid-cols-4 gap-1.5">
+          <button v-for="(a, key) in ACCENTS" :key="key" @click="pickAccent(key)"
+            class="w-9 h-9 rounded-lg transition-transform hover:scale-110 flex items-center justify-center"
+            :style="{ background: a.accent }" :title="a.label">
+            <span v-if="accent === key" class="text-[13px] font-bold text-white" style="text-shadow: 0 1px 2px rgba(0,0,0,0.45)">✓</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <script setup>
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { getTheme, setTheme } from '../../utils/theme'
 import { getFont, setFont } from '../../utils/font'
 import { getDensity, setDensity } from '../../utils/density'
+import { ACCENTS, getAccent, setAccent } from '../../utils/accent'
 import { iconLib, toggleIconLib } from '../../utils/iconLib'
 import { useIcons } from '../../composables/useIcons'
 import LanguageSwitcher from '../LanguageSwitcher.vue'
@@ -66,6 +93,10 @@ const isMobile = ref(false)
 const theme = ref(getTheme())
 const font = ref(getFont())
 const density = ref(getDensity())
+const accent = ref(getAccent())
+const accentOpen = ref(false)
+const accentPopStyle = reactive({ top: '0px', right: '0px' })
+const accentBtnRef = ref(null)
 const icons = useIcons()
 const FONT_ORDER = ['combo', 'cascadia', 'bodoni', 'consolas', 'nerd', 'sans']
 const FONT_LABEL = { combo: 'CMB', cascadia: 'CSC', bodoni: 'BDN', consolas: 'CON', nerd: 'NRD', sans: 'SNS' }
@@ -85,17 +116,53 @@ function toggleTheme() {
   theme.value = setTheme(theme.value === 'tokyo' ? 'light' : 'tokyo')
 }
 
+function openAccentPop() {
+  accentOpen.value = !accentOpen.value
+  if (accentOpen.value && accentBtnRef.value) {
+    const r = accentBtnRef.value.getBoundingClientRect()
+    accentPopStyle.top = `${Math.round(r.bottom + 8)}px`
+    accentPopStyle.right = `${Math.max(8, Math.round(window.innerWidth - r.right))}px`
+  }
+}
+
+function pickAccent(key) {
+  accent.value = setAccent(key)
+  accentOpen.value = false
+}
+
+function resetAccent() {
+  accent.value = setAccent(null)
+  accentOpen.value = false
+}
+
+function onDocClick() {
+  if (accentOpen.value) accentOpen.value = false
+}
+
+function onKeydown(e) {
+  if (e.key === 'Escape' && accentOpen.value) accentOpen.value = false
+}
+
 function checkViewport() {
   isMobile.value = window.innerWidth < 768
+  if (accentOpen.value && accentBtnRef.value) {
+    const r = accentBtnRef.value.getBoundingClientRect()
+    accentPopStyle.top = `${Math.round(r.bottom + 8)}px`
+    accentPopStyle.right = `${Math.max(8, Math.round(window.innerWidth - r.right))}px`
+  }
 }
 
 onMounted(() => {
   checkViewport()
   window.addEventListener('resize', checkViewport)
+  document.addEventListener('click', onDocClick)
+  document.addEventListener('keydown', onKeydown)
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', checkViewport)
+  document.removeEventListener('click', onDocClick)
+  document.removeEventListener('keydown', onKeydown)
 })
 
 const titles = computed(() => ({
@@ -117,3 +184,19 @@ const date = computed(() => {
   return new Intl.DateTimeFormat(localeCode, { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date())
 })
 </script>
+<style scoped>
+@media (max-width: 767px) {
+  header {
+    padding-top: max(0px, env(safe-area-inset-top));
+  }
+}
+@media (max-width: 480px) {
+  .header-actions {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .header-actions::-webkit-scrollbar { display: none; }
+}
+</style>

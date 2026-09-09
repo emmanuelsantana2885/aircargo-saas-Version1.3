@@ -133,6 +133,9 @@ export default {
     themeDark: 'Cambiar a tema Tokyo Night',
     fontHint: 'Tipo de letra: Consolas / Nerd Font / Sans Serif',
     densityHint: 'Densidad: Cómoda / Compacta',
+    accentHint: 'Color de acento',
+    accentTitle: 'Color de acento',
+    accentAuto: 'Auto',
   },
 
   flights: {
@@ -747,6 +750,8 @@ export default {
     empty: 'No hay MAWBs',
     emptyFilter: 'Ningún MAWB coincide con el filtro',
     emptyHint: 'Ajusta el buscador, la fecha o el vuelo, o espera a que lleguen MAWBs.',
+    notReceived: 'No recibidas',
+    notDispatched: 'No despachadas',
     editReceipt: 'Editar / crear recibo',
     downloadExcel: 'Descargar Excel',
     downloadHtml: 'Descargar HTML evidencias',

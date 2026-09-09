@@ -82,8 +82,15 @@
         </div>
         <div class="relative w-full rounded-lg overflow-hidden border border-slate-200 bg-black" style="min-height: 280px;">
           <video ref="cameraVideo" autoplay playsinline muted class="w-full h-full object-contain" style="min-height: 280px;"></video>
-          <div v-if="!cameraReady" class="absolute inset-0 flex items-center justify-center bg-black/50 text-white text-[13px] font-bold z-10">
+          <div v-if="!cameraReady && !cameraError" class="absolute inset-0 flex items-center justify-center bg-black/50 text-white text-[13px] font-bold z-10">
             Iniciando cámara...
+          </div>
+          <div v-if="cameraError" class="absolute inset-0 flex flex-col items-center justify-center bg-black/70 text-white text-[12px] font-bold z-10 px-4 text-center">
+            <span>{{ cameraError }}</span>
+            <button @click="retryCamera"
+              class="mt-3 text-[12px] font-bold px-3 py-1.5 rounded border border-white/60 text-white hover:bg-white/10 transition">
+              ↻ Reintentar
+            </button>
           </div>
           <div v-if="cameraReady && !lastDetect" class="absolute bottom-2 left-2 bg-black/60 text-white text-[11px] px-2 py-1 rounded z-10">
             Enfrente el código de barras
@@ -118,6 +125,7 @@ const history = ref([])
 const showCamera = ref(false)
 const cameraVideo = ref(null)
 const cameraReady = ref(false)
+const cameraError = ref('')
 const lastDetect = ref(false)
 const canUndo = computed(() => history.value.length > 0 && history.value[0].success)
 
@@ -135,6 +143,8 @@ uldTypeCatalogApi.getAll(true)
 let cameraStream = null
 let detectTimer = null
 let scanLoop = null
+let lastDetectedCode = ''
+let lastDetectedAt = 0
 
 // Auto-focus when activated
 watch(() => props.active, async (val) => {
@@ -230,11 +240,17 @@ async function undoLast() {
 async function openCamera() {
   showCamera.value = true
   cameraReady.value = false
+  cameraError.value = ''
   lastDetect.value = false
   await nextTick()
 
   const video = cameraVideo.value
   if (!video) { closeCamera(); return }
+
+  if (!navigator.mediaDevices?.getUserMedia) {
+    cameraError.value = 'Cámara no disponible. Usa HTTPS o un navegador con cámara.'
+    return
+  }
 
   try {
     cameraStream = await navigator.mediaDevices.getUserMedia({
@@ -242,26 +258,33 @@ async function openCamera() {
       audio: false,
     })
 
+    // Si el modal se cerró mientras resolvía, no colgar el stream
+    if (!showCamera.value) {
+      stopStream()
+      return
+    }
+
     video.srcObject = cameraStream
     await video.play()
     cameraReady.value = true
 
+    // Espera a que haya un frame real antes de arrancar los detectores
+    await waitForFrame(video)
+
     // BarcodeDetector (Chrome/Edge)
     if ('BarcodeDetector' in window) {
       try {
-        const formats = await BarcodeDetector.getSupportedFormats()
-        console.warn('[Scan] Native BarcodeDetector, formats:', formats)
+        await BarcodeDetector.getSupportedFormats()
         const bd = new BarcodeDetector({
           formats: ['code_128', 'code_39', 'code_39_vin', 'ean_13', 'ean_8', 'upc_a', 'upc_e', 'codabar', 'i2of5'],
         })
         detectTimer = setInterval(async () => {
-          if (!cameraStream?.active || processing.value) return
+          if (!cameraStream?.active || processing.value || !video.videoWidth) return
           try {
             const codes = await bd.detect(video)
-            if (codes.length > 0) {
-              console.warn('[Scan] DETECTED:', codes[0].rawValue)
+            if (codes.length > 0 && shouldScan(codes[0].rawValue)) {
               lastDetect.value = true
-              processScan(codes[0].rawValue)
+              processScan(markScanned(codes[0].rawValue))
             }
           } catch {}
         }, 250)
@@ -270,14 +293,13 @@ async function openCamera() {
     }
 
     // ZBar fallback (Firefox etc.)
-    console.warn('[Scan] Loading ZBar WASM...')
     const { scanImageData } = await import('@undecaf/zbar-wasm')
 
     const offscreen = document.createElement('canvas')
     const ctx = offscreen.getContext('2d')
 
     scanLoop = setInterval(async () => {
-      if (!cameraStream?.active || processing.value) return
+      if (!cameraStream?.active || processing.value || !video.videoWidth) return
       try {
         offscreen.width = video.videoWidth || 640
         offscreen.height = video.videoHeight || 480
@@ -286,32 +308,83 @@ async function openCamera() {
         const symbols = await scanImageData(id)
         if (symbols.length > 0) {
           const code = symbols[0].decode()
-          console.warn('[Scan] ZBar DETECTED:', symbols[0].typeName, code)
-          if (code && !processing.value) {
+          if (code && shouldScan(code)) {
             lastDetect.value = true
-            processScan(code)
+            processScan(markScanned(code))
           }
         }
       } catch (e) {
+        if (e?.message === 'index out of bounds') return
         console.warn('[Scan] ZBar error:', e)
       }
     }, 400)
   } catch (err) {
     console.error('[Scan] Camera error:', err)
-    lastResult.value = { success: false, error: 'Error de cámara: ' + (err.message || ''), awbNumber: '', time: 'ahora' }
-    flash('red')
-    closeCamera()
+    stopStream()
+    cameraReady.value = false
+    if (err?.name === 'NotAllowedError' || err?.name === 'SecurityError') {
+      cameraError.value = 'Permiso de cámara denegado. Permite el acceso en la configuración del navegador.'
+    } else if (err?.name === 'NotFoundError' || err?.name === 'DevicesNotFoundError') {
+      cameraError.value = 'No se encontró una cámara disponible.'
+    } else if (err?.name === 'NotReadableError') {
+      cameraError.value = 'La cámara está en uso por otra aplicación. Ciérrala e intenta de nuevo.'
+    } else {
+      cameraError.value = 'Error de cámara: ' + (err?.message || err)
+    }
+  }
+}
+
+function waitForFrame(video, timeoutMs = 5000) {
+  return new Promise((resolve, reject) => {
+    const start = Date.now()
+    const check = () => {
+      if (video.videoWidth > 0 && video.videoHeight > 0) {
+        resolve()
+        return
+      }
+      if (Date.now() - start > timeoutMs) {
+        reject(new Error('No se recibieron frames de la cámara'))
+        return
+      }
+      setTimeout(check, 50)
+    }
+    check()
+  })
+}
+
+// Evita re-disparar el mismo código mientras sigue enfrente (ventana de 3s)
+function shouldScan(code) {
+  if (!code || processing.value) return false
+  if (code === lastDetectedCode && Date.now() - lastDetectedAt < 3000) return false
+  return true
+}
+
+function markScanned(code) {
+  lastDetectedCode = code
+  lastDetectedAt = Date.now()
+  return code
+}
+
+async function retryCamera() {
+  cameraError.value = ''
+  cameraReady.value = false
+  stopStream()
+  openCamera()
+}
+
+function stopStream() {
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(t => t.stop())
+    cameraStream = null
   }
 }
 
 async function closeCamera() {
   if (detectTimer) { clearInterval(detectTimer); detectTimer = null }
   if (scanLoop) { clearInterval(scanLoop); scanLoop = null }
-  if (cameraStream) {
-    cameraStream.getTracks().forEach(t => t.stop())
-    cameraStream = null
-  }
+  stopStream()
   cameraReady.value = false
+  cameraError.value = ''
   lastDetect.value = false
   showCamera.value = false
 }

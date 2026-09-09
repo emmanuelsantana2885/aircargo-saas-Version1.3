@@ -35,7 +35,7 @@ public class WarehouseReceiptServiceImpl implements WarehouseReceiptService {
     }
 
     @Override
-    @CacheEvict(value = "warehouse-receipts", allEntries = true)
+    @CacheEvict(value = {"warehouse-receipts", "receipt-pieces"}, allEntries = true)
     public WarehouseReceiptDTO save(WarehouseReceiptDTO dto) {
         WarehouseReceipt entity = WarehouseReceiptDTO.toEntity(dto);
         entity.setSuperseded(false);
@@ -44,7 +44,7 @@ public class WarehouseReceiptServiceImpl implements WarehouseReceiptService {
     }
 
     @Override
-    @CacheEvict(value = "warehouse-receipts", allEntries = true)
+    @CacheEvict(value = {"warehouse-receipts", "receipt-pieces"}, allEntries = true)
     public void delete(UUID id) {
         receiptRepository.deleteById(id);
     }

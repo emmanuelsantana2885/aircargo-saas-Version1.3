@@ -40,7 +40,6 @@ import java.util.concurrent.ConcurrentHashMap;
 public class RateLimitFilter implements GlobalFilter, Ordered {
 
     private static final Logger log = LoggerFactory.getLogger(RateLimitFilter.class);
-    private static final int ANONYMOUS_LIMIT_PER_MINUTE = 10;
     private static final java.util.Set<String> ANONYMOUS_PATHS = Set.of("/api/auth/login", "/api/auth/refresh");
 
     private final Map<String, RateLimiter> userLimiters = new ConcurrentHashMap<>();
@@ -48,6 +47,7 @@ public class RateLimitFilter implements GlobalFilter, Ordered {
 
     private final boolean enabled;
     private final int limitPerMinute;
+    private final int anonymousLimitPerMinute;
     private final long timeoutMs;
     private final boolean useRedis;
     private final ReactiveStringRedisTemplate redis;
@@ -55,11 +55,13 @@ public class RateLimitFilter implements GlobalFilter, Ordered {
     public RateLimitFilter(
             @Value("${app.gateway.rate-limit.enabled:true}") boolean enabled,
             @Value("${app.gateway.rate-limit.limit-per-minute:100}") int limitPerMinute,
+            @Value("${app.gateway.rate-limit.anonymous-limit-per-minute:600}") int anonymousLimitPerMinute,
             @Value("${app.gateway.rate-limit.timeout-ms:50}") long timeoutMs,
             @Value("${app.gateway.rate-limit.use-redis:false}") boolean useRedis,
             ObjectProvider<ReactiveStringRedisTemplate> redisTemplate) {
         this.enabled = enabled;
         this.limitPerMinute = limitPerMinute;
+        this.anonymousLimitPerMinute = anonymousLimitPerMinute;
         this.timeoutMs = timeoutMs;
         this.useRedis = useRedis;
         this.redis = useRedis ? redisTemplate.getIfAvailable() : null;
@@ -78,7 +80,7 @@ public class RateLimitFilter implements GlobalFilter, Ordered {
 
     private RateLimiterConfig anonymousConfig() {
         return RateLimiterConfig.custom()
-                .limitForPeriod(ANONYMOUS_LIMIT_PER_MINUTE)
+                .limitForPeriod(anonymousLimitPerMinute)
                 .limitRefreshPeriod(Duration.ofMinutes(1))
                 .timeoutDuration(Duration.ofMillis(timeoutMs))
                 .build();
@@ -170,7 +172,7 @@ public class RateLimitFilter implements GlobalFilter, Ordered {
                     }
                     return Mono.justOrEmpty(count);
                 })
-                .map(count -> count <= ANONYMOUS_LIMIT_PER_MINUTE)
+                .map(count -> count <= anonymousLimitPerMinute)
                 .onErrorResume(e -> {
                     log.warn("Rate limit Redis no disponible (fail-open): {}", e.getMessage());
                     return Mono.just(Boolean.TRUE);

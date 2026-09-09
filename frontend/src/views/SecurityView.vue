@@ -307,7 +307,7 @@ onUnmounted(() => {
   animation: rowFlash 1.6s ease-out;
 }
 @keyframes rowFlash {
-  0% { background-color: rgba(37, 99, 235, 0.16); }
+  0% { background-color: rgba(62, 123, 250, 0.16); }
   100% { background-color: transparent; }
 }
 </style>

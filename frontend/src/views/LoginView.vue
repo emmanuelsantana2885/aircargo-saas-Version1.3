@@ -1,6 +1,6 @@
 <template>
-  <div class="min-h-screen flex items-center justify-center p-3 md:p-8" style="background: var(--bg)">
-    <div class="w-full max-w-sm p-6 md:p-8 rounded-lg shadow-md" style="background: var(--surface); border: 1px solid var(--border)">
+  <div class="auth-shell">
+    <div class="auth-card">
       <div v-if="route.query.idle === '1'" class="mb-4 p-3 rounded-xl text-[12.5px]" style="background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn)">
           {{ t('idle.expired') }}
         </div>
