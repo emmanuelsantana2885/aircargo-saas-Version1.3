@@ -122,7 +122,8 @@ public class AuthController {
 
     @PostMapping("/refresh")
     public ResponseEntity<?> refresh(@RequestBody(required = false) Map<String, String> body,
-                                     HttpServletRequest servletRequest) {
+                                     HttpServletRequest servletRequest,
+                                     HttpServletResponse servletResponse) {
         // El refresh token llega por cookie httpOnly (o body por compatibilidad)
         String refreshToken = CookieAuthSupport.extractToken(servletRequest, CookieAuthSupport.REFRESH_COOKIE);
         if (refreshToken == null || refreshToken.isBlank()) {
@@ -160,6 +161,14 @@ public class AuthController {
             if (iat != null && tokenRevocationService.isStale(user.getId(), iat)) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(Map.of("error", "Session revoked"));
+            }
+
+            // Liveness: si el navegador no late (cerrado), la sesión no se restaura,
+            // aunque el navegador haya restaurado las cookies de sesión.
+            if (!sessionTracker.isAlive(user.getId())) {
+                CookieAuthSupport.clear(servletResponse, cookieSecure);
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("error", "Sesión cerrada: navegador cerrado"));
             }
 
             String airlineIdStr = user.getAirline() != null && user.getAirline().getId() != null
