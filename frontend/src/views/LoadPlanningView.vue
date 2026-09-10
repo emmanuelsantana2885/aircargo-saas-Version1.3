@@ -772,6 +772,7 @@ onMounted(async () => {
     }
   }
   await loadAllUlds()
+  appStore.loadReceipts({ silent: true })
   autoRefreshId = window.setInterval(refreshIfIdle, 20000)
 })
 
@@ -787,6 +788,7 @@ async function refreshIfIdle() {
   if (isDragging.value || pendingTransfer.value || pendingFlightPick.value || showFlightPicker.value || showUndoToast.value) return
   await uldsStore.loadUldsForFlight(selectedFlightId.value)
   fetchLoadPlan(selectedFlightId.value)
+  appStore.loadReceipts({ silent: true })
 }
 
 async function loadAllUlds() {
@@ -926,36 +928,51 @@ async function confirmTransfer() {
   }
 }
 
+function normalizeAwb(raw) {
+  let s = String(raw || '').replace(/[\s\-_/]/g, '')
+  if (/^\d{11}$/.test(s)) {
+    s = s.slice(0, 3) + '-' + s.slice(3)
+  }
+  return s
+}
+
 async function dispatchFlight() {
   if (!selectedFlightId.value) return
   const ulds = uldsStore.activeUlds || []
-  const pendingAwbs = new Set()
+  const receipts = (appStore.receipts || []).filter(r => !r.superseded)
+  const receiptByMawbId = new Map()
+  const receiptByAwb = new Map()
+  for (const r of receipts) {
+    if (r.mawbId) receiptByMawbId.set(r.mawbId, r)
+    const awb = r.mawbNumber || r.mawb?.awbNumber || ''
+    if (awb) receiptByAwb.set(normalizeAwb(awb), r)
+  }
+  const pendingAwbs = []
   for (const u of ulds) {
     for (const m of (u.awbs || [])) {
-      const awbNum = m.mawbLabel || ''
+      const awbNum = m.mawbLabel || m.awbNumber || ''
       if (!awbNum) continue
-      const hasReceipt = appStore.receipts.some(r => {
-        const mawb = r.mawb || {}
-        return mawb.awbNumber === awbNum
-      })
-      if (!hasReceipt) pendingAwbs.add(awbNum)
+      const hasReceipt = Boolean(receiptByMawbId.get(m.mawbId)) ||
+        receiptByAwb.has(normalizeAwb(awbNum))
+      if (!hasReceipt) pendingAwbs.push(awbNum)
     }
   }
-  if (pendingAwbs.size > 0) {
-    toast.warning(`No se puede despachar: ${pendingAwbs.size} MAWB(s) no tienen recibo de bodega:\n${[...pendingAwbs].join('\n')}\n\nComplete los recibos pendientes antes de despachar.`)
+  if (pendingAwbs.length > 0) {
+    const list = [...new Set(pendingAwbs)].join(', ')
+    toast.warning(t('loadPlanning.toast.pendingReceipts', { count: pendingAwbs.length }) + ' ' + list + ' ' + t('loadPlanning.toast.completeReceipts'))
     return
   }
-  if (!(await confirm({ message: '¿Despachar el vuelo? Se marcarán todos los ULDs como LOADED y no se podrá modificar.' }))) return
+  if (!(await confirm({ message: t('loadPlanning.confirmDispatch') }))) return
   try {
     await api.post(`/load-planning/flight/${selectedFlightId.value}/close`)
-    toast.success('Vuelo despachado correctamente.')
+    toast.success(t('loadPlanning.toast.flightDispatched'))
     await Promise.all([
       uldsStore.loadUldsForFlight(selectedFlightId.value),
       fetchLoadPlan(selectedFlightId.value),
       uldsStore.loadFlights()
     ])
   } catch (e) {
-    toast.error('Error despachando vuelo: ' + (e.response?.data?.error || e.response?.data?.message || e.message))
+    toast.error(t('loadPlanning.toast.dispatchError') + ' ' + (e.response?.data?.error || e.response?.data?.message || e.message))
   }
 }
 

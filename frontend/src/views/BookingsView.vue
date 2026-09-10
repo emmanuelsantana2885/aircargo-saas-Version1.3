@@ -427,6 +427,7 @@ const fileInput = ref(null)
 const showImportModal = ref(false)
 const parsedRows = ref([])
 const importing = ref(false)
+const failedRows = ref([])
 
 const flightList = computed(() => store.flights)
 const localFlightId = ref(store.selectedFlightId)
@@ -766,6 +767,7 @@ function handleFileImport(e) {
       const ws = wb.Sheets[wb.SheetNames[0]]
       const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' })
       parsedRows.value = parseBookingsFromXLSX(rows)
+      failedRows.value = []
       showImportModal.value = true
     } catch (err) {
       toast.error(t('bookings.toast.fileReadError', { error: extractError(err) }))
@@ -813,33 +815,47 @@ async function confirmImport() {
       const booking = await store.createBooking(dto)
       if (booking?.id) {
         const awbNumber = row.awbNumber || `406-${(Date.now() + idx).toString().slice(-8).padStart(8, '0')}`
-        const mawb = await store.createMawb({
-          airlineId: store.selectedFlight?.airlineId,
-          flightId: store.selectedFlightId,
-          awbNumber: awbNumber,
-          shipperName: row.shipperName || row.clientName,
-          consigneeName: row.cnee || row.clientName,
-          origin: store.selectedFlight?.origin || 'SDQ',
-          destination: row.destination || store.selectedFlight?.destination || 'MIA',
-          pieces: row.skids || row.units || 1,
-          reportedWeightKg: row.reservedKg,
-          chargeableWeightKg: row.reservedKg,
-          commodityType: row.commodityType,
-          status: 'BOOKED',
-        })
-        const mawbData = mawb.mawb || mawb
-        if (mawb.weightWarning) {
-          console.warn('⚠', mawb.weightWarning)
-        }
+        let mawbData = null
+        try {
+          const existing = await mawbsApi.getByAwbNumber(awbNumber)
+          if (existing?.data?.id) mawbData = existing.data
+        } catch { /* 404: no existe, se crea */ }
         if (mawbData?.id) {
+          await mawbsApi.update(mawbData.id, {
+            flightId: store.selectedFlightId,
+            destination: dto.destination,
+            commodityType: dto.commodityType,
+          })
           await store.updateBooking(booking.id, { ...dto, mawbId: mawbData.id })
+        } else {
+          const mawb = await store.createMawb({
+            airlineId: store.selectedFlight?.airlineId,
+            flightId: store.selectedFlightId,
+            awbNumber: awbNumber,
+            shipperName: row.shipperName || row.clientName,
+            consigneeName: row.cnee || row.clientName,
+            origin: store.selectedFlight?.origin || 'SDQ',
+            destination: row.destination || store.selectedFlight?.destination || 'MIA',
+            pieces: row.skids || row.units || 1,
+            reportedWeightKg: row.reservedKg,
+            chargeableWeightKg: row.reservedKg,
+            commodityType: row.commodityType,
+            status: 'BOOKED',
+          })
+          const mawbDataNew = mawb.mawb || mawb
+          if (mawb.weightWarning) {
+            console.warn('⚠', mawb.weightWarning)
+          }
+          if (mawbDataNew?.id) {
+            await store.updateBooking(booking.id, { ...dto, mawbId: mawbDataNew.id })
+          }
         }
       }
       success++
     } catch (e) {
-      toast.error(extractError(e))
-      const apiMsg = e.response?.data?.error || e.response?.data?.message || ''
-      console.warn('Error importing row:', row.clientName, e.message, apiMsg)
+      const apiMsg = extractError(e)
+      console.warn('Error importing row:', row.clientName, row.awbNumber, apiMsg)
+      failedRows.value.push({ client: row.clientName || row.awbNumber || '?', reason: apiMsg })
       errors++
     }
   }
@@ -849,7 +865,15 @@ async function confirmImport() {
   ])
   importing.value = false
   closeImportModal()
-  toast.success(`Importación completada: ${success} exitosos, ${errors} errores`)
+  if (errors === 0) {
+    toast.success(t('bookings.import.done'))
+  } else if (success === 0) {
+    toast.error(t('bookings.import.errorHint'))
+    toast.error(t('bookings.import.errorCount', { success, errors }))
+  } else {
+    toast.success(t('bookings.import.doneErrors', { errors }))
+    toast.warning(t('bookings.import.errorHint'))
+  }
 }
 
 async function saveBooking() {
