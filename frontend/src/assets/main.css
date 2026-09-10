@@ -609,14 +609,26 @@ input:focus, select:focus, textarea:focus {
   :root[data-density='compact'] .ds-card { padding: 7px 10px; }
 }
 
-/* ── Table horizontal scroll wrapper ────────── */
+/* ── Table scroll wrapper (x + y) ───────────── */
 .table-scroll-wrapper {
   overflow-x: auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  scrollbar-color: var(--border) var(--bg);
+  scrollbar-width: thin;
 }
-.table-scroll-wrapper::-webkit-scrollbar { height: 6px; }
+.table-scroll-wrapper::-webkit-scrollbar { height: 6px; width: 10px; }
 .table-scroll-wrapper::-webkit-scrollbar-track { background: var(--bg); }
 .table-scroll-wrapper::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* Sticky column header in grid views: stays visible while rows scroll beneath
+   (vertically pinned, still scrolls horizontally in sync with the grid). */
+.ds-table-section .ds-table-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
 
 /* ── Responsive ──────────────────────────────── */
 
@@ -628,6 +640,11 @@ input:focus, select:focus, textarea:focus {
 /* Mobile: full-width sidebar overlay */
 @media (max-width: 767px) {
   .app-layout > aside {
+    position: fixed !important;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 50;
     transition: transform 0.3s ease-out;
   }
 }
@@ -684,6 +701,15 @@ input:focus, select:focus, textarea:focus {
     max-height: 100dvh;
   }
   .ds-modal-backdrop { padding: 0 !important; align-items: stretch !important; }
+
+  /* Grillas puras (Bookings/Flights): también en móvil mantienen app-shell
+     (altura acotada + scroll interno del wrapper) en vez de crecer la página
+     completa, para que la cabecera sticky y el scroll de las filas funcionen. */
+  .ds-page-grid {
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow: hidden !important;
+  }
 }
 
 /* Breakpoint tablet/desktop estrecho (NFO de columnas secundarias) */

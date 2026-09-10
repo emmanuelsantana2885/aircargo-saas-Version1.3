@@ -1,5 +1,5 @@
 <template>
-  <div class="ds-page">
+  <div class="ds-page ds-page-grid">
 
     <!-- Header -->
     <header class="ds-section-header">
@@ -36,7 +36,7 @@
     <!-- Table -->
     <section class="ds-table-section">
 
-      <div class="table-scroll-wrapper flex-1 min-h-0">
+      <div ref="scrollWrapRef" class="table-scroll-wrapper flex-1 min-h-0">
       <div class="ds-table-header" style="min-width: 960px">
         <div class="col-span-2">{{ t('flights.table.flight') }}</div>
         <div class="col-span-2">{{ t('flights.table.route') }}</div>
@@ -196,7 +196,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '../stores/app'
@@ -221,6 +221,7 @@ const { confirm } = useConfirm()
 const airlines = ref([])
 const airlinesError = ref(false)
 const searchText = ref('')
+const scrollWrapRef = ref(null)
 const destFilter = ref('')
 const dateFrom = ref('')
 const dateTo = ref('')
@@ -286,6 +287,10 @@ const filteredFlights = computed(() => {
     ].filter(Boolean).join(' ').toLowerCase()
     return haystack.includes(q)
   })
+})
+
+watch([searchText, destFilter, dateFrom, dateTo], () => {
+  scrollWrapRef.value?.scrollTo({ top: 0, left: 0 })
 })
 
 onMounted(async () => {

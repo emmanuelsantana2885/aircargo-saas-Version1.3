@@ -41,7 +41,7 @@
       </EmptyState>
 
       <div v-else class="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
-        <div class="ds-split-detail">
+        <div ref="detailPanel" class="ds-split-detail">
           <template v-if="expandedUld">
             <div v-for="uld in [expandedUld]" :key="'f-'+uld.uid" class="p-4">
               <div class="bg-white border border-slate-300 rounded shadow-sm max-w-5xl mx-auto p-3 md:p-6 font-mono text-sm relative">
@@ -491,6 +491,7 @@ function normalizeCommodity(val) {
 }
 
 const expandedUldId = ref(null)
+const detailPanel = ref(null)
 const statusFilter = ref('')
 const searchText = ref('')
 const destFilter = ref('')
@@ -1162,7 +1163,11 @@ async function saveUld(uld) {
 }
 
 function toggleUldExpansion(uid) {
-  expandedUldId.value = expandedUldId.value === uid ? null : uid
+  const opening = expandedUldId.value !== uid
+  expandedUldId.value = opening ? uid : null
+  if (opening && window.innerWidth < 1024) {
+    requestAnimationFrame(() => detailPanel.value?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }
 }
 
 function addMawbRow(uld) {

@@ -1,5 +1,5 @@
 <template>
-  <div class="ds-page">
+  <div class="ds-page ds-page-grid">
 
     <header class="ds-section-header">
       <div class="flex flex-wrap items-center gap-3 md:gap-4">
@@ -56,7 +56,7 @@
     </header>
 
     <section class="ds-table-section">
-      <div class="table-scroll-wrapper flex-1 min-h-0">
+      <div ref="scrollWrapRef" class="table-scroll-wrapper flex-1 min-h-0">
       <div class="ds-table-header" style="min-width: 860px">
         <div class="col-span-2 text-left relative">
           <span @click="toggleHeaderFilter('awb')" class="cursor-pointer select-none"
@@ -420,6 +420,7 @@ const toast = useToastStore()
 const { confirm } = useConfirm()
 
 const showModal = ref(false)
+const scrollWrapRef = ref(null)
 const saving = ref(false)
 const editingBooking = ref(null)
 
@@ -1006,6 +1007,7 @@ useLiveRefresh(() =>
 
 watch(() => store.selectedFlightId, (id) => {
   localFlightId.value = id
+  scrollWrapRef.value?.scrollTo({ top: 0, left: 0 })
 })
 </script>
 
