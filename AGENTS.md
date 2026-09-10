@@ -1,5 +1,20 @@
 # Aircargo — agent notes
 
+## Recent session changes (Sep 10, 2026 — Fix responsive móvil: grillas alineadas en celular ~375px + zoom habilitado)
+
+**Contexto**: pedido del usuario — "la visualización es pésima, no es responsive en celular; ajusta o recrea lo necesario". Diagnóstico del contenedor `.ds-table-section` (flex-col): las cabeceras `.ds-table-header` (grid-cols-12, `min-width` inline) y las filas `.ds-table-row` (grid-cols-12, sin min-width) se aplastaban a ~375px y quedaban desalineadas. Solo 3 vistas de datos estaban rotas: Flights (header 960px), Bookings (860px), Ulds (750px). El resto ya era correcto: Dashboard/Exports/Users/Settings/Mawbs + modales usan `<table>` real con min-width; LoadPlanning usa `.lp-grid` con min-width 960 en clase; WarehouseReceipts ya alinea header 1000px con filas `min-width:1000px` inline + overflow-x por fila.
+
+| File | Change |
+|------|--------|
+| `frontend/index.html` | `<meta name="viewport">` con `maximum-scale=1` (bloqueaba pinch-zoom) → **`viewport-fit=cover`**; ahora se puede hacer zoom en móvil |
+| `frontend/src/views/BookingsView.vue` L152 | Contenedor de filas (`.divide-y ... overflow-y-auto flex-1 min-h-0`) con `style="min-width: 860px"` = al min-width del header |
+| `frontend/src/views/FlightsView.vue` L61 | Ídem con `min-width: 960px` (= header) |
+| `frontend/src/views/UldsView.vue` L114 | Ídem sobre `.divide-y divide-slate-100 max-h-[240px] overflow-y-auto scrollbar-none` con `min-width: 750px` (= header grid-cols-13) |
+
+**Decisiones**: (1) `min-width` inline por vista en el contenedor de filas (no un override global con `!important`: el CSS móvil existente en main.css L629-654 ya maneja el layout responsive, solo faltaba la alineación interna); (2) el wrapper `.table-scroll-wrapper` (`overflow-x:auto`, main.css L613) desplaza cabecera+filas juntas porque `.ds-table-header`/`.ds-table-row` son grid-cols-12 sin `gap` → al mismo min-width quedan pixel-perfect alineadas y con scroll horizontal único.
+
+**Verificación determinista (no visual)**: el modelo actual no puede leer imágenes, así que se verificó por CDP (Node 22, WebSocket global, sin deps) con Chrome headless a 375×812 + token JWT HS512 minted (JWT_SECRET del `.env` local, user admin@aircargo.com, site SDQ) y cookies httpOnly `aircargo_at`/`aircargo_rt` + `localStorage.aircargo_auth` (profile+selectedSiteId). `/bookings` → header 860 == list 860 == row 860, wrapper `clientWidth=210 / scrollWidth=860` → scroll horizontal activo; `/flights` → 960==960==960 ídem. `/ulds` con BD sin ULDs muestra EmptyState (la tabla solo se renderiza con datos; fix determinista). Harness en `/tmp/opencode/cdp-check.mjs` (borrar perfil `/tmp/opencode/cdp-prof` tras usar; matar chrome sobrante con `pkill -f '[g]oogle-chrome.*remote-debugging-port=9222'`). Checks: `check:refs` 43 SFC ✓, `lint` ✓, `vitest` 18/18 ✓, `npm run build` ✓ (3.10s). Desktop intacto (los min-width inline solo evitan colapso < ancho de cabecera). Sin commits.
+
 ## Recent session changes (Sep 9, 2026 — Deploy a AWS EC2: Version1.3 completa con los 10 servicios)
 
 **Contexto**: pedido del usuario — "Necesito que este aplicativo sea el que se corra en la instancia de AWS EC2, ya te había pasado el pem y demás datos, actualiza". Se desplegó la versión local completa (`b1ca0e8`) en la instancia de producción real. El usuario eligió **"Commit + push + deploy completo"** (autorización explícita de commit/push, excepción a la convención "sin commits").

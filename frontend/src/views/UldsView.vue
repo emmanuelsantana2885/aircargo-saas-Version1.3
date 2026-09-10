@@ -111,7 +111,7 @@
                     <div class="col-span-2 text-center">{{ t('ulds.table.receipt') }}</div>
                     <div class="col-span-1"></div>
                   </div>
-                  <div class="divide-y divide-slate-100 max-h-[240px] overflow-y-auto scrollbar-none">
+                  <div class="divide-y divide-slate-100 max-h-[240px] overflow-y-auto scrollbar-none" style="min-width: 750px">
                     <div v-for="(mawb, mIdx) in uld.mawbs" :key="mawb._rowId" class="ds-table-row grid grid-cols-13 gap-2 text-sm">
                       <div class="col-span-3 min-w-0">
                         <select

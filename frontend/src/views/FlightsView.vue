@@ -58,7 +58,7 @@
         </button>
       </EmptyState>
 
-      <div v-else class="divide-y divide-slate-100 text-[13px] text-slate-900 overflow-y-auto flex-1 min-h-0 scrollbar-none">
+      <div v-else class="divide-y divide-slate-100 text-[13px] text-slate-900 overflow-y-auto flex-1 min-h-0 scrollbar-none" style="min-width: 960px">
         <div v-for="f in filteredFlights" :key="f.id"
           class="ds-table-row group"
           @click="selectFlight(f)">

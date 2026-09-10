@@ -149,7 +149,7 @@
         </button>
       </EmptyState>
 
-      <div v-else class="divide-y divide-slate-100 text-[13px] text-slate-900 overflow-y-auto flex-1 min-h-0 scrollbar-none">
+      <div v-else class="divide-y divide-slate-100 text-[13px] text-slate-900 overflow-y-auto flex-1 min-h-0 scrollbar-none" style="min-width: 860px">
         <div v-for="b in deduplicatedBookings" :key="b.id"
           class="ds-table-row group">
 
