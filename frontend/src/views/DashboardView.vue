@@ -343,7 +343,7 @@
       <EmptyState v-if="wrLoading && !wrRows.length" :title="t('common.loading')" loading />
       <EmptyState v-else-if="!wrRows.length" :title="t('dashboard.wr.noData')" :icon="icons.Gauge" />
       <div v-else class="overflow-auto flex-1 min-h-0 scrollbar-none">
-        <table class="w-full border-collapse text-[12px] font-mono">
+        <table class="w-full border-collapse text-[12px] font-mono" style="min-width: 1100px">
           <thead class="bg-slate-100 text-slate-700 sticky top-0 z-10">
             <tr>
               <th class="text-left px-3 py-2.5 text-[12px] font-bold text-slate-700 border-b border-slate-300 uppercase tracking-wider relative">

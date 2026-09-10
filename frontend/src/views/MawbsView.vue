@@ -656,7 +656,7 @@
       <!-- Data Table -->
       <section class="ds-table-section flex-1 min-h-0">
         <div class="overflow-auto flex-1 min-h-0 scrollbar-none bg-slate-50/40" style="max-height:60vh">
-          <table class="w-full border-collapse text-[12px] font-mono">
+          <table class="w-full border-collapse text-[12px] font-mono" style="min-width: 1100px">
             <thead class="bg-slate-100 sticky top-0 z-10">
               <tr>
                 <th class="text-left px-2 py-2 text-[11px] font-bold text-slate-600 border-b border-slate-200 relative">
