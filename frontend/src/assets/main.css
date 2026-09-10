@@ -681,6 +681,16 @@ input:focus, select:focus, textarea:focus {
   .app-layout { min-height: 100dvh; }
   .max-h-screen { max-height: none !important; }
 
+  /* Móvil: no recortar horizontalmente el contenido de .ds-page. Las tablas
+     anchas ya viven en su propio scroller (.table-scroll-wrapper), así que
+     liberar el eje-x aquí solo deja "alcanzable" cualquier toolbar/fila que
+     desborde (p.ej. el header de la matriz de MAWBs) desplazando el <main>.
+     Las grillas puras (.ds-page-grid) siguen con overflow:hidden más abajo. */
+  .ds-page {
+    overflow-x: visible !important;
+    overflow-y: visible !important;
+  }
+
   /* Header wraps gracefully */
   header { flex-wrap: wrap; gap: 6px; }
 

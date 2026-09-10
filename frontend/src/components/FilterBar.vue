@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-wrap items-end gap-2 shrink-0" :class="containerClass">
+  <div class="flex flex-wrap items-end gap-2 min-w-0" :class="containerClass">
     <!-- Period Presets -->
     <div v-if="showPeriodPresets" class="flex flex-col gap-0.5">
       <label class="ds-label">{{ t('filterBar.period') }}</label>

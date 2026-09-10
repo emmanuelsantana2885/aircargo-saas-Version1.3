@@ -44,7 +44,7 @@
           </div>
         </div>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex flex-wrap items-center gap-2">
         <span class="ds-chip whitespace-nowrap">{{ t('mawbs.rowsInfo', { rows: filteredRows.length, total: matrixRows.length, cols: flightColumns.length }) }}</span>
         <button @click="showLabels = true" class="ds-btn-secondary" :title="t('mawbs.labelsTooltip')">
           <span class="text-[14px] font-semibold leading-none">&#9642;</span> {{ t('mawbs.labelsButton') }}
@@ -67,7 +67,7 @@
               </button>
             </div>
           </div>
-          <div class="flex items-center overflow-x-auto scrollbar-none" style="max-width:480px">
+          <div class="flex min-w-0 items-center overflow-x-auto scrollbar-none" style="max-width:480px">
             <div v-if="timelineSegments.length" class="relative w-full py-1 select-none" style="min-width:280px">
               <!-- Barra de fondo -->
               <div class="relative h-6 flex items-center mx-1">
